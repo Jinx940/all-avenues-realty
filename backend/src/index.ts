@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
@@ -78,6 +81,10 @@ import {
 } from './lib/jobLocation.js';
 
 const app = express();
+const currentFilePath = fileURLToPath(import.meta.url);
+const currentDir = path.dirname(currentFilePath);
+const frontendDistDir = path.resolve(currentDir, '../../frontend/dist');
+const frontendIndexFile = path.join(frontendDistDir, 'index.html');
 
 type FileFieldName = keyof typeof fileFieldToCategory;
 type UploadedFilesMap = Partial<Record<FileFieldName, Express.Multer.File[]>>;
@@ -261,6 +268,23 @@ const actorFromRequest = (request: Request) => {
   const auth = (request as AuthenticatedRequest).auth;
   return auth?.displayName || auth?.username || 'Admin';
 };
+
+const normalizeOrigin = (value: string | undefined) => String(value ?? '').trim().replace(/\/$/, '');
+
+const requestPublicOrigin = (request: Request) => {
+  const host = String(request.get('host') ?? '').trim();
+  if (!host) {
+    return '';
+  }
+
+  const forwardedProto = String(request.headers['x-forwarded-proto'] ?? '')
+    .split(',')[0]
+    .trim();
+  const protocol = forwardedProto || request.protocol || 'http';
+  return normalizeOrigin(`${protocol}://${host}`);
+};
+
+const hasFrontendBuild = () => fs.existsSync(frontendIndexFile);
 
 const isAdmin = (role: UserRole) => role === UserRole.ADMIN;
 const canManageJobs = (role: UserRole) => role === UserRole.ADMIN || role === UserRole.OFFICE;
@@ -911,7 +935,10 @@ const issueSession = async (userId: string) => {
   };
 };
 
-const ensureWorkerRoleLink = async (_role: UserRole, _workerId: string | null | undefined) => {};
+const ensureWorkerRoleLink = async (role: UserRole, workerId: string | null | undefined) => {
+  void role;
+  void workerId;
+};
 
 const ensureActiveAdminGuard = async (input: {
   currentUserId?: string;
@@ -951,21 +978,30 @@ app.use(
   }),
 );
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || env.allowedCorsOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
+  (request, response, next) =>
+    cors({
+      origin: (origin, callback) => {
+        const normalizedOrigin = normalizeOrigin(origin);
+        const allowedOrigins = new Set(env.allowedCorsOrigins.map((item) => normalizeOrigin(item)));
+        const publicOrigin = requestPublicOrigin(request);
 
-      callback(new Error('Origin not allowed by CORS'));
-    },
-    credentials: true,
-  }),
+        if (
+          !normalizedOrigin ||
+          allowedOrigins.has(normalizedOrigin) ||
+          (publicOrigin && normalizedOrigin === publicOrigin)
+        ) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error('Origin not allowed by CORS'));
+      },
+      credentials: true,
+    })(request, response, next),
 );
 app.use(express.json({ limit: '4mb' }));
 
-app.get('/', (_request, response) => {
+app.get('/api', (_request, response) => {
   response.json({
     name: 'property-jobs-api',
     message: 'API running',
@@ -2467,6 +2503,18 @@ app.post(
     response.json(await seedSystem());
   }),
 );
+
+if (env.NODE_ENV === 'production') {
+  app.use(express.static(frontendDistDir, { index: false }));
+  app.get(/^\/(?!api(?:\/|$)).*/, (_request, response, next) => {
+    if (!hasFrontendBuild()) {
+      next();
+      return;
+    }
+
+    response.sendFile(frontendIndexFile);
+  });
+}
 
 app.use((_request, response) => {
   response.status(404).json({

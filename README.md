@@ -53,3 +53,32 @@ Workspace web app for properties, jobs, workers, receipts, invoices and quotes.
 - `npm run db:migrate:deploy`: Prisma deployment migration
 - `npm run db:seed`: seeds default properties and workers
 - `npm run admin:bootstrap -- --username <user> --password <pass>`: creates the first admin explicitly
+
+## Deploy on Render
+
+This repo is ready to deploy as a single Render web service with PostgreSQL and a persistent disk for uploads.
+
+### Why this setup
+
+- Frontend is served by the backend in production, so the app uses one origin.
+- Session cookies work cleanly without cross-domain auth issues.
+- Uploaded files survive redeploys by using a persistent disk.
+
+### Steps
+
+1. Push this repo to GitHub.
+2. In Render, create a new Blueprint and select this repository.
+3. Render will detect [`render.yaml`](./render.yaml) and propose:
+   - one web service
+   - one PostgreSQL database
+   - one persistent disk mounted at `/var/data`
+4. After the first deploy, open the service shell and create the admin:
+   - `npm run admin:bootstrap --prefix backend -- --username <user> --password <pass> --display-name "System Administrator"`
+5. Optionally seed starter data:
+   - `npm run db:seed --prefix backend`
+
+### Production notes
+
+- The API listens on Render's `PORT` automatically.
+- Uploads are stored at `/var/data/uploads`.
+- Health check endpoint: `/api/health`

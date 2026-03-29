@@ -26,8 +26,9 @@ const booleanFlag = z.preprocess((value) => {
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().positive().default(3333),
+  PORT: z.coerce.number().int().positive().optional(),
   DATABASE_URL: z.string().min(1),
-  CORS_ORIGIN: z.string().min(1).default('http://localhost:5173'),
+  CORS_ORIGIN: z.string().default(''),
   TRUST_PROXY: booleanFlag.default(false),
   SESSION_COOKIE_NAME: z.string().min(1).default('all_avenues_session'),
   AUTH_SESSION_DAYS: z.coerce.number().int().positive().default(14),
@@ -36,7 +37,10 @@ const envSchema = z.object({
 });
 
 export const buildEnv = (source: NodeJS.ProcessEnv) => {
-  const parsedEnv = envSchema.safeParse(source);
+  const parsedEnv = envSchema.safeParse({
+    ...source,
+    API_PORT: source.API_PORT ?? source.PORT,
+  });
 
   if (!parsedEnv.success) {
     console.error('Invalid environment variables', parsedEnv.error.flatten().fieldErrors);
