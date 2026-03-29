@@ -12,7 +12,7 @@
     "check": "npm run lint && npm run test && npm run build",
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
-    "start": "npm run db:migrate:deploy --prefix backend && npm run start --prefix backend",
+    "start": "npm run prisma:migrate:deploy --prefix backend && npm run start --prefix backend",
     "admin:bootstrap": "npm run admin:bootstrap --prefix backend --",
     "prisma:generate": "npm run prisma:generate --prefix backend",
     "db:migrate": "npm run prisma:migrate --prefix backend",
