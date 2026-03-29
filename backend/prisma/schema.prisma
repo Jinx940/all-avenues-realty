@@ -1,0 +1,226 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum JobStatus {
+  DONE
+  IN_PROGRESS
+  PENDING
+  PLANNING
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL_PAYMENT
+  UNPAID
+  NOT_INVOICED_YET
+}
+
+enum InvoiceStatus {
+  YES
+  NO
+}
+
+enum WorkerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserRole {
+  ADMIN
+  OFFICE
+  WORKER
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum FileCategory {
+  BEFORE
+  PROGRESS
+  AFTER
+  RECEIPT
+  INVOICE
+  QUOTE
+}
+
+enum GeneratedDocumentType {
+  INVOICE
+  QUOTE
+}
+
+enum DocumentOwner {
+  AZE
+  RYAN
+}
+
+enum WorkerHistoryAction {
+  ADDED
+  DISABLED
+  ENABLED
+  DELETED
+}
+
+model Property {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  address       String?
+  cityLine      String?
+  notes         String?
+  coverImageUrl String?
+  floors        Int?
+  bedrooms      Int?
+  bathrooms     Int?
+  halfBathrooms Int?
+  livingRooms   Int?
+  diningRooms   Int?
+  kitchens      Int?
+  sunroom       Int?
+  garages       Int?
+  attic         Int?
+  frontPorch    Int?
+  backPorch     Int?
+  floorGroups   Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  jobs          Job[]
+  documents     GeneratedDocument[]
+}
+
+model Worker {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  status      WorkerStatus    @default(ACTIVE)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  user        User?
+  assignments JobAssignment[]
+  history     WorkerHistory[]
+}
+
+model User {
+  id           String       @id @default(cuid())
+  username     String       @unique
+  displayName  String
+  passwordHash String
+  role         UserRole     @default(WORKER)
+  status       UserStatus   @default(ACTIVE)
+  workerId     String?      @unique
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  worker       Worker?      @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  sessions     UserSession[]
+
+  @@index([role, status])
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  lastSeenAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Job {
+  id             String         @id @default(cuid())
+  propertyId     String
+  story          String         @default("")
+  unit           String         @default("")
+  section        String
+  service        String
+  description    String         @default("")
+  materialCost   Decimal        @default(0) @db.Decimal(12, 2)
+  laborCost      Decimal        @default(0) @db.Decimal(12, 2)
+  status         JobStatus      @default(PENDING)
+  invoiceStatus  InvoiceStatus  @default(NO)
+  paymentStatus  PaymentStatus  @default(NOT_INVOICED_YET)
+  advanceCashApp Decimal        @default(0) @db.Decimal(12, 2)
+  startDate      DateTime?
+  dueDate        DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  property       Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  assignments    JobAssignment[]
+  files          JobFile[]
+
+  @@index([propertyId])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+model JobAssignment {
+  jobId      String
+  workerId   String
+  assignedAt DateTime @default(now())
+  job        Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  worker     Worker   @relation(fields: [workerId], references: [id], onDelete: Restrict)
+
+  @@id([jobId, workerId])
+}
+
+model JobFile {
+  id                  String             @id @default(cuid())
+  jobId               String
+  category            FileCategory
+  originalName        String
+  storedName          String?
+  mimeType            String
+  size                Int
+  documentNumber      String?
+  generatedDocumentId String?
+  createdAt           DateTime           @default(now())
+  job                 Job                @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  generatedDocument   GeneratedDocument? @relation(fields: [generatedDocumentId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, category])
+  @@index([generatedDocumentId])
+}
+
+model GeneratedDocument {
+  id             String                @id @default(cuid())
+  propertyId     String
+  documentType   GeneratedDocumentType
+  owner          DocumentOwner
+  documentNumber String
+  fileName       String
+  mimeType       String                @default("text/html")
+  html           String
+  issueDate      DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  property       Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  files          JobFile[]
+
+  @@unique([documentType, documentNumber])
+  @@index([propertyId, documentType])
+}
+
+model WorkerHistory {
+  id            String              @id @default(cuid())
+  workerId      String?
+  workerName    String
+  action        WorkerHistoryAction
+  previousStatus WorkerStatus?
+  newStatus     WorkerStatus?
+  performedBy   String              @default("Admin")
+  notes         String?
+  createdAt     DateTime            @default(now())
+  worker        Worker?             @relation(fields: [workerId], references: [id], onDelete: SetNull)
+
+  @@index([workerId])
+  @@index([createdAt])
+}

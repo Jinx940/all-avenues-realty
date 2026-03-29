@@ -1,0 +1,6 @@
+ALTER TABLE "Property"
+ADD COLUMN "sunroom" INTEGER,
+ADD COLUMN "attic" INTEGER,
+ADD COLUMN "frontPorch" INTEGER,
+ADD COLUMN "backPorch" INTEGER,
+ADD COLUMN "floorGroups" JSONB;

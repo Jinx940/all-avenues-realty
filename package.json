@@ -1,0 +1,24 @@
+{
+  "name": "all-avenues-realty",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c yellow,cyan \"npm run dev --prefix frontend\" \"npm run dev --prefix backend\"",
+    "build": "npm run build --prefix frontend && npm run build --prefix backend",
+    "typecheck": "npm run typecheck --prefix frontend && npm run typecheck --prefix backend",
+    "lint": "npm run lint --prefix frontend && npm run lint --prefix backend",
+    "test": "npm run test --prefix frontend && npm run test --prefix backend",
+    "check": "npm run lint && npm run test && npm run build",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "admin:bootstrap": "npm run admin:bootstrap --prefix backend --",
+    "prisma:generate": "npm run prisma:generate --prefix backend",
+    "db:migrate": "npm run prisma:migrate --prefix backend",
+    "db:migrate:deploy": "npm run prisma:migrate:deploy --prefix backend",
+    "db:push": "npm run db:push --prefix backend",
+    "db:seed": "npm run db:seed --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

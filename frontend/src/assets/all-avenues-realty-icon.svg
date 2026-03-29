@@ -1,0 +1,29 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" fill="white" fill-opacity="0"/>
+  <g stroke="#1E4F81" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 154L72 112L102 132V54L140 24V134L202 176"/>
+    <path d="M58 154L100 118L136 146"/>
+  </g>
+  <rect x="114" y="58" width="16" height="36" fill="#1E4F81"/>
+  <g>
+    <rect x="52" y="156" width="60" height="44" rx="2" fill="#1E4F81"/>
+    <rect x="58" y="162" width="22" height="16" fill="#F7F9FC"/>
+    <rect x="84" y="162" width="8" height="34" fill="#F7F9FC"/>
+    <rect x="96" y="162" width="14" height="34" fill="#D24B43"/>
+    <rect x="58" y="182" width="22" height="14" fill="#F7F9FC"/>
+    <path d="M61 168H77M61 173H77M61 178H77" stroke="#D24B43" stroke-width="2.4"/>
+    <g fill="#F7F9FC">
+      <path d="M64 165L65.8 169H70L66.6 171.2L68 175L64 172.7L60 175L61.4 171.2L58 169H62.2L64 165Z"/>
+      <path d="M74 165L75.8 169H80L76.6 171.2L78 175L74 172.7L70 175L71.4 171.2L68 169H72.2L74 165Z"/>
+      <path d="M64 174L65.8 178H70L66.6 180.2L68 184L64 181.7L60 184L61.4 180.2L58 178H62.2L64 174Z"/>
+      <path d="M74 174L75.8 178H80L76.6 180.2L78 184L74 181.7L70 184L71.4 180.2L68 178H72.2L74 174Z"/>
+    </g>
+  </g>
+  <g fill="#1E4F81">
+    <path d="M149 151C155 145 161 143 166 144C171 145 174 149 176 155L182 157C185 158 187 160 188 162C189 165 188 168 186 170L179 169L173 175L167 176L162 173L160 176L155 176L151 170L146 167L143 169L139 167L141 162L146 159L147 154L149 151Z"/>
+    <path d="M158 139C160 134 163 132 166 132C169 132 171 134 171 137C171 141 168 144 164 144C160 144 157 142 158 139Z"/>
+    <path d="M150 177L145 188H139L144 177H150Z"/>
+    <path d="M170 177L166 191H160L163 177H170Z"/>
+    <path d="M179 168L188 178L196 178L186 167L179 168Z"/>
+  </g>
+</svg>
