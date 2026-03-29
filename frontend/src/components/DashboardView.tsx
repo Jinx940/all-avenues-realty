@@ -49,11 +49,15 @@ export function DashboardView({
   const paymentRiskRate = ratio(unpaidJobs, totalJobs);
   const overdueRate = ratio(lateJobs, totalJobs);
   const avgTicket = totalJobs ? overallInvestment / totalJobs : 0;
-  const healthScore = clamp(
-    Math.round(completionRate * 0.55 + (100 - overdueRate) * 0.3 + (100 - paymentRiskRate) * 0.15),
-    0,
-    100,
-  );
+  const healthScore = totalJobs
+    ? clamp(
+        Math.round(
+          completionRate * 0.55 + (100 - overdueRate) * 0.3 + (100 - paymentRiskRate) * 0.15,
+        ),
+        0,
+        100,
+      )
+    : 0;
 
   const statusChart = buildDonutChart(dashboard?.charts.status ?? [], workStatusColor);
   const paymentChart = buildDonutChart(dashboard?.charts.payment ?? [], paymentStatusColor);
@@ -203,7 +207,9 @@ export function DashboardView({
                 <span className="eyebrow">Portfolio Health</span>
                 <strong>{healthScore}%</strong>
                 <small>
-                  {healthScore >= 78
+                  {totalJobs === 0
+                    ? 'No jobs yet'
+                    : healthScore >= 78
                     ? 'Healthy pipeline'
                     : healthScore >= 58
                       ? 'Watch closely'
