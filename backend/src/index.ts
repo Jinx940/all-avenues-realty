@@ -2708,21 +2708,27 @@ app.use((error: unknown, _request: Request, response: Response, next: NextFuncti
 let server: ReturnType<typeof app.listen>;
 
 const start = async () => {
-  const adminCount = await prisma.user.count({
-    where: {
-      role: UserRole.ADMIN,
-      status: UserStatus.ACTIVE,
-    },
-  });
-
   server = app.listen(env.API_PORT, () => {
     console.log(`API listening on http://localhost:${env.API_PORT}`);
-    if (adminCount === 0) {
-      console.warn(
-        'No active admin account was found. Run `npm run admin:bootstrap --prefix backend -- --username <user> --password <password>`.',
-      );
-    }
   });
+
+  void prisma.user
+    .count({
+      where: {
+        role: UserRole.ADMIN,
+        status: UserStatus.ACTIVE,
+      },
+    })
+    .then((adminCount) => {
+      if (adminCount === 0) {
+        console.warn(
+          'No active admin account was found. Run `npm run admin:bootstrap --prefix backend -- --username <user> --password <password>`.',
+        );
+      }
+    })
+    .catch((error) => {
+      console.error('Could not verify admin accounts during startup', error);
+    });
 };
 
 const shutdown = async () => {
