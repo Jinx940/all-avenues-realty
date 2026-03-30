@@ -19,7 +19,7 @@ type DocumentCenterItem = {
   downloadUrl: string;
 };
 
-type DocumentPreviewMode = 'image' | 'frame' | 'unsupported';
+type DocumentPreviewMode = 'image' | 'pdf' | 'frame' | 'unsupported';
 
 const documentKindClassFor = (kind: DocumentCenterItem['kind']) => `document-kind-pill document-kind-pill--${kind.toLowerCase()}`;
 
@@ -70,18 +70,20 @@ const getDocumentExtension = (value: string) => {
 };
 
 const getDocumentPreviewMode = (item: DocumentCenterItem): DocumentPreviewMode => {
-  if (item.kind !== 'Receipt') return 'frame';
-
   const extension = getDocumentExtension(item.fileName) || getDocumentExtension(item.openUrl);
   if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif'].includes(extension)) {
     return 'image';
   }
 
-  if (['pdf', 'html', 'htm'].includes(extension)) {
+  if (extension === 'pdf') {
+    return 'pdf';
+  }
+
+  if (['html', 'htm'].includes(extension)) {
     return 'frame';
   }
 
-  return 'unsupported';
+  return item.kind === 'Receipt' ? 'unsupported' : 'frame';
 };
 
 const getDocumentDisplayName = (item: DocumentCenterItem) => {
@@ -401,6 +403,18 @@ function DocumentPreviewDialog({
                 src={item.openUrl}
                 alt={displayName}
               />
+            ) : previewMode === 'pdf' ? (
+              <object
+                className="document-preview-frame"
+                data={item.openUrl}
+                type="application/pdf"
+                aria-label={`Preview for ${displayName}`}
+              >
+                <div className="document-preview-empty">
+                  <strong>Could not render this PDF inline</strong>
+                  <span>Use Download to inspect the file on your device.</span>
+                </div>
+              </object>
             ) : previewMode === 'frame' ? (
               <iframe
                 className="document-preview-frame"

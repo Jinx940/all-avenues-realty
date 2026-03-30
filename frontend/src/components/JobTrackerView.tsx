@@ -101,17 +101,22 @@ const getFileExtension = (value: string) => {
   return (extension ?? '').trim().toLowerCase();
 };
 
-const getJobFilePreviewMode = (file: JobFile): 'image' | 'frame' | 'unsupported' => {
+const getJobFilePreviewMode = (file: JobFile): 'image' | 'pdf' | 'frame' | 'unsupported' => {
   const mimeType = file.mimeType?.toLowerCase() ?? '';
   if (mimeType.startsWith('image/')) return 'image';
-  if (mimeType.includes('pdf') || mimeType.includes('html')) return 'frame';
+  if (mimeType.includes('pdf')) return 'pdf';
+  if (mimeType.includes('html')) return 'frame';
 
   const extension = getFileExtension(file.name) || getFileExtension(file.url);
   if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif'].includes(extension)) {
     return 'image';
   }
 
-  if (['pdf', 'html', 'htm'].includes(extension)) {
+  if (extension === 'pdf') {
+    return 'pdf';
+  }
+
+  if (['html', 'htm'].includes(extension)) {
     return 'frame';
   }
 
@@ -540,6 +545,18 @@ function TrackerReceiptPreviewDialog({
           <div className="document-preview-stage">
             {previewMode === 'image' ? (
               <img className="document-preview-image" src={previewUrl} alt={file.name} />
+            ) : previewMode === 'pdf' ? (
+              <object
+                className="document-preview-frame"
+                data={previewUrl}
+                type="application/pdf"
+                aria-label={`Receipt preview for ${file.name}`}
+              >
+                <div className="document-preview-empty">
+                  <strong>Could not render this PDF inline</strong>
+                  <span>Use Download to inspect the file on your device.</span>
+                </div>
+              </object>
             ) : previewMode === 'frame' ? (
               <iframe className="document-preview-frame" src={previewUrl} title={`Receipt preview for ${file.name}`} />
             ) : (

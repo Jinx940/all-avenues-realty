@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { buildAssetUrl, requestJson } from '../lib/api';
-import { downloadGeneratedPdf } from '../lib/generatedPdf';
+import { buildGeneratedPdfBlob, downloadPdfBlob } from '../lib/generatedPdf';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import { ConfirmDialog } from './ConfirmDialog';
 import { UiIcon } from './UiIcon';
@@ -91,6 +91,18 @@ const formatPdfMoney = (value: number) => `$ ${formatPdfNumber(value)}`;
 const toAmount = (value: string) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const blobToBase64 = async (blob: Blob) => {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+
+  return window.btoa(binary);
 };
 
 const escapeHtml = (value: string) =>
@@ -986,7 +998,6 @@ export function InvoiceQuoteView({
       .replace(/[^\w\s-]+/g, '')
       .trim()
       .replace(/\s+/g, '_')}_${safeDocumentNumber}`;
-    const htmlFileName = `${safeBaseName}.html`;
     const pdfFileName = `${safeBaseName}.pdf`;
 
     const html = useAzeModernInvoice
@@ -1025,7 +1036,6 @@ export function InvoiceQuoteView({
 
     return {
       html,
-      htmlFileName,
       pdfFileName,
       safeDocumentNumber,
     };
@@ -1052,6 +1062,11 @@ export function InvoiceQuoteView({
     let saved: SaveGeneratedDocumentResponse | null = null;
 
     try {
+      const pdfBlob = await buildGeneratedPdfBlob({
+        html: generated.html,
+      });
+      const pdfBase64 = await blobToBase64(pdfBlob);
+
       saved = await requestJson<SaveGeneratedDocumentResponse>('/api/generated-documents', {
         method: 'POST',
         headers: {
@@ -1064,15 +1079,13 @@ export function InvoiceQuoteView({
           ownerKey,
           documentNumber: generated.safeDocumentNumber,
           issueDate,
-          fileName: generated.htmlFileName,
-          html: generated.html,
+          fileName: generated.pdfFileName,
+          mimeType: 'application/pdf',
+          content: pdfBase64,
         }),
       });
 
-      await downloadGeneratedPdf({
-        html: generated.html,
-        fileName: generated.pdfFileName,
-      });
+      downloadPdfBlob(pdfBlob, generated.pdfFileName);
 
       setGeneratePdfConfirmOpen(false);
       await onDocumentSaved?.(

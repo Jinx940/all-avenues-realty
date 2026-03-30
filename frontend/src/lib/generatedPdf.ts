@@ -67,6 +67,11 @@ export async function downloadGeneratedPdf({
   html: string;
   fileName: string;
 }) {
+  const pdfBlob = await buildGeneratedPdfBlob({ html });
+  downloadPdfBlob(pdfBlob, fileName);
+}
+
+export async function buildGeneratedPdfBlob({ html }: { html: string }) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import('html2canvas'),
     import('jspdf'),
@@ -126,8 +131,19 @@ export async function downloadGeneratedPdf({
       pdf.addImage(imageData, 'JPEG', offsetX, offsetY, renderWidth, renderHeight, undefined, 'FAST');
     }
 
-    pdf.save(fileName);
+    return pdf.output('blob');
   } finally {
     exportShell.remove();
   }
 }
+
+export const downloadPdfBlob = (pdfBlob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(pdfBlob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+};

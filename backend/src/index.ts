@@ -201,7 +201,25 @@ const generatedDocumentSchema = z.object({
   documentNumber: z.string().trim().min(1).max(80),
   issueDate: z.string().trim().min(1).max(40),
   fileName: z.string().trim().min(1).max(180),
-  html: z.string().min(1),
+  mimeType: z.enum(['text/html', 'application/pdf']).default('text/html'),
+  html: z.string().min(1).optional(),
+  content: z.string().min(1).optional(),
+}).superRefine((value, context) => {
+  if (value.mimeType === 'application/pdf' && !value.content) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['content'],
+      message: 'PDF content is required.',
+    });
+  }
+
+  if (value.mimeType === 'text/html' && !value.html && !value.content) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['html'],
+      message: 'HTML content is required.',
+    });
+  }
 });
 
 const asyncRoute = (handler: Handler) => async (
@@ -1594,6 +1612,19 @@ app.get(
       return;
     }
 
+    if (document.mimeType === 'application/pdf') {
+      response.setHeader('Cache-Control', 'private, no-store');
+      response.setHeader('Referrer-Policy', 'no-referrer');
+      response.setHeader('X-Content-Type-Options', 'nosniff');
+      response.setHeader('Content-Type', 'application/pdf');
+      response.setHeader(
+        'Content-Disposition',
+        `inline; filename="${document.fileName.replace(/"/g, '')}"`,
+      );
+      response.send(Buffer.from(document.html, 'base64'));
+      return;
+    }
+
     const documentResponse = buildDocumentResponse(document.html, printMode);
     Object.entries(documentResponse.headers).forEach(([key, value]) => {
       response.setHeader(key, value);
@@ -1615,15 +1646,32 @@ app.post(
     }
 
     const payload = generatedDocumentSchema.parse(request.body);
-    const sanitizedHtml = sanitizeGeneratedDocumentHtml(payload.html);
-    if (!sanitizedHtml) {
+    const documentMimeType = payload.mimeType;
+    const sanitizedHtml =
+      documentMimeType === 'text/html'
+        ? sanitizeGeneratedDocumentHtml(payload.html ?? payload.content ?? '')
+        : '';
+    const pdfBase64 = documentMimeType === 'application/pdf' ? String(payload.content ?? '').trim() : '';
+
+    if (documentMimeType === 'text/html' && !sanitizedHtml) {
       response.status(400).json({ message: 'Generated document HTML is empty after sanitization.' });
       return;
     }
+    if (documentMimeType === 'application/pdf' && !pdfBase64) {
+      response.status(400).json({ message: 'Generated PDF content is empty.' });
+      return;
+    }
+
     const uniqueJobIds = Array.from(new Set(payload.jobIds));
     const documentType = generatedDocumentTypeFor(payload.documentType);
     const fileCategory =
       payload.documentType === 'Invoice' ? FileCategory.INVOICE : FileCategory.QUOTE;
+    const storedDocumentContent =
+      documentMimeType === 'application/pdf' ? pdfBase64 : sanitizedHtml;
+    const storedDocumentSize =
+      documentMimeType === 'application/pdf'
+        ? Buffer.from(pdfBase64, 'base64').byteLength
+        : Buffer.byteLength(sanitizedHtml, 'utf8');
 
     const relatedJobs = await prisma.job.findMany({
       where: {
@@ -1663,7 +1711,8 @@ app.post(
           owner: documentOwnerFor(payload.ownerKey),
           documentNumber: payload.documentNumber,
           fileName: payload.fileName,
-          html: sanitizedHtml,
+          mimeType: documentMimeType,
+          html: storedDocumentContent,
           issueDate: parseNullableDate(payload.issueDate),
         },
       });
@@ -1674,8 +1723,8 @@ app.post(
           category: fileCategory,
           originalName: payload.fileName,
           storedName: null,
-          mimeType: 'text/html',
-          size: Buffer.byteLength(sanitizedHtml, 'utf8'),
+          mimeType: documentMimeType,
+          size: storedDocumentSize,
           documentNumber: payload.documentNumber,
           generatedDocumentId: document.id,
         })),
