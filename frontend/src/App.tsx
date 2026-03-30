@@ -409,7 +409,7 @@ function AdvanceCashAlertsBell({
     };
   }, [isOpen]);
 
-  return (
+  const bellWidget = (
     <div ref={rootRef} className={`advance-cash-bell advance-cash-bell--floating ${isOpen ? 'is-open' : ''}`.trim()}>
       <button
         ref={buttonRef}
@@ -535,6 +535,12 @@ function AdvanceCashAlertsBell({
         : null}
     </div>
   );
+
+  if (typeof document === 'undefined') {
+    return bellWidget;
+  }
+
+  return createPortal(bellWidget, document.body);
 }
 
 export default function App() {

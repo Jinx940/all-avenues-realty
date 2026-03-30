@@ -9169,13 +9169,14 @@ input.invoice-service-check:focus-visible {
 
 .advance-cash-bell--floating {
   position: fixed;
-  right: 18px;
-  top: clamp(180px, 44vh, 360px);
+  right: 10px;
+  top: 50%;
   transform: translateY(-50%);
   width: auto;
-  max-width: min(320px, calc(100vw - 28px));
+  max-width: min(312px, calc(100vw - 18px));
   margin: 0;
-  z-index: 45;
+  pointer-events: auto;
+  z-index: 70;
 }
 
 .advance-cash-bell.is-open {
@@ -9221,7 +9222,7 @@ input.invoice-service-check:focus-visible {
 .advance-cash-bell--floating::before {
   content: '';
   position: absolute;
-  inset: 8px 10px;
+  inset: 6px 8px;
   border-radius: 999px;
   background: radial-gradient(circle, rgba(255, 118, 146, 0.3), rgba(139, 205, 255, 0.06) 58%, transparent 74%);
   filter: blur(18px);
