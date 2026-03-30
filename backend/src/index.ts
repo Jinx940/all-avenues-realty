@@ -68,11 +68,8 @@ import {
   type PropertyStory,
 } from './propertySpecs.js';
 import {
-  buildFileUrl,
-  deleteStoredFile,
   ensureUploadsDir,
   jobUploadFields,
-  resolveStoredFilePath,
   upload,
 } from './lib/uploads.js';
 import {
@@ -80,6 +77,12 @@ import {
   normalizeStoryInput,
   normalizeUnitInput,
 } from './lib/jobLocation.js';
+import {
+  deleteManagedFile,
+  managedStoredRefFromValue,
+  readManagedFile,
+  uploadManagedFile,
+} from './lib/fileStorage.js';
 
 const app = express();
 const currentFilePath = fileURLToPath(import.meta.url);
@@ -409,15 +412,6 @@ const documentOwnerLabels: Record<DocumentOwner, 'AZE' | 'Ryan'> = {
   [DocumentOwner.RYAN]: 'Ryan',
 };
 
-const storedNameFromUrl = (value: string | null | undefined) => {
-  const raw = String(value ?? '').trim();
-  if (!raw.startsWith('/uploads/')) {
-    return null;
-  }
-
-  return raw.slice('/uploads/'.length) || null;
-};
-
 const countBy = <T>(items: T[], getKey: (item: T) => string) => {
   const result = new Map<string, number>();
   items.forEach((item) => {
@@ -600,6 +594,41 @@ const serializeJob = (job: {
   createdAt: job.createdAt.toISOString(),
   updatedAt: job.updatedAt.toISOString(),
 });
+
+type UploadedJobFileRecord = {
+  category: FileCategory;
+  originalName: string;
+  storedName: string;
+  mimeType: string;
+  size: number;
+};
+
+const uploadIncomingJobFiles = async (
+  jobId: string,
+  filesMap: UploadedFilesMap,
+): Promise<UploadedJobFileRecord[]> => {
+  const uploadedFiles: UploadedJobFileRecord[] = [];
+
+  try {
+    for (const [field, files] of Object.entries(filesMap) as Array<[FileFieldName, Express.Multer.File[]]>) {
+      for (const file of files ?? []) {
+        const storedName = await uploadManagedFile(file, ['jobs', jobId, field]);
+        uploadedFiles.push({
+          category: fileFieldToCategory[field],
+          originalName: file.originalname,
+          storedName,
+          mimeType: file.mimetype,
+          size: file.size,
+        });
+      }
+    }
+
+    return uploadedFiles;
+  } catch (error) {
+    await Promise.all(uploadedFiles.map((file) => deleteManagedFile(file.storedName)));
+    throw error;
+  }
+};
 
 const serializePropertySummary = (property: {
   id: string;
@@ -1154,9 +1183,9 @@ app.get(
       return;
     }
 
-    const storedFilePath = resolveStoredFilePath(file.storedName);
-    if (!fs.existsSync(storedFilePath)) {
-      response.status(404).json({ message: 'Stored file is missing from the server disk.' });
+    const managedFile = await readManagedFile(file.storedName);
+    if (managedFile.kind === 'missing') {
+      response.status(404).json({ message: managedFile.message });
       return;
     }
 
@@ -1175,10 +1204,15 @@ app.get(
     }
 
     response.setHeader('Cache-Control', 'private, max-age=60');
-    response.setHeader('Content-Type', file.mimeType);
+    response.setHeader('Content-Type', managedFile.kind === 'buffer' ? managedFile.mimeType || file.mimeType : file.mimeType);
     response.setHeader('Content-Disposition', `inline; filename="${file.originalName.replace(/"/g, '')}"`);
     response.setHeader('X-Content-Type-Options', 'nosniff');
-    response.sendFile(storedFilePath);
+    if (managedFile.kind === 'buffer') {
+      response.send(managedFile.buffer);
+      return;
+    }
+
+    response.sendFile(managedFile.filePath);
   }),
 );
 
@@ -1202,7 +1236,7 @@ app.get(
       },
     });
 
-    const storedName = storedNameFromUrl(property?.coverImageUrl);
+    const storedName = managedStoredRefFromValue(property?.coverImageUrl);
     if (!storedName) {
       if (property?.coverImageUrl && isExternalUrl(property.coverImageUrl)) {
         response.redirect(property.coverImageUrl);
@@ -1213,15 +1247,23 @@ app.get(
       return;
     }
 
-    const coverImagePath = resolveStoredFilePath(storedName);
-    if (!fs.existsSync(coverImagePath)) {
-      response.status(404).json({ message: 'Stored cover image is missing from the server disk.' });
+    const managedFile = await readManagedFile(storedName);
+    if (managedFile.kind === 'missing') {
+      response.status(404).json({ message: managedFile.message });
       return;
     }
 
     response.setHeader('Cache-Control', 'private, max-age=60');
     response.setHeader('X-Content-Type-Options', 'nosniff');
-    response.sendFile(coverImagePath);
+    if (managedFile.kind === 'buffer') {
+      if (managedFile.mimeType) {
+        response.setHeader('Content-Type', managedFile.mimeType);
+      }
+      response.send(managedFile.buffer);
+      return;
+    }
+
+    response.sendFile(managedFile.filePath);
   }),
 );
 
@@ -1841,7 +1883,7 @@ app.post(
     const payload = jobInputSchema.parse(request.body);
     const filesMap = ((request as Request & { files?: UploadedFilesMap }).files ?? {}) as UploadedFilesMap;
 
-    const created = await prisma.job.create({
+    const createdJob = await prisma.job.create({
       data: {
         property: {
           connect: {
@@ -1866,41 +1908,29 @@ app.post(
         assignments: {
           create: payload.workerIds.map((workerId) => ({ workerId })),
         },
-        files: {
-          create: Object.entries(filesMap).flatMap(([field, files]) =>
-            (files ?? []).map((file) => ({
-              category: fileFieldToCategory[field as FileFieldName],
-              originalName: file.originalname,
-              storedName: file.filename,
-              mimeType: file.mimetype,
-              size: file.size,
-            })),
-          ),
-        },
-      },
-      include: {
-        property: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        assignments: {
-          include: {
-            worker: {
-              select: {
-                id: true,
-                name: true,
-                status: true,
-              },
-            },
-          },
-        },
-        files: true,
       },
     });
 
-    response.status(201).json(serializeJob(created));
+    let uploadedFiles: UploadedJobFileRecord[] = [];
+
+    try {
+      uploadedFiles = await uploadIncomingJobFiles(createdJob.id, filesMap);
+
+      if (uploadedFiles.length) {
+        await prisma.jobFile.createMany({
+          data: uploadedFiles.map((file) => ({
+            jobId: createdJob.id,
+            ...file,
+          })),
+        });
+      }
+    } catch (error) {
+      await Promise.all(uploadedFiles.map((file) => deleteManagedFile(file.storedName)));
+      await prisma.job.delete({ where: { id: createdJob.id } }).catch(() => undefined);
+      throw error;
+    }
+
+    response.status(201).json(serializeJob(await loadJob(createdJob.id)));
   }),
 );
 
@@ -1929,48 +1959,53 @@ app.put(
           : new Date()
         : null;
 
-    await prisma.job.update({
-      where: {
-        id: jobId,
-      },
-      data: {
-        property: {
-          connect: {
-            id: payload.propertyId,
+    let uploadedFiles: UploadedJobFileRecord[] = [];
+
+    try {
+      uploadedFiles = await uploadIncomingJobFiles(jobId, filesMap);
+
+      await prisma.job.update({
+        where: {
+          id: jobId,
+        },
+        data: {
+          property: {
+            connect: {
+              id: payload.propertyId,
+            },
           },
+          story: payload.story,
+          unit: payload.unit,
+          section: buildJobSectionValue(payload.story, payload.unit, payload.section || payload.area || payload.service),
+          area: payload.area || '',
+          service: payload.service,
+          description: payload.description || '',
+          materialCost: payload.materialCost,
+          laborCost: payload.laborCost,
+          status: payload.status,
+          invoiceStatus: payload.invoiceStatus,
+          paymentStatus: payload.paymentStatus,
+          advanceCashApp: payload.advanceCashApp,
+          startDate: parseNullableDate(payload.startDate),
+          dueDate: parseNullableDate(payload.dueDate),
+          completedAt,
+          assignments: {
+            deleteMany: {},
+            create: payload.workerIds.map((workerId) => ({ workerId })),
+          },
+          ...(uploadedFiles.length
+            ? {
+                files: {
+                  create: uploadedFiles,
+                },
+              }
+            : {}),
         },
-        story: payload.story,
-        unit: payload.unit,
-        section: buildJobSectionValue(payload.story, payload.unit, payload.section || payload.area || payload.service),
-        area: payload.area || '',
-        service: payload.service,
-        description: payload.description || '',
-        materialCost: payload.materialCost,
-        laborCost: payload.laborCost,
-        status: payload.status,
-        invoiceStatus: payload.invoiceStatus,
-        paymentStatus: payload.paymentStatus,
-        advanceCashApp: payload.advanceCashApp,
-        startDate: parseNullableDate(payload.startDate),
-        dueDate: parseNullableDate(payload.dueDate),
-        completedAt,
-        assignments: {
-          deleteMany: {},
-          create: payload.workerIds.map((workerId) => ({ workerId })),
-        },
-        files: {
-          create: Object.entries(filesMap).flatMap(([field, files]) =>
-            (files ?? []).map((file) => ({
-              category: fileFieldToCategory[field as FileFieldName],
-              originalName: file.originalname,
-              storedName: file.filename,
-              mimeType: file.mimetype,
-              size: file.size,
-            })),
-          ),
-        },
-      },
-    });
+      });
+    } catch (error) {
+      await Promise.all(uploadedFiles.map((file) => deleteManagedFile(file.storedName)));
+      throw error;
+    }
 
     response.json(serializeJob(await loadJob(jobId)));
   }),
@@ -2038,7 +2073,7 @@ app.delete(
     });
 
     if (targetFile.storedName) {
-      await deleteStoredFile(targetFile.storedName);
+      await deleteManagedFile(targetFile.storedName);
     }
 
     response.json({ message: 'File deleted successfully.' });
@@ -2066,7 +2101,7 @@ app.delete(
       files
         .map((file) => file.storedName)
         .filter((storedName): storedName is string => Boolean(storedName))
-        .map((storedName) => deleteStoredFile(storedName)),
+        .map((storedName) => deleteManagedFile(storedName)),
     );
 
     response.json({ message: 'Job deleted successfully.' });
@@ -2217,14 +2252,14 @@ app.patch(
       },
     });
 
-    const previousStoredName = storedNameFromUrl(previous.coverImageUrl);
+    const previousStoredName = managedStoredRefFromValue(previous.coverImageUrl);
     const nextStoredName =
       nextCoverImageUrl !== undefined
-        ? storedNameFromUrl(nextCoverImageUrl)
+        ? managedStoredRefFromValue(nextCoverImageUrl)
         : previousStoredName;
 
     if (previousStoredName && previousStoredName !== nextStoredName) {
-      await deleteStoredFile(previousStoredName);
+      await deleteManagedFile(previousStoredName);
     }
 
     response.json(serializePropertySummary(property));
@@ -2252,24 +2287,36 @@ app.post(
       select: { coverImageUrl: true },
     });
 
-    const property = await prisma.property.update({
-      where: { id: propertyId },
-      data: {
-        coverImageUrl: buildFileUrl(file.filename),
-      },
-      include: {
-        jobs: {
-          select: {
-            status: true,
-            dueDate: true,
-          },
-        },
-      },
-    });
+    let nextStoredName: string | null = null;
 
-    const previousStoredName = storedNameFromUrl(previous.coverImageUrl);
-    if (previousStoredName && previousStoredName !== file.filename) {
-      await deleteStoredFile(previousStoredName);
+    const property = await (async () => {
+      try {
+        nextStoredName = await uploadManagedFile(file, ['properties', propertyId, 'cover-image']);
+        return await prisma.property.update({
+          where: { id: propertyId },
+          data: {
+            coverImageUrl: nextStoredName,
+          },
+          include: {
+            jobs: {
+              select: {
+                status: true,
+                dueDate: true,
+              },
+            },
+          },
+        });
+      } catch (error) {
+        if (nextStoredName) {
+          await deleteManagedFile(nextStoredName);
+        }
+        throw error;
+      }
+    })();
+
+    const previousStoredName = managedStoredRefFromValue(previous.coverImageUrl);
+    if (previousStoredName && previousStoredName !== nextStoredName) {
+      await deleteManagedFile(previousStoredName);
     }
 
     response.json(serializePropertySummary(property));
@@ -2301,12 +2348,12 @@ app.delete(
       files
         .map((file) => file.storedName)
         .filter((storedName): storedName is string => Boolean(storedName))
-        .map((storedName) => deleteStoredFile(storedName)),
+        .map((storedName) => deleteManagedFile(storedName)),
     );
 
-    const coverImageStoredName = storedNameFromUrl(property.coverImageUrl);
+    const coverImageStoredName = managedStoredRefFromValue(property.coverImageUrl);
     if (coverImageStoredName) {
-      await deleteStoredFile(coverImageStoredName);
+      await deleteManagedFile(coverImageStoredName);
     }
 
     response.json({ message: 'Property deleted successfully.' });

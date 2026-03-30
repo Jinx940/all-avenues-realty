@@ -17,4 +17,20 @@ test('buildEnv parses booleans and cors origins safely', () => {
   assert.equal(env.SESSION_COOKIE_NAME, 'workspace_session');
   assert.deepEqual(env.allowedCorsOrigins, ['http://localhost:5173', 'https://app.example.com']);
   assert.equal(env.maxUploadSizeBytes, 15 * 1024 * 1024);
+  assert.equal(env.supabase, null);
+});
+
+test('buildEnv exposes Supabase storage settings only when all values are configured', () => {
+  const env = buildEnv({
+    DATABASE_URL: 'postgresql://user:pass@localhost:5432/all_avenues',
+    SUPABASE_URL: 'https://example.supabase.co',
+    SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_example',
+    SUPABASE_BUCKET: 'job-files',
+  });
+
+  assert.deepEqual(env.supabase, {
+    url: 'https://example.supabase.co',
+    serviceRoleKey: 'sb_secret_example',
+    bucket: 'job-files',
+  });
 });

@@ -24,6 +24,13 @@ const sanitizeFileName = (fileName: string) =>
     .replace(/^-|-$/g, '')
     .toLowerCase();
 
+export const createStoredUploadName = (originalName: string) => {
+  const extension = path.extname(originalName);
+  const baseName = path.basename(originalName, extension);
+  const safeBaseName = sanitizeFileName(baseName) || 'file';
+  return `${Date.now()}-${Math.round(Math.random() * 1e9)}-${safeBaseName}${extension}`;
+};
+
 export const isAllowedUploadFile = (
   fieldName: string,
   mimeType: string,
@@ -64,18 +71,6 @@ export const resolveStoredFilePath = (storedName: string) => {
   return path.resolve(env.uploadsDir, safeStoredName);
 };
 
-const storage = multer.diskStorage({
-  destination: (_request, _file, callback) => {
-    callback(null, env.uploadsDir);
-  },
-  filename: (_request, file, callback) => {
-    const extension = path.extname(file.originalname);
-    const baseName = path.basename(file.originalname, extension);
-    const safeBaseName = sanitizeFileName(baseName) || 'file';
-    callback(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}-${safeBaseName}${extension}`);
-  },
-});
-
 const fileFilter: multer.Options['fileFilter'] = (_request, file, callback) => {
   if (!isAllowedUploadFile(file.fieldname, file.mimetype, file.originalname)) {
     callback(
@@ -92,7 +87,7 @@ const fileFilter: multer.Options['fileFilter'] = (_request, file, callback) => {
 };
 
 export const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter,
   limits: {
     fileSize: env.maxUploadSizeBytes,
