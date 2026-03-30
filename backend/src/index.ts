@@ -2706,10 +2706,11 @@ app.use((error: unknown, _request: Request, response: Response, next: NextFuncti
 });
 
 let server: ReturnType<typeof app.listen>;
+const listenHost = '0.0.0.0';
 
 const start = async () => {
-  server = app.listen(env.API_PORT, () => {
-    console.log(`API listening on http://localhost:${env.API_PORT}`);
+  server = app.listen(env.API_PORT, listenHost, () => {
+    console.log(`API listening on http://${listenHost}:${env.API_PORT}`);
   });
 
   void prisma.user
