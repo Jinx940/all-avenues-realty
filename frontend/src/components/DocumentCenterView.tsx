@@ -84,6 +84,14 @@ const getDocumentPreviewMode = (item: DocumentCenterItem): DocumentPreviewMode =
   return 'unsupported';
 };
 
+const getDocumentDisplayName = (item: DocumentCenterItem) => {
+  if (item.kind === 'Receipt') {
+    return item.fileName;
+  }
+
+  return item.fileName.replace(/\.(html?|pdf)$/i, '');
+};
+
 export function DocumentCenterView({
   properties,
   jobs,
@@ -148,6 +156,7 @@ export function DocumentCenterView({
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();
     return items.filter((item) => {
+      const displayName = getDocumentDisplayName(item);
       if (propertyId && item.propertyId !== propertyId) return false;
       if (kind !== 'ALL' && item.kind !== kind) return false;
       if (owner !== 'ALL' && item.ownerLabel !== owner && item.kind !== 'Receipt') return false;
@@ -156,7 +165,7 @@ export function DocumentCenterView({
       if (!term) return true;
       const haystack = [
         item.documentNumber,
-        item.fileName,
+        displayName,
         item.propertyName,
         item.kind,
         item.ownerLabel,
@@ -306,7 +315,7 @@ export function DocumentCenterView({
                   <span>{item.ownerLabel}</span>
                   <span>
                     <strong>{item.propertyName}</strong>
-                    <small>{item.fileName}</small>
+                    <small>{getDocumentDisplayName(item)}</small>
                   </span>
                   <span>{formatDate(item.issueDate ?? item.createdAt)}</span>
                   <span>
@@ -361,6 +370,7 @@ function DocumentPreviewDialog({
   if (!item) return null;
 
   const previewMode = getDocumentPreviewMode(item);
+  const displayName = getDocumentDisplayName(item);
 
   return (
     <div className="document-preview-backdrop" role="presentation" onClick={onClose}>
@@ -374,7 +384,7 @@ function DocumentPreviewDialog({
         <div className="document-preview-head">
           <div className="document-preview-head-copy">
             <p className="eyebrow">Document preview</p>
-            <h2 id="document-preview-title">{item.fileName}</h2>
+            <h2 id="document-preview-title">{displayName}</h2>
             <p>{item.propertyName}</p>
           </div>
 
@@ -389,13 +399,13 @@ function DocumentPreviewDialog({
               <img
                 className="document-preview-image"
                 src={item.openUrl}
-                alt={item.fileName}
+                alt={displayName}
               />
             ) : previewMode === 'frame' ? (
               <iframe
                 className="document-preview-frame"
                 src={item.openUrl}
-                title={`Preview for ${item.fileName}`}
+                title={`Preview for ${displayName}`}
               />
             ) : (
               <div className="document-preview-empty">
