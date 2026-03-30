@@ -13,7 +13,11 @@ import type {
   PropertyStory,
   PropertyUnit,
 } from '../types';
-import { ProtectedAssetImage, type ProtectedAssetLoadState } from './ProtectedAssetImage';
+import {
+  ProtectedAssetImage,
+  type ProtectedAssetDimensions,
+  type ProtectedAssetLoadState,
+} from './ProtectedAssetImage';
 import { UiIcon, type UiIconName } from './UiIcon';
 
 type PropertyFormBaseState = {
@@ -133,6 +137,8 @@ export function PropertiesView({
       : -1;
   const [beforePhotoState, setBeforePhotoState] = useState<ProtectedAssetLoadState>('idle');
   const [afterPhotoState, setAfterPhotoState] = useState<ProtectedAssetLoadState>('idle');
+  const [beforePhotoDimensions, setBeforePhotoDimensions] = useState<ProtectedAssetDimensions | null>(null);
+  const [afterPhotoDimensions, setAfterPhotoDimensions] = useState<ProtectedAssetDimensions | null>(null);
   const comparePosition =
     activeScopeMatches && currentTimeline && galleryState.sectionId === currentTimeline.id
       ? galleryState.comparePosition
@@ -164,13 +170,24 @@ export function PropertiesView({
   const afterPhotoId = currentTimelineItem?.after?.file.id ?? '';
   const shouldShowAfterOnly = Boolean(currentTimelineItem?.after) && (!currentTimelineItem?.before || beforePhotoState === 'error');
   const shouldShowBeforeOnly = Boolean(currentTimelineItem?.before) && (!currentTimelineItem?.after || afterPhotoState === 'error');
+  const compareAspectRatio = Math.min(
+    Math.max(
+      beforePhotoDimensions ? beforePhotoDimensions.width / Math.max(beforePhotoDimensions.height, 1) : 1,
+      afterPhotoDimensions ? afterPhotoDimensions.width / Math.max(afterPhotoDimensions.height, 1) : 1,
+      0.85,
+    ),
+    1.8,
+  );
+  const compareStageMaxWidth = `${Math.round(360 * compareAspectRatio)}px`;
 
   useEffect(() => {
     setBeforePhotoState(currentTimelineItem?.before ? 'loading' : 'idle');
+    setBeforePhotoDimensions(null);
   }, [beforePhotoId]);
 
   useEffect(() => {
     setAfterPhotoState(currentTimelineItem?.after ? 'loading' : 'idle');
+    setAfterPhotoDimensions(null);
   }, [afterPhotoId]);
 
   const goToPreviousSlide = () => {
@@ -649,6 +666,7 @@ export function PropertiesView({
                       className={`before-after-compare ${
                         shouldShowAfterOnly || shouldShowBeforeOnly ? 'before-after-compare--single' : ''
                       }`.trim()}
+                      style={{ maxWidth: compareStageMaxWidth }}
                     >
                       {shouldShowAfterOnly ? (
                         <div className="before-after-stage before-after-stage--single">
@@ -658,6 +676,7 @@ export function PropertiesView({
                             alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
                             mimeType={currentTimelineItem?.after?.file.mimeType}
                             onStateChange={setAfterPhotoState}
+                            onDimensionsChange={setAfterPhotoDimensions}
                             loadingFallback={
                               <div className="before-after-empty">
                                 <strong>Loading after photo...</strong>
@@ -684,6 +703,7 @@ export function PropertiesView({
                             alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
                             mimeType={currentTimelineItem?.before?.file.mimeType}
                             onStateChange={setBeforePhotoState}
+                            onDimensionsChange={setBeforePhotoDimensions}
                             loadingFallback={
                               <div className="before-after-empty">
                                 <strong>Loading before photo...</strong>
@@ -715,6 +735,7 @@ export function PropertiesView({
                                 alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
                                 mimeType={currentTimelineItem.after.file.mimeType}
                                 onStateChange={setAfterPhotoState}
+                                onDimensionsChange={setAfterPhotoDimensions}
                                 loadingFallback={
                                   <div className="before-after-empty">
                                     <strong>Loading after photo...</strong>
@@ -747,6 +768,7 @@ export function PropertiesView({
                                 alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
                                 mimeType={currentTimelineItem.before.file.mimeType}
                                 onStateChange={setBeforePhotoState}
+                                onDimensionsChange={setBeforePhotoDimensions}
                                 loadingFallback={
                                   <div className="before-after-empty">
                                     <strong>Loading before photo...</strong>

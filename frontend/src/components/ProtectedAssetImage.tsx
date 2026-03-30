@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { useProtectedAssetUrl } from '../lib/protectedAsset';
 
 export type ProtectedAssetLoadState = 'idle' | 'loading' | 'ready' | 'error';
+export type ProtectedAssetDimensions = { width: number; height: number };
 
 export function ProtectedAssetImage({
   src,
@@ -11,6 +12,7 @@ export function ProtectedAssetImage({
   loadingFallback,
   errorFallback,
   onStateChange,
+  onDimensionsChange,
 }: {
   src: string | null;
   alt: string;
@@ -19,6 +21,7 @@ export function ProtectedAssetImage({
   loadingFallback?: ReactNode;
   errorFallback?: ReactNode | ((message: string) => ReactNode);
   onStateChange?: (state: ProtectedAssetLoadState) => void;
+  onDimensionsChange?: (dimensions: ProtectedAssetDimensions | null) => void;
 }) {
   const { assetUrl, isLoading, error } = useProtectedAssetUrl(src, mimeType);
 
@@ -35,6 +38,12 @@ export function ProtectedAssetImage({
 
     onStateChange?.(!assetUrl || error ? 'error' : 'ready');
   }, [assetUrl, error, isLoading, onStateChange, src]);
+
+  useEffect(() => {
+    if (!src || isLoading || !assetUrl || error) {
+      onDimensionsChange?.(null);
+    }
+  }, [assetUrl, error, isLoading, onDimensionsChange, src]);
 
   if (isLoading) {
     return (
@@ -58,5 +67,17 @@ export function ProtectedAssetImage({
     );
   }
 
-  return <img className={className} src={assetUrl} alt={alt} />;
+  return (
+    <img
+      className={className}
+      src={assetUrl}
+      alt={alt}
+      onLoad={(event) =>
+        onDimensionsChange?.({
+          width: event.currentTarget.naturalWidth,
+          height: event.currentTarget.naturalHeight,
+        })
+      }
+    />
+  );
 }
