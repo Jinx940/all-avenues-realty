@@ -2145,7 +2145,7 @@ textarea {
 
 .before-after-compare {
   position: relative;
-  height: 360px;
+  height: 420px;
   width: 100%;
   margin: 0 auto;
   border: 1px solid var(--line);
@@ -5891,7 +5891,7 @@ textarea {
 
 .tracker-compare-stage {
   position: relative;
-  height: 520px;
+  height: 580px;
   width: 100%;
   margin: 0 auto;
   border: 1px solid rgba(42, 56, 68, 0.72);
@@ -7290,9 +7290,16 @@ input.invoice-service-check:focus-visible {
   .property-hero-image,
   .property-image-placeholder,
   .property-map-frame,
-  .carousel-image,
-  .before-after-compare {
+  .carousel-image {
     height: 240px;
+  }
+
+  .before-after-compare {
+    height: 280px;
+  }
+
+  .tracker-compare-stage {
+    height: 420px;
   }
 
   .job-workers-list {
