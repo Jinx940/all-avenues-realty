@@ -492,12 +492,12 @@ export function PropertiesView({
                           <span>Please wait while the saved image opens.</span>
                         </div>
                       }
-                      errorFallback={
+                      errorFallback={(message) => (
                         <div className="image-placeholder property-image-placeholder">
                           <strong>Could not load property photo</strong>
-                          <span>Re-upload the image or open the file in a new tab to inspect it.</span>
+                          <span>{message}</span>
                         </div>
-                      }
+                      )}
                     />
                   ) : (
                     <div className="image-placeholder property-image-placeholder">
@@ -645,12 +645,12 @@ export function PropertiesView({
                                 <span>Please wait while the file opens.</span>
                               </div>
                             }
-                            errorFallback={
+                            errorFallback={(message) => (
                               <div className="before-after-empty">
                                 <strong>Could not load the after photo</strong>
-                                <span>Open the file from the job to inspect it in a new tab.</span>
+                                <span>{message}</span>
                               </div>
-                            }
+                            )}
                           />
                         ) : (
                           <div className="before-after-empty">
@@ -676,12 +676,12 @@ export function PropertiesView({
                                 <span>Please wait while the file opens.</span>
                               </div>
                             }
-                            errorFallback={
+                            errorFallback={(message) => (
                               <div className="before-after-empty">
                                 <strong>Could not load the before photo</strong>
-                                <span>Open the file from the job to inspect it in a new tab.</span>
+                                <span>{message}</span>
                               </div>
-                            }
+                            )}
                           />
                         ) : (
                           <div className="before-after-empty">

@@ -280,6 +280,8 @@ const normalizedPropertyCoverInput = (
   return raw === buildPropertyCoverUrl(propertyId) ? previousValue : raw;
 };
 
+const isExternalUrl = (value: string | null | undefined) => /^https?:\/\//i.test(String(value ?? '').trim());
+
 const setNoStore = (response: Response) => {
   response.setHeader('Cache-Control', 'no-store');
 };
@@ -630,7 +632,11 @@ const serializePropertySummary = (property: {
     address: property.address,
     cityLine: property.cityLine,
     notes: property.notes,
-    coverImageUrl: property.coverImageUrl ? buildPropertyCoverUrl(property.id) : null,
+    coverImageUrl: property.coverImageUrl
+      ? isExternalUrl(property.coverImageUrl)
+        ? property.coverImageUrl
+        : buildPropertyCoverUrl(property.id)
+      : null,
     ...propertySpecsFrom(derivedSpecs),
     stories,
     totalJobs: property.jobs.length,
@@ -1148,6 +1154,12 @@ app.get(
       return;
     }
 
+    const storedFilePath = resolveStoredFilePath(file.storedName);
+    if (!fs.existsSync(storedFilePath)) {
+      response.status(404).json({ message: 'Stored file is missing from the server disk.' });
+      return;
+    }
+
     if (file.mimeType === 'application/pdf' && previewMode && !rawMode) {
       const previewResponse = buildPdfPreviewResponse(
         `${buildJobFileUrl(fileId)}?raw=1`,
@@ -1166,7 +1178,7 @@ app.get(
     response.setHeader('Content-Type', file.mimeType);
     response.setHeader('Content-Disposition', `inline; filename="${file.originalName.replace(/"/g, '')}"`);
     response.setHeader('X-Content-Type-Options', 'nosniff');
-    response.sendFile(resolveStoredFilePath(file.storedName));
+    response.sendFile(storedFilePath);
   }),
 );
 
@@ -1192,13 +1204,24 @@ app.get(
 
     const storedName = storedNameFromUrl(property?.coverImageUrl);
     if (!storedName) {
+      if (property?.coverImageUrl && isExternalUrl(property.coverImageUrl)) {
+        response.redirect(property.coverImageUrl);
+        return;
+      }
+
       response.status(404).json({ message: 'Cover image not found.' });
+      return;
+    }
+
+    const coverImagePath = resolveStoredFilePath(storedName);
+    if (!fs.existsSync(coverImagePath)) {
+      response.status(404).json({ message: 'Stored cover image is missing from the server disk.' });
       return;
     }
 
     response.setHeader('Cache-Control', 'private, max-age=60');
     response.setHeader('X-Content-Type-Options', 'nosniff');
-    response.sendFile(resolveStoredFilePath(storedName));
+    response.sendFile(coverImagePath);
   }),
 );
 

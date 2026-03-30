@@ -560,12 +560,12 @@ function TrackerReceiptPreviewDialog({
                     <span>Please wait while the saved file opens.</span>
                   </div>
                 }
-                errorFallback={
+                errorFallback={(message) => (
                   <div className="document-preview-empty">
                     <strong>Could not load this receipt image</strong>
-                    <span>Use Download to inspect the file on your device.</span>
+                    <span>{message}</span>
                   </div>
-                }
+                )}
               />
             ) : previewMode === 'pdf' ? (
               <ProtectedAssetFrame
@@ -579,12 +579,12 @@ function TrackerReceiptPreviewDialog({
                     <span>Please wait while the saved file opens.</span>
                   </div>
                 }
-                errorFallback={
+                errorFallback={(message) => (
                   <div className="document-preview-empty">
                     <strong>Could not load this receipt PDF</strong>
-                    <span>Use Download to inspect the file on your device.</span>
+                    <span>{message}</span>
                   </div>
-                }
+                )}
               />
             ) : previewMode === 'frame' ? (
               <ProtectedAssetFrame
@@ -598,12 +598,12 @@ function TrackerReceiptPreviewDialog({
                     <span>Please wait while the saved file opens.</span>
                   </div>
                 }
-                errorFallback={
+                errorFallback={(message) => (
                   <div className="document-preview-empty">
                     <strong>Could not load this receipt preview</strong>
-                    <span>Use Download to inspect the file on your device.</span>
+                    <span>{message}</span>
                   </div>
-                }
+                )}
               />
             ) : (
               <div className="document-preview-empty">
@@ -804,12 +804,12 @@ function TrackerMediaDialog({
                           <span>Please wait while the file opens.</span>
                         </div>
                       }
-                      errorFallback={
+                      errorFallback={(message) => (
                         <div className="tracker-compare-empty">
                           <strong>Could not load the after photo</strong>
-                          <span>Open the file in a new tab to inspect it.</span>
+                          <span>{message}</span>
                         </div>
-                      }
+                      )}
                     />
                   ) : (
                     <div className="tracker-compare-empty">
@@ -835,12 +835,12 @@ function TrackerMediaDialog({
                           <span>Please wait while the file opens.</span>
                         </div>
                       }
-                      errorFallback={
+                      errorFallback={(message) => (
                         <div className="tracker-compare-empty">
                           <strong>Could not load the before photo</strong>
-                          <span>Open the file in a new tab to inspect it.</span>
+                          <span>{message}</span>
                         </div>
-                      }
+                      )}
                     />
                   ) : (
                     <div className="tracker-compare-empty">
@@ -914,12 +914,12 @@ function TrackerMediaDialog({
                           <span>Please wait while the file opens.</span>
                         </div>
                       }
-                      errorFallback={
+                      errorFallback={(message) => (
                         <div className="tracker-compare-empty">
                           <strong>Could not load this progress photo</strong>
-                          <span>Open the file in a new tab to inspect it.</span>
+                          <span>{message}</span>
                         </div>
-                      }
+                      )}
                     />
                     <div className="tracker-progress-copy">
                       <strong>{file.name}</strong>

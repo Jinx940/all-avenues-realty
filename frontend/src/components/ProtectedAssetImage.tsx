@@ -14,7 +14,7 @@ export function ProtectedAssetImage({
   className: string;
   mimeType?: string;
   loadingFallback?: ReactNode;
-  errorFallback?: ReactNode;
+  errorFallback?: ReactNode | ((message: string) => ReactNode);
 }) {
   const { assetUrl, isLoading, error } = useProtectedAssetUrl(src, mimeType);
 
@@ -29,10 +29,12 @@ export function ProtectedAssetImage({
   }
 
   if (!assetUrl || error) {
+    const errorMessage = error || 'Could not load the protected file.';
     return (
-      errorFallback ?? (
+      (typeof errorFallback === 'function' ? errorFallback(errorMessage) : errorFallback) ?? (
         <div className={`${className} protected-asset-shell`.trim()}>
           <strong>Image unavailable</strong>
+          <span>{errorMessage}</span>
         </div>
       )
     );

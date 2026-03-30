@@ -48,12 +48,19 @@ const readIssueDetails = (payload: unknown) => {
 };
 
 const readErrorMessage = async (response: Response) => {
+  const clonedResponse = response.clone();
   const payload = await response.json().catch(() => null);
   if (payload && typeof payload === 'object' && 'message' in payload && payload.message) {
     const issueDetails = readIssueDetails(payload);
     return issueDetails.length
       ? `${String(payload.message)}. ${issueDetails.join(' | ')}`
       : String(payload.message);
+  }
+
+  const textFallback = await clonedResponse.text().catch(() => '');
+  const normalizedText = textFallback.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (normalizedText) {
+    return normalizedText.length > 220 ? `${normalizedText.slice(0, 217)}...` : normalizedText;
   }
 
   return `${response.status} ${response.statusText}`;

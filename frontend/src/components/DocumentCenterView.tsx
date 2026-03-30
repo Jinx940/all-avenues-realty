@@ -410,12 +410,12 @@ function DocumentPreviewDialog({
                     <span>Please wait while the saved file opens.</span>
                   </div>
                 }
-                errorFallback={
+                errorFallback={(message) => (
                   <div className="document-preview-empty">
                     <strong>Could not load this image preview</strong>
-                    <span>Use Open or Download to inspect the file on your device.</span>
+                    <span>{message}</span>
                   </div>
-                }
+                )}
               />
             ) : previewMode === 'pdf' ? (
               <ProtectedAssetFrame
@@ -429,12 +429,12 @@ function DocumentPreviewDialog({
                     <span>Please wait while the saved file opens.</span>
                   </div>
                 }
-                errorFallback={
+                errorFallback={(message) => (
                   <div className="document-preview-empty">
                     <strong>Could not load this PDF preview</strong>
-                    <span>Use Open or Download to inspect the file on your device.</span>
+                    <span>{message}</span>
                   </div>
-                }
+                )}
               />
             ) : previewMode === 'frame' ? (
               <ProtectedAssetFrame
@@ -448,12 +448,12 @@ function DocumentPreviewDialog({
                     <span>Please wait while the saved file opens.</span>
                   </div>
                 }
-                errorFallback={
+                errorFallback={(message) => (
                   <div className="document-preview-empty">
                     <strong>Could not load this document preview</strong>
-                    <span>Use Open or Download to inspect the file on your device.</span>
+                    <span>{message}</span>
                   </div>
-                }
+                )}
               />
             ) : (
               <div className="document-preview-empty">
