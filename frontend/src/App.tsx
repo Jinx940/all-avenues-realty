@@ -357,14 +357,21 @@ function AdvanceCashAlertsBell({
 
       const rect = buttonRef.current.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
       const width = Math.min(460, Math.max(320, viewportWidth - 28));
       const left = Math.min(
         Math.max(14, rect.right - width),
         Math.max(14, viewportWidth - width - 14),
       );
+      const estimatedPanelHeight = panelRef.current?.offsetHeight ?? 520;
+      const preferredTop = rect.bottom + 12;
+      const top =
+        preferredTop + estimatedPanelHeight > viewportHeight - 14
+          ? Math.max(14, rect.top - estimatedPanelHeight - 12)
+          : preferredTop;
 
       setPanelStyle({
-        top: rect.bottom + 12,
+        top,
         left,
         width,
       });
@@ -403,7 +410,7 @@ function AdvanceCashAlertsBell({
   }, [isOpen]);
 
   return (
-    <div ref={rootRef} className={`advance-cash-bell ${isOpen ? 'is-open' : ''}`.trim()}>
+    <div ref={rootRef} className={`advance-cash-bell advance-cash-bell--floating ${isOpen ? 'is-open' : ''}`.trim()}>
       <button
         ref={buttonRef}
         type="button"
