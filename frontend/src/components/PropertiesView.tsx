@@ -704,7 +704,10 @@ export function PropertiesView({
                         </div>
                       ) : (
                         <>
-                          <div className="before-after-stage before-after-stage--after">
+                          <div
+                            className="before-after-stage before-after-stage--after"
+                            style={{ clipPath: `inset(0 0 0 ${comparePosition}%)` }}
+                          >
                             {currentTimelineItem?.after ? (
                               <ProtectedAssetImage
                                 className="before-after-image"

@@ -863,7 +863,10 @@ function TrackerMediaDialog({
                   </div>
                 ) : (
                   <>
-                    <div className="tracker-compare-panel tracker-compare-panel--after">
+                    <div
+                      className="tracker-compare-panel tracker-compare-panel--after"
+                      style={{ clipPath: `inset(0 0 0 ${comparePosition}%)` }}
+                    >
                       {compareAfter ? (
                         <ProtectedAssetImage
                           className="tracker-compare-image"
