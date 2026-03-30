@@ -2181,10 +2181,25 @@ textarea {
 
 .before-after-stage--before {
   z-index: 2;
+  justify-items: start;
+  padding: 18px 0 18px 18px;
+  box-sizing: border-box;
 }
 
 .before-after-stage--after {
   z-index: 1;
+  justify-items: end;
+  padding: 18px 18px 18px 0;
+  box-sizing: border-box;
+}
+
+.before-after-stage--before .before-after-image,
+.before-after-stage--before .before-after-empty,
+.before-after-stage--after .before-after-image,
+.before-after-stage--after .before-after-empty {
+  width: 100%;
+  max-width: calc(50% - 12px);
+  height: 100%;
 }
 
 .before-after-image {
@@ -5923,10 +5938,25 @@ textarea {
 
 .tracker-compare-panel--before {
   z-index: 2;
+  justify-items: start;
+  padding: 20px 0 20px 20px;
+  box-sizing: border-box;
 }
 
 .tracker-compare-panel--after {
   z-index: 1;
+  justify-items: end;
+  padding: 20px 20px 20px 0;
+  box-sizing: border-box;
+}
+
+.tracker-compare-panel--before .tracker-compare-image,
+.tracker-compare-panel--before .tracker-compare-empty,
+.tracker-compare-panel--after .tracker-compare-image,
+.tracker-compare-panel--after .tracker-compare-empty {
+  width: 100%;
+  max-width: calc(50% - 14px);
+  height: 100%;
 }
 
 .tracker-compare-image {
