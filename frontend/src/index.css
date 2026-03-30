@@ -2192,7 +2192,8 @@ textarea {
 
 .before-after-stage--before .before-after-image,
 .before-after-stage--after .before-after-image {
-  padding: 52px clamp(60px, 18%, 96px);
+  padding: 42px clamp(60px, 18%, 96px) 66px;
+  object-position: center 46%;
 }
 
 .before-after-image {
@@ -5944,7 +5945,8 @@ textarea {
 
 .tracker-compare-panel--before .tracker-compare-image,
 .tracker-compare-panel--after .tracker-compare-image {
-  padding: 64px clamp(72px, 16%, 128px);
+  padding: 54px clamp(72px, 16%, 128px) 84px;
+  object-position: center 46%;
 }
 
 .tracker-compare-image {

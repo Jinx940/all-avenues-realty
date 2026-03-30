@@ -53,7 +53,8 @@ const getPropertyCompareImageStyle = (
   const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
   if (aspectRatio < 0.95) return undefined;
   return {
-    padding: 'clamp(66px, 16%, 84px) clamp(60px, 18%, 96px)',
+    padding: 'clamp(56px, 14%, 74px) clamp(60px, 18%, 96px) clamp(82px, 20%, 104px)',
+    objectPosition: 'center 46%',
   };
 };
 

@@ -46,7 +46,8 @@ const getTrackerCompareImageStyle = (
   const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
   if (aspectRatio < 0.95) return undefined;
   return {
-    padding: 'clamp(82px, 15%, 108px) clamp(72px, 16%, 128px)',
+    padding: 'clamp(70px, 13%, 92px) clamp(72px, 16%, 128px) clamp(98px, 19%, 122px)',
+    objectPosition: 'center 46%',
   };
 };
 
