@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react';
+import { useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react';
 import { formatAreaServiceLabel, formatJobLocationSummary, formatStoryDisplayLabel } from '../lib/jobLocation';
 import { paymentStatusColor, workStatusColor } from '../lib/statusVisuals';
 import {
@@ -13,11 +13,11 @@ import type {
   PropertyStory,
   PropertyUnit,
 } from '../types';
+import { ProtectedAssetImage } from './ProtectedAssetImage';
 import {
-  ProtectedAssetImage,
   type ProtectedAssetDimensions,
-  type ProtectedAssetLoadState,
-} from './ProtectedAssetImage';
+  useProtectedAssetRenderState,
+} from './protectedAssetState';
 import { UiIcon, type UiIconName } from './UiIcon';
 
 type PropertyFormBaseState = {
@@ -147,10 +147,6 @@ export function PropertiesView({
     currentTimeline && currentTimelineItem
       ? currentTimeline.items.findIndex((item) => item.id === currentTimelineItem.id)
       : -1;
-  const [beforePhotoState, setBeforePhotoState] = useState<ProtectedAssetLoadState>('idle');
-  const [afterPhotoState, setAfterPhotoState] = useState<ProtectedAssetLoadState>('idle');
-  const [beforePhotoDimensions, setBeforePhotoDimensions] = useState<ProtectedAssetDimensions | null>(null);
-  const [afterPhotoDimensions, setAfterPhotoDimensions] = useState<ProtectedAssetDimensions | null>(null);
   const comparePosition =
     activeScopeMatches && currentTimeline && galleryState.sectionId === currentTimeline.id
       ? galleryState.comparePosition
@@ -180,9 +176,15 @@ export function PropertiesView({
   );
   const beforePhotoId = currentTimelineItem?.before?.file.id ?? '';
   const afterPhotoId = currentTimelineItem?.after?.file.id ?? '';
-  const shouldShowAfterOnly = Boolean(currentTimelineItem?.after) && (!currentTimelineItem?.before || beforePhotoState === 'error');
-  const shouldShowBeforeOnly = Boolean(currentTimelineItem?.before) && (!currentTimelineItem?.after || afterPhotoState === 'error');
-  const availableAspectRatios = [beforePhotoDimensions, afterPhotoDimensions]
+  const beforePhoto = useProtectedAssetRenderState(beforePhotoId, Boolean(currentTimelineItem?.before));
+  const afterPhoto = useProtectedAssetRenderState(afterPhotoId, Boolean(currentTimelineItem?.after));
+  const shouldShowAfterOnly =
+    Boolean(currentTimelineItem?.after) &&
+    (!currentTimelineItem?.before || beforePhoto.loadState === 'error');
+  const shouldShowBeforeOnly =
+    Boolean(currentTimelineItem?.before) &&
+    (!currentTimelineItem?.after || afterPhoto.loadState === 'error');
+  const availableAspectRatios = [beforePhoto.dimensions, afterPhoto.dimensions]
     .filter((dimensions): dimensions is ProtectedAssetDimensions => Boolean(dimensions))
     .map((dimensions) => dimensions.width / Math.max(dimensions.height, 1));
   const compareAspectRatio = Math.min(
@@ -194,18 +196,8 @@ export function PropertiesView({
   );
   const compareStageDisplayAspectRatio = Math.max(compareAspectRatio, 1.25);
   const compareStageMaxWidth = `${Math.round(420 * compareStageDisplayAspectRatio)}px`;
-  const beforeCompareImageStyle = getPropertyCompareImageStyle(beforePhotoDimensions);
-  const afterCompareImageStyle = getPropertyCompareImageStyle(afterPhotoDimensions);
-
-  useEffect(() => {
-    setBeforePhotoState(currentTimelineItem?.before ? 'loading' : 'idle');
-    setBeforePhotoDimensions(null);
-  }, [beforePhotoId]);
-
-  useEffect(() => {
-    setAfterPhotoState(currentTimelineItem?.after ? 'loading' : 'idle');
-    setAfterPhotoDimensions(null);
-  }, [afterPhotoId]);
+  const beforeCompareImageStyle = getPropertyCompareImageStyle(beforePhoto.dimensions);
+  const afterCompareImageStyle = getPropertyCompareImageStyle(afterPhoto.dimensions);
 
   const goToPreviousSlide = () => {
     if (!timelineSections.length) return;
@@ -693,8 +685,8 @@ export function PropertiesView({
                             alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
                             mimeType={currentTimelineItem?.after?.file.mimeType}
                             style={afterCompareImageStyle}
-                            onStateChange={setAfterPhotoState}
-                            onDimensionsChange={setAfterPhotoDimensions}
+                            onStateChange={afterPhoto.handleStateChange}
+                            onDimensionsChange={afterPhoto.handleDimensionsChange}
                             loadingFallback={
                               <div className="before-after-empty">
                                 <strong>Loading after photo...</strong>
@@ -721,8 +713,8 @@ export function PropertiesView({
                             alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
                             mimeType={currentTimelineItem?.before?.file.mimeType}
                             style={beforeCompareImageStyle}
-                            onStateChange={setBeforePhotoState}
-                            onDimensionsChange={setBeforePhotoDimensions}
+                            onStateChange={beforePhoto.handleStateChange}
+                            onDimensionsChange={beforePhoto.handleDimensionsChange}
                             loadingFallback={
                               <div className="before-after-empty">
                                 <strong>Loading before photo...</strong>
@@ -754,8 +746,8 @@ export function PropertiesView({
                                 alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
                                 mimeType={currentTimelineItem.after.file.mimeType}
                                 style={afterCompareImageStyle}
-                                onStateChange={setAfterPhotoState}
-                                onDimensionsChange={setAfterPhotoDimensions}
+                                onStateChange={afterPhoto.handleStateChange}
+                                onDimensionsChange={afterPhoto.handleDimensionsChange}
                                 loadingFallback={
                                   <div className="before-after-empty">
                                     <strong>Loading after photo...</strong>
@@ -788,8 +780,8 @@ export function PropertiesView({
                                 alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
                                 mimeType={currentTimelineItem.before.file.mimeType}
                                 style={beforeCompareImageStyle}
-                                onStateChange={setBeforePhotoState}
-                                onDimensionsChange={setBeforePhotoDimensions}
+                                onStateChange={beforePhoto.handleStateChange}
+                                onDimensionsChange={beforePhoto.handleDimensionsChange}
                                 loadingFallback={
                                   <div className="before-after-empty">
                                     <strong>Loading before photo...</strong>

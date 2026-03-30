@@ -6,11 +6,11 @@ import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
 import { getWorkerAccentClass } from '../lib/workerVisuals';
 import type { BootstrapPayload, JobFile, JobRow, Tone } from '../types';
 import { ProtectedAssetFrame } from './ProtectedAssetFrame';
+import { ProtectedAssetImage } from './ProtectedAssetImage';
 import {
-  ProtectedAssetImage,
   type ProtectedAssetDimensions,
-  type ProtectedAssetLoadState,
-} from './ProtectedAssetImage';
+  useProtectedAssetRenderState,
+} from './protectedAssetState';
 import { UiIcon } from './UiIcon';
 
 const timelineOptions = [
@@ -776,10 +776,6 @@ function TrackerMediaDialog({
   onClose: () => void;
 }) {
   const [comparePosition, setComparePosition] = useState(50);
-  const [beforePhotoState, setBeforePhotoState] = useState<ProtectedAssetLoadState>('idle');
-  const [afterPhotoState, setAfterPhotoState] = useState<ProtectedAssetLoadState>('idle');
-  const [beforePhotoDimensions, setBeforePhotoDimensions] = useState<ProtectedAssetDimensions | null>(null);
-  const [afterPhotoDimensions, setAfterPhotoDimensions] = useState<ProtectedAssetDimensions | null>(null);
 
   const compareBefore = state?.job.files.before[0] ?? null;
   const compareAfter = state?.job.files.after[0] ?? null;
@@ -797,9 +793,13 @@ function TrackerMediaDialog({
     .join(' | ');
   const compareBeforeId = compareBefore?.id ?? '';
   const compareAfterId = compareAfter?.id ?? '';
-  const shouldShowAfterOnly = Boolean(compareAfter) && (!compareBefore || beforePhotoState === 'error');
-  const shouldShowBeforeOnly = Boolean(compareBefore) && (!compareAfter || afterPhotoState === 'error');
-  const availableAspectRatios = [beforePhotoDimensions, afterPhotoDimensions]
+  const beforePhoto = useProtectedAssetRenderState(compareBeforeId, Boolean(compareBefore));
+  const afterPhoto = useProtectedAssetRenderState(compareAfterId, Boolean(compareAfter));
+  const shouldShowAfterOnly =
+    Boolean(compareAfter) && (!compareBefore || beforePhoto.loadState === 'error');
+  const shouldShowBeforeOnly =
+    Boolean(compareBefore) && (!compareAfter || afterPhoto.loadState === 'error');
+  const availableAspectRatios = [beforePhoto.dimensions, afterPhoto.dimensions]
     .filter((dimensions): dimensions is ProtectedAssetDimensions => Boolean(dimensions))
     .map((dimensions) => dimensions.width / Math.max(dimensions.height, 1));
   const compareAspectRatio = Math.min(
@@ -811,18 +811,8 @@ function TrackerMediaDialog({
   );
   const compareStageDisplayAspectRatio = Math.max(compareAspectRatio, 1.25);
   const compareStageMaxWidth = `${Math.round(580 * compareStageDisplayAspectRatio)}px`;
-  const beforeCompareImageStyle = getTrackerCompareImageStyle(beforePhotoDimensions);
-  const afterCompareImageStyle = getTrackerCompareImageStyle(afterPhotoDimensions);
-
-  useEffect(() => {
-    setBeforePhotoState(compareBefore ? 'loading' : 'idle');
-    setBeforePhotoDimensions(null);
-  }, [compareBeforeId]);
-
-  useEffect(() => {
-    setAfterPhotoState(compareAfter ? 'loading' : 'idle');
-    setAfterPhotoDimensions(null);
-  }, [compareAfterId]);
+  const beforeCompareImageStyle = getTrackerCompareImageStyle(beforePhoto.dimensions);
+  const afterCompareImageStyle = getTrackerCompareImageStyle(afterPhoto.dimensions);
 
   if (!state) return null;
 
@@ -866,8 +856,8 @@ function TrackerMediaDialog({
                       alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
                       mimeType={compareAfter?.mimeType}
                       style={afterCompareImageStyle}
-                      onStateChange={setAfterPhotoState}
-                      onDimensionsChange={setAfterPhotoDimensions}
+                      onStateChange={afterPhoto.handleStateChange}
+                      onDimensionsChange={afterPhoto.handleDimensionsChange}
                       loadingFallback={
                         <div className="tracker-compare-empty">
                           <strong>Loading after photo...</strong>
@@ -894,8 +884,8 @@ function TrackerMediaDialog({
                       alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
                       mimeType={compareBefore?.mimeType}
                       style={beforeCompareImageStyle}
-                      onStateChange={setBeforePhotoState}
-                      onDimensionsChange={setBeforePhotoDimensions}
+                      onStateChange={beforePhoto.handleStateChange}
+                      onDimensionsChange={beforePhoto.handleDimensionsChange}
                       loadingFallback={
                         <div className="tracker-compare-empty">
                           <strong>Loading before photo...</strong>
@@ -927,8 +917,8 @@ function TrackerMediaDialog({
                           alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
                           mimeType={compareAfter.mimeType}
                           style={afterCompareImageStyle}
-                          onStateChange={setAfterPhotoState}
-                          onDimensionsChange={setAfterPhotoDimensions}
+                          onStateChange={afterPhoto.handleStateChange}
+                          onDimensionsChange={afterPhoto.handleDimensionsChange}
                           loadingFallback={
                             <div className="tracker-compare-empty">
                               <strong>Loading after photo...</strong>
@@ -961,8 +951,8 @@ function TrackerMediaDialog({
                           alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
                           mimeType={compareBefore.mimeType}
                           style={beforeCompareImageStyle}
-                          onStateChange={setBeforePhotoState}
-                          onDimensionsChange={setBeforePhotoDimensions}
+                          onStateChange={beforePhoto.handleStateChange}
+                          onDimensionsChange={beforePhoto.handleDimensionsChange}
                           loadingFallback={
                             <div className="tracker-compare-empty">
                               <strong>Loading before photo...</strong>

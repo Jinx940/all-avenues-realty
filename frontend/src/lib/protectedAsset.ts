@@ -34,34 +34,29 @@ const withMimeType = async (blob: Blob, forcedMimeType?: string) => {
   return new Blob([await blob.arrayBuffer()], { type: forcedMimeType });
 };
 
+type ProtectedAssetRequestState = {
+  requestKey: string;
+  assetUrl: string | null;
+  error: string | null;
+};
+
 export const useProtectedAssetUrl = (sourceUrl: string | null, forcedMimeType?: string) => {
-  const [assetUrl, setAssetUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [requestState, setRequestState] = useState<ProtectedAssetRequestState>({
+    requestKey: '',
+    assetUrl: null,
+    error: null,
+  });
+  const resolvedSourceUrl = sourceUrl ? buildAssetUrl(sourceUrl) : null;
+  const shouldFetchAsBlob = resolvedSourceUrl ? shouldLoadAsBlob(resolvedSourceUrl) : false;
+  const requestKey = resolvedSourceUrl ? `${resolvedSourceUrl}::${forcedMimeType ?? ''}` : '';
 
   useEffect(() => {
-    const resolvedSourceUrl = sourceUrl ? buildAssetUrl(sourceUrl) : null;
-
-    if (!resolvedSourceUrl) {
-      setAssetUrl(null);
-      setIsLoading(false);
-      setError(null);
-      return undefined;
-    }
-
-    if (!shouldLoadAsBlob(resolvedSourceUrl)) {
-      setAssetUrl(resolvedSourceUrl);
-      setIsLoading(false);
-      setError(null);
+    if (!resolvedSourceUrl || !shouldFetchAsBlob) {
       return undefined;
     }
 
     let isActive = true;
     let nextObjectUrl: string | null = null;
-
-    setAssetUrl(null);
-    setIsLoading(true);
-    setError(null);
 
     void fetchAssetBlob(resolvedSourceUrl)
       .then((blob) => withMimeType(blob, forcedMimeType))
@@ -73,14 +68,41 @@ export const useProtectedAssetUrl = (sourceUrl: string | null, forcedMimeType?: 
         }
 
         nextObjectUrl = objectUrl;
-        setAssetUrl(objectUrl);
-        setIsLoading(false);
+        setRequestState((currentState) => {
+          if (
+            currentState.requestKey === requestKey &&
+            currentState.assetUrl === objectUrl &&
+            currentState.error === null
+          ) {
+            return currentState;
+          }
+
+          return {
+            requestKey,
+            assetUrl: objectUrl,
+            error: null,
+          };
+        });
       })
       .catch((loadError) => {
         if (!isActive) return;
-        setAssetUrl(null);
-        setIsLoading(false);
-        setError(loadError instanceof Error ? loadError.message : 'Could not load the protected file.');
+        const errorMessage =
+          loadError instanceof Error ? loadError.message : 'Could not load the protected file.';
+        setRequestState((currentState) => {
+          if (
+            currentState.requestKey === requestKey &&
+            currentState.assetUrl === null &&
+            currentState.error === errorMessage
+          ) {
+            return currentState;
+          }
+
+          return {
+            requestKey,
+            assetUrl: null,
+            error: errorMessage,
+          };
+        });
       });
 
     return () => {
@@ -89,7 +111,23 @@ export const useProtectedAssetUrl = (sourceUrl: string | null, forcedMimeType?: 
         URL.revokeObjectURL(nextObjectUrl);
       }
     };
-  }, [sourceUrl, forcedMimeType]);
+  }, [forcedMimeType, requestKey, resolvedSourceUrl, shouldFetchAsBlob]);
 
-  return { assetUrl, isLoading, error };
+  if (!resolvedSourceUrl) {
+    return { assetUrl: null, isLoading: false, error: null };
+  }
+
+  if (!shouldFetchAsBlob) {
+    return { assetUrl: resolvedSourceUrl, isLoading: false, error: null };
+  }
+
+  if (requestState.requestKey !== requestKey) {
+    return { assetUrl: null, isLoading: true, error: null };
+  }
+
+  return {
+    assetUrl: requestState.assetUrl,
+    isLoading: false,
+    error: requestState.error,
+  };
 };

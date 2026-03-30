@@ -1,8 +1,6 @@
 import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { useProtectedAssetUrl } from '../lib/protectedAsset';
-
-export type ProtectedAssetLoadState = 'idle' | 'loading' | 'ready' | 'error';
-export type ProtectedAssetDimensions = { width: number; height: number };
+import type { ProtectedAssetDimensions, ProtectedAssetLoadState } from './protectedAssetState';
 
 export function ProtectedAssetImage({
   src,

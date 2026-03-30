@@ -412,11 +412,18 @@ function AdvanceCashAlertsBell({
   }, [isOpen]);
 
   const bellWidget = (
-    <div ref={rootRef} className={`advance-cash-bell advance-cash-bell--floating ${isOpen ? 'is-open' : ''}`.trim()}>
+    <div
+      ref={rootRef}
+      className={`advance-cash-bell advance-cash-bell--floating ${
+        alerts.length ? 'has-alerts' : ''
+      } ${overdueCount ? 'has-overdue' : ''} ${isOpen ? 'is-open' : ''}`.trim()}
+    >
       <button
         ref={buttonRef}
         type="button"
-        className={`advance-cash-bell-button ${overdueCount ? 'has-overdue' : ''}`.trim()}
+        className={`advance-cash-bell-button ${
+          alerts.length ? 'has-alerts' : ''
+        } ${overdueCount ? 'has-overdue' : ''}`.trim()}
         onClick={() => setIsOpen((current) => !current)}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
@@ -1610,14 +1617,6 @@ export default function App() {
             onOpenSettings={() => setActiveTab('settings')}
             canCreateJob={canManageJobs(currentUser)}
             canOpenSettings={canAdmin(currentUser)}
-            advanceCashAlertsSlot={
-              showAdvanceCashAlerts ? (
-                <AdvanceCashAlertsBell
-                  alerts={advanceCashAlerts}
-                  onOpenJob={openAdvanceCashAlertJob}
-                />
-              ) : null
-            }
           />
         ) : null}
 
@@ -1799,6 +1798,13 @@ export default function App() {
           onCancel={closeConfirmDialog}
         />
       </section>
+
+      {showAdvanceCashAlerts ? (
+        <AdvanceCashAlertsBell
+          alerts={advanceCashAlerts}
+          onOpenJob={openAdvanceCashAlertJob}
+        />
+      ) : null}
     </main>
   );
 }

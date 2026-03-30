@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { paymentStatusColor, workStatusColor } from '../lib/statusVisuals';
 import type { ChartDatum, DashboardPayload, JobRow, Tone } from '../types';
 import { formatMoney } from '../lib/format';
@@ -21,7 +21,6 @@ export function DashboardView({
   onOpenSettings,
   canCreateJob,
   canOpenSettings,
-  advanceCashAlertsSlot,
 }: {
   dashboard: DashboardPayload | null;
   jobs: JobRow[];
@@ -29,7 +28,6 @@ export function DashboardView({
   onOpenSettings: () => void;
   canCreateJob: boolean;
   canOpenSettings: boolean;
-  advanceCashAlertsSlot?: ReactNode;
 }) {
   const [chartPage, setChartPage] = useState(0);
   const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | '7' | '30'>('ALL');
@@ -249,9 +247,6 @@ export function DashboardView({
               {lateJobs} overdue, {inProgressJobs} in progress and {pendingJobs} pending jobs are
               shaping the current workload.
             </p>
-            {advanceCashAlertsSlot ? (
-              <div className="dashboard-advance-cash-slot">{advanceCashAlertsSlot}</div>
-            ) : null}
             <span className={`pill tone-${workloadStateTone}`}>
               {lateJobs > 0 ? 'Action required' : 'On track'}
             </span>
