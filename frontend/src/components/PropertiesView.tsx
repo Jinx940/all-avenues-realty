@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import { paymentStatusColor, workStatusColor } from '../lib/statusVisuals';
 import {
@@ -13,7 +13,7 @@ import type {
   PropertyStory,
   PropertyUnit,
 } from '../types';
-import { ProtectedAssetImage } from './ProtectedAssetImage';
+import { ProtectedAssetImage, type ProtectedAssetLoadState } from './ProtectedAssetImage';
 import { UiIcon, type UiIconName } from './UiIcon';
 
 type PropertyFormBaseState = {
@@ -131,6 +131,8 @@ export function PropertiesView({
     currentTimeline && currentTimelineItem
       ? currentTimeline.items.findIndex((item) => item.id === currentTimelineItem.id)
       : -1;
+  const [beforePhotoState, setBeforePhotoState] = useState<ProtectedAssetLoadState>('idle');
+  const [afterPhotoState, setAfterPhotoState] = useState<ProtectedAssetLoadState>('idle');
   const comparePosition =
     activeScopeMatches && currentTimeline && galleryState.sectionId === currentTimeline.id
       ? galleryState.comparePosition
@@ -158,6 +160,18 @@ export function PropertiesView({
     propertyJobs.map((job) => job.paymentStatusLabel || job.paymentStatus),
     paymentStatusColor,
   );
+  const beforePhotoId = currentTimelineItem?.before?.file.id ?? '';
+  const afterPhotoId = currentTimelineItem?.after?.file.id ?? '';
+  const shouldShowAfterOnly = Boolean(currentTimelineItem?.after) && (!currentTimelineItem?.before || beforePhotoState === 'error');
+  const shouldShowBeforeOnly = Boolean(currentTimelineItem?.before) && (!currentTimelineItem?.after || afterPhotoState === 'error');
+
+  useEffect(() => {
+    setBeforePhotoState(currentTimelineItem?.before ? 'loading' : 'idle');
+  }, [beforePhotoId]);
+
+  useEffect(() => {
+    setAfterPhotoState(currentTimelineItem?.after ? 'loading' : 'idle');
+  }, [afterPhotoId]);
 
   const goToPreviousSlide = () => {
     if (!timelineSections.length) return;
@@ -631,14 +645,19 @@ export function PropertiesView({
                       ))}
                     </div>
 
-                    <div className="before-after-compare">
-                      <div className="before-after-stage before-after-stage--after">
-                        {currentTimelineItem?.after ? (
+                    <div
+                      className={`before-after-compare ${
+                        shouldShowAfterOnly || shouldShowBeforeOnly ? 'before-after-compare--single' : ''
+                      }`.trim()}
+                    >
+                      {shouldShowAfterOnly ? (
+                        <div className="before-after-stage before-after-stage--single">
                           <ProtectedAssetImage
                             className="before-after-image"
-                            src={currentTimelineItem.after.file.url}
-                            alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
-                            mimeType={currentTimelineItem.after.file.mimeType}
+                            src={currentTimelineItem?.after?.file.url ?? null}
+                            alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
+                            mimeType={currentTimelineItem?.after?.file.mimeType}
+                            onStateChange={setAfterPhotoState}
                             loadingFallback={
                               <div className="before-after-empty">
                                 <strong>Loading after photo...</strong>
@@ -652,24 +671,19 @@ export function PropertiesView({
                               </div>
                             )}
                           />
-                        ) : (
-                          <div className="before-after-empty">
-                            <strong>No after photo yet</strong>
-                            <span>Save an After image in this location to complete the comparison.</span>
+                          <div className="before-after-single-note">
+                            <strong>Before photo unavailable</strong>
+                            <span>Showing the available after image while the older before file is missing.</span>
                           </div>
-                        )}
-                      </div>
-
-                      <div
-                        className="before-after-stage before-after-stage--before"
-                        style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
-                      >
-                        {currentTimelineItem?.before ? (
+                        </div>
+                      ) : shouldShowBeforeOnly ? (
+                        <div className="before-after-stage before-after-stage--single">
                           <ProtectedAssetImage
                             className="before-after-image"
-                            src={currentTimelineItem.before.file.url}
-                            alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
-                            mimeType={currentTimelineItem.before.file.mimeType}
+                            src={currentTimelineItem?.before?.file.url ?? null}
+                            alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
+                            mimeType={currentTimelineItem?.before?.file.mimeType}
+                            onStateChange={setBeforePhotoState}
                             loadingFallback={
                               <div className="before-after-empty">
                                 <strong>Loading before photo...</strong>
@@ -683,41 +697,103 @@ export function PropertiesView({
                               </div>
                             )}
                           />
-                        ) : (
-                          <div className="before-after-empty">
-                            <strong>No before photo yet</strong>
-                            <span>Save a Before image in this location to start the comparison.</span>
+                          <div className="before-after-single-note">
+                            <strong>After photo unavailable</strong>
+                            <span>Showing the available before image while the older after file is missing.</span>
                           </div>
-                        )}
-                      </div>
-
-                      <div className="before-after-overlay">
-                        <div className="before-after-badges">
-                          <span className="pill tone-neutral">Before</span>
-                          <span className="pill tone-neutral">After</span>
                         </div>
+                      ) : (
+                        <>
+                          <div className="before-after-stage before-after-stage--after">
+                            {currentTimelineItem?.after ? (
+                              <ProtectedAssetImage
+                                className="before-after-image"
+                                src={currentTimelineItem.after.file.url}
+                                alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
+                                mimeType={currentTimelineItem.after.file.mimeType}
+                                onStateChange={setAfterPhotoState}
+                                loadingFallback={
+                                  <div className="before-after-empty">
+                                    <strong>Loading after photo...</strong>
+                                    <span>Please wait while the file opens.</span>
+                                  </div>
+                                }
+                                errorFallback={(message) => (
+                                  <div className="before-after-empty">
+                                    <strong>Could not load the after photo</strong>
+                                    <span>{message}</span>
+                                  </div>
+                                )}
+                              />
+                            ) : (
+                              <div className="before-after-empty">
+                                <strong>No after photo yet</strong>
+                                <span>Save an After image in this location to complete the comparison.</span>
+                              </div>
+                            )}
+                          </div>
 
-                        <div className="before-after-divider" style={{ left: `${comparePosition}%` }}>
-                          <span className="before-after-handle" />
-                        </div>
+                          <div
+                            className="before-after-stage before-after-stage--before"
+                            style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
+                          >
+                            {currentTimelineItem?.before ? (
+                              <ProtectedAssetImage
+                                className="before-after-image"
+                                src={currentTimelineItem.before.file.url}
+                                alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
+                                mimeType={currentTimelineItem.before.file.mimeType}
+                                onStateChange={setBeforePhotoState}
+                                loadingFallback={
+                                  <div className="before-after-empty">
+                                    <strong>Loading before photo...</strong>
+                                    <span>Please wait while the file opens.</span>
+                                  </div>
+                                }
+                                errorFallback={(message) => (
+                                  <div className="before-after-empty">
+                                    <strong>Could not load the before photo</strong>
+                                    <span>{message}</span>
+                                  </div>
+                                )}
+                              />
+                            ) : (
+                              <div className="before-after-empty">
+                                <strong>No before photo yet</strong>
+                                <span>Save a Before image in this location to start the comparison.</span>
+                              </div>
+                            )}
+                          </div>
 
-                        <input
-                          className="before-after-range"
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={comparePosition}
-                          onChange={(event) =>
-                            setGalleryState({
-                              propertyId: selectedPropertyId,
-                              sectionId: currentTimeline?.id ?? '',
-                              serviceId: currentTimelineItem?.id ?? '',
-                              comparePosition: Number(event.target.value),
-                            })
-                          }
-                          aria-label={`Compare before and after photos for ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
-                        />
-                      </div>
+                          <div className="before-after-overlay">
+                            <div className="before-after-badges">
+                              <span className="pill tone-neutral">Before</span>
+                              <span className="pill tone-neutral">After</span>
+                            </div>
+
+                            <div className="before-after-divider" style={{ left: `${comparePosition}%` }}>
+                              <span className="before-after-handle" />
+                            </div>
+
+                            <input
+                              className="before-after-range"
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={comparePosition}
+                              onChange={(event) =>
+                                setGalleryState({
+                                  propertyId: selectedPropertyId,
+                                  sectionId: currentTimeline?.id ?? '',
+                                  serviceId: currentTimelineItem?.id ?? '',
+                                  comparePosition: Number(event.target.value),
+                                })
+                              }
+                              aria-label={`Compare before and after photos for ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     <div className="carousel-caption photo-timeline-caption">

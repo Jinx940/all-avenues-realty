@@ -6,7 +6,7 @@ import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
 import { getWorkerAccentClass } from '../lib/workerVisuals';
 import type { BootstrapPayload, JobFile, JobRow, Tone } from '../types';
 import { ProtectedAssetFrame } from './ProtectedAssetFrame';
-import { ProtectedAssetImage } from './ProtectedAssetImage';
+import { ProtectedAssetImage, type ProtectedAssetLoadState } from './ProtectedAssetImage';
 import { UiIcon } from './UiIcon';
 
 const timelineOptions = [
@@ -746,23 +746,37 @@ function TrackerMediaDialog({
   onClose: () => void;
 }) {
   const [comparePosition, setComparePosition] = useState(50);
+  const [beforePhotoState, setBeforePhotoState] = useState<ProtectedAssetLoadState>('idle');
+  const [afterPhotoState, setAfterPhotoState] = useState<ProtectedAssetLoadState>('idle');
 
-  if (!state) return null;
-
-  const compareBefore = state.job.files.before[0];
-  const compareAfter = state.job.files.after[0];
-  const progressFiles = state.job.files.progress;
-  const dialogTitle = state.mode === 'compare' ? 'Before / After viewer' : 'Progress gallery';
-  const dialogEyebrow = state.mode === 'compare' ? 'Photo comparison' : 'Progress pictures';
+  const compareBefore = state?.job.files.before[0] ?? null;
+  const compareAfter = state?.job.files.after[0] ?? null;
+  const progressFiles = state?.job.files.progress ?? [];
+  const dialogTitle = state?.mode === 'compare' ? 'Before / After viewer' : 'Progress gallery';
+  const dialogEyebrow = state?.mode === 'compare' ? 'Photo comparison' : 'Progress pictures';
   const locationLabel = [
-    state.job.propertyName,
-    state.job.story || '',
-    state.job.unit || '',
-    state.job.area || '',
-    state.job.service || '',
+    state?.job.propertyName ?? '',
+    state?.job.story || '',
+    state?.job.unit || '',
+    state?.job.area || '',
+    state?.job.service || '',
   ]
     .filter(Boolean)
     .join(' | ');
+  const compareBeforeId = compareBefore?.id ?? '';
+  const compareAfterId = compareAfter?.id ?? '';
+  const shouldShowAfterOnly = Boolean(compareAfter) && (!compareBefore || beforePhotoState === 'error');
+  const shouldShowBeforeOnly = Boolean(compareBefore) && (!compareAfter || afterPhotoState === 'error');
+
+  useEffect(() => {
+    setBeforePhotoState(compareBefore ? 'loading' : 'idle');
+  }, [compareBeforeId]);
+
+  useEffect(() => {
+    setAfterPhotoState(compareAfter ? 'loading' : 'idle');
+  }, [compareAfterId]);
+
+  if (!state) return null;
 
   return (
     <div className="tracker-media-dialog-backdrop" role="presentation" onClick={onClose}>
@@ -790,14 +804,19 @@ function TrackerMediaDialog({
         <div className="tracker-media-dialog-body">
           {state.mode === 'compare' ? (
             <div className="tracker-compare-showcase">
-              <div className="tracker-compare-stage">
-                <div className="tracker-compare-panel tracker-compare-panel--after">
-                  {compareAfter ? (
+              <div
+                className={`tracker-compare-stage ${
+                  shouldShowAfterOnly || shouldShowBeforeOnly ? 'tracker-compare-stage--single' : ''
+                }`.trim()}
+              >
+                {shouldShowAfterOnly ? (
+                  <div className="tracker-compare-panel tracker-compare-panel--single">
                     <ProtectedAssetImage
                       className="tracker-compare-image"
-                      src={compareAfter.url}
+                      src={compareAfter?.url ?? null}
                       alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
-                      mimeType={compareAfter.mimeType}
+                      mimeType={compareAfter?.mimeType}
+                      onStateChange={setAfterPhotoState}
                       loadingFallback={
                         <div className="tracker-compare-empty">
                           <strong>Loading after photo...</strong>
@@ -811,24 +830,19 @@ function TrackerMediaDialog({
                         </div>
                       )}
                     />
-                  ) : (
-                    <div className="tracker-compare-empty">
-                      <strong>No after photo</strong>
-                      <span>Upload an after image in the job form to complete the comparison.</span>
+                    <div className="tracker-compare-single-note">
+                      <strong>Before photo unavailable</strong>
+                      <span>Showing the available after image while the older before file is missing.</span>
                     </div>
-                  )}
-                </div>
-
-                <div
-                  className="tracker-compare-panel tracker-compare-panel--before"
-                  style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
-                >
-                  {compareBefore ? (
+                  </div>
+                ) : shouldShowBeforeOnly ? (
+                  <div className="tracker-compare-panel tracker-compare-panel--single">
                     <ProtectedAssetImage
                       className="tracker-compare-image"
-                      src={compareBefore.url}
+                      src={compareBefore?.url ?? null}
                       alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
-                      mimeType={compareBefore.mimeType}
+                      mimeType={compareBefore?.mimeType}
+                      onStateChange={setBeforePhotoState}
                       loadingFallback={
                         <div className="tracker-compare-empty">
                           <strong>Loading before photo...</strong>
@@ -842,46 +856,108 @@ function TrackerMediaDialog({
                         </div>
                       )}
                     />
-                  ) : (
-                    <div className="tracker-compare-empty">
-                      <strong>No before photo</strong>
-                      <span>Upload a before image in the job form to start the comparison.</span>
+                    <div className="tracker-compare-single-note">
+                      <strong>After photo unavailable</strong>
+                      <span>Showing the available before image while the older after file is missing.</span>
                     </div>
-                  )}
-                </div>
-
-                <div className="tracker-compare-overlay">
-                  <div className="tracker-compare-badges">
-                    <span className="tracker-compare-chip">Before</span>
-                    <span className="tracker-compare-chip tracker-compare-chip--after">After</span>
                   </div>
+                ) : (
+                  <>
+                    <div className="tracker-compare-panel tracker-compare-panel--after">
+                      {compareAfter ? (
+                        <ProtectedAssetImage
+                          className="tracker-compare-image"
+                          src={compareAfter.url}
+                          alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                          mimeType={compareAfter.mimeType}
+                          onStateChange={setAfterPhotoState}
+                          loadingFallback={
+                            <div className="tracker-compare-empty">
+                              <strong>Loading after photo...</strong>
+                              <span>Please wait while the file opens.</span>
+                            </div>
+                          }
+                          errorFallback={(message) => (
+                            <div className="tracker-compare-empty">
+                              <strong>Could not load the after photo</strong>
+                              <span>{message}</span>
+                            </div>
+                          )}
+                        />
+                      ) : (
+                        <div className="tracker-compare-empty">
+                          <strong>No after photo</strong>
+                          <span>Upload an after image in the job form to complete the comparison.</span>
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="tracker-compare-divider" style={{ left: `${comparePosition}%` }}>
-                    <span className="tracker-compare-handle" />
-                  </div>
+                    <div
+                      className="tracker-compare-panel tracker-compare-panel--before"
+                      style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
+                    >
+                      {compareBefore ? (
+                        <ProtectedAssetImage
+                          className="tracker-compare-image"
+                          src={compareBefore.url}
+                          alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                          mimeType={compareBefore.mimeType}
+                          onStateChange={setBeforePhotoState}
+                          loadingFallback={
+                            <div className="tracker-compare-empty">
+                              <strong>Loading before photo...</strong>
+                              <span>Please wait while the file opens.</span>
+                            </div>
+                          }
+                          errorFallback={(message) => (
+                            <div className="tracker-compare-empty">
+                              <strong>Could not load the before photo</strong>
+                              <span>{message}</span>
+                            </div>
+                          )}
+                        />
+                      ) : (
+                        <div className="tracker-compare-empty">
+                          <strong>No before photo</strong>
+                          <span>Upload a before image in the job form to start the comparison.</span>
+                        </div>
+                      )}
+                    </div>
 
-                  <input
-                    className="tracker-compare-range"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={comparePosition}
-                    onChange={(event) => setComparePosition(Number(event.target.value))}
-                    aria-label={`Compare before and after photos for ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
-                  />
-                </div>
+                    <div className="tracker-compare-overlay">
+                      <div className="tracker-compare-badges">
+                        <span className="tracker-compare-chip">Before</span>
+                        <span className="tracker-compare-chip tracker-compare-chip--after">After</span>
+                      </div>
+
+                      <div className="tracker-compare-divider" style={{ left: `${comparePosition}%` }}>
+                        <span className="tracker-compare-handle" />
+                      </div>
+
+                      <input
+                        className="tracker-compare-range"
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={comparePosition}
+                        onChange={(event) => setComparePosition(Number(event.target.value))}
+                        aria-label={`Compare before and after photos for ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="tracker-compare-meta-grid">
                 <TrackerMediaMetaCard
                   label="Before"
-                  file={compareBefore}
+                  file={compareBefore ?? undefined}
                   emptyTitle="No before photo"
                   emptyCopy="This side will stay empty until a before image is uploaded."
                 />
                 <TrackerMediaMetaCard
                   label="After"
-                  file={compareAfter}
+                  file={compareAfter ?? undefined}
                   emptyTitle="No after photo"
                   emptyCopy="This side will stay empty until an after image is uploaded."
                 />

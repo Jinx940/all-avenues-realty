@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useProtectedAssetUrl } from '../lib/protectedAsset';
+
+export type ProtectedAssetLoadState = 'idle' | 'loading' | 'ready' | 'error';
 
 export function ProtectedAssetImage({
   src,
@@ -8,6 +10,7 @@ export function ProtectedAssetImage({
   mimeType,
   loadingFallback,
   errorFallback,
+  onStateChange,
 }: {
   src: string | null;
   alt: string;
@@ -15,8 +18,23 @@ export function ProtectedAssetImage({
   mimeType?: string;
   loadingFallback?: ReactNode;
   errorFallback?: ReactNode | ((message: string) => ReactNode);
+  onStateChange?: (state: ProtectedAssetLoadState) => void;
 }) {
   const { assetUrl, isLoading, error } = useProtectedAssetUrl(src, mimeType);
+
+  useEffect(() => {
+    if (!src) {
+      onStateChange?.('idle');
+      return;
+    }
+
+    if (isLoading) {
+      onStateChange?.('loading');
+      return;
+    }
+
+    onStateChange?.(!assetUrl || error ? 'error' : 'ready');
+  }, [assetUrl, error, isLoading, onStateChange, src]);
 
   if (isLoading) {
     return (

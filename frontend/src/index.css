@@ -2157,6 +2157,12 @@ textarea {
     0 16px 36px rgba(145, 177, 208, 0.12);
 }
 
+.before-after-compare--single {
+  background:
+    radial-gradient(circle at top, rgba(219, 236, 252, 0.32), transparent 30%),
+    linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(236, 245, 252, 0.94));
+}
+
 .before-after-stage,
 .before-after-overlay {
   position: absolute;
@@ -2166,6 +2172,11 @@ textarea {
 .before-after-stage {
   display: grid;
   place-items: center;
+}
+
+.before-after-stage--single {
+  position: relative;
+  inset: auto;
 }
 
 .before-after-stage--before {
@@ -2199,6 +2210,33 @@ textarea {
   color: var(--ink-strong);
   font-family: 'Outfit', sans-serif;
   font-size: 1.2rem;
+}
+
+.before-after-single-note {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(189, 209, 228, 0.92);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 26px rgba(120, 154, 186, 0.18);
+}
+
+.before-after-single-note strong {
+  color: var(--ink-strong);
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+}
+
+.before-after-single-note span {
+  color: var(--muted-strong);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .before-after-overlay {
@@ -5861,6 +5899,12 @@ textarea {
     0 30px 60px rgba(15, 24, 32, 0.42);
 }
 
+.tracker-compare-stage--single {
+  background:
+    radial-gradient(circle at top, rgba(118, 219, 71, 0.09), transparent 28%),
+    linear-gradient(180deg, #111821 0%, #131b24 58%, #0f151d 100%);
+}
+
 .tracker-compare-panel,
 .tracker-compare-overlay {
   position: absolute;
@@ -5870,6 +5914,11 @@ textarea {
 .tracker-compare-panel {
   display: grid;
   place-items: center;
+}
+
+.tracker-compare-panel--single {
+  position: relative;
+  inset: auto;
 }
 
 .tracker-compare-panel--before {
@@ -5910,6 +5959,33 @@ textarea {
 .tracker-compare-empty span {
   font-size: 0.86rem;
   line-height: 1.55;
+}
+
+.tracker-compare-single-note {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 22px;
+  display: grid;
+  gap: 5px;
+  padding: 13px 15px;
+  border: 1px solid rgba(154, 176, 194, 0.24);
+  border-radius: 18px;
+  background: rgba(10, 15, 21, 0.78);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 30px rgba(5, 10, 14, 0.34);
+}
+
+.tracker-compare-single-note strong {
+  color: #f3f7fb;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+}
+
+.tracker-compare-single-note span {
+  color: rgba(220, 230, 239, 0.78);
+  font-size: 0.86rem;
+  line-height: 1.45;
 }
 
 .tracker-compare-overlay {
