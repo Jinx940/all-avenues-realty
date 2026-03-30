@@ -2,6 +2,8 @@ import type { CSSProperties, SVGProps } from 'react';
 
 export type UiIconName =
   | 'database'
+  | 'menu'
+  | 'close'
   | 'dashboard'
   | 'plus'
   | 'home'
@@ -75,6 +77,21 @@ export function UiIcon({
           <ellipse cx="12" cy="5" rx="7" ry="3" />
           <path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5" />
           <path d="M5 11v8c0 1.7 3.1 3 7 3s7-1.3 7-3v-8" />
+        </svg>
+      );
+    case 'menu':
+      return (
+        <svg {...props}>
+          <path d="M4 7h16" />
+          <path d="M4 12h16" />
+          <path d="M4 17h16" />
+        </svg>
+      );
+    case 'close':
+      return (
+        <svg {...props}>
+          <path d="m6 6 12 12" />
+          <path d="m18 6-12 12" />
         </svg>
       );
     case 'dashboard':

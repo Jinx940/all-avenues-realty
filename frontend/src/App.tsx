@@ -140,6 +140,16 @@ const roleTabs: Record<AuthUser['role'], TabId[]> = {
   VIEWER: ['dashboard', 'property-info', 'job-tracker', 'document-center'],
 };
 
+const sidebarPreferenceKey = 'aar-sidebar-expanded';
+
+function readStoredSidebarPreference() {
+  if (typeof window === 'undefined') return true;
+
+  const storedValue = window.localStorage.getItem(sidebarPreferenceKey);
+  if (storedValue == null) return true;
+  return storedValue === 'true';
+}
+
 type ConfirmDialogState = {
   title: string;
   text: string;
@@ -522,6 +532,9 @@ function AdvanceCashAlertsBell({
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
+  const [isDesktopSidebarExpanded, setIsDesktopSidebarExpanded] = useState(readStoredSidebarPreference);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -568,6 +581,7 @@ export default function App() {
   ];
   const showPageHeader = !tabsWithoutHeader.includes(activeTab);
   const showPageBadges = showPageHeader && Boolean(currentUser);
+  const isSidebarVisible = isCompactViewport ? isMobileSidebarOpen : isDesktopSidebarExpanded;
 
   const allWorkers = bootstrap ? [...bootstrap.workers, ...bootstrap.inactiveWorkers] : [];
   const selectedProperty =
@@ -661,6 +675,44 @@ export default function App() {
   }, [resetWorkspaceState]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const mediaQuery = window.matchMedia('(max-width: 900px)');
+    const syncSidebarViewport = () => {
+      setIsCompactViewport(mediaQuery.matches);
+      if (!mediaQuery.matches) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+
+    syncSidebarViewport();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncSidebarViewport);
+      return () => mediaQuery.removeEventListener('change', syncSidebarViewport);
+    }
+
+    mediaQuery.addListener(syncSidebarViewport);
+    return () => mediaQuery.removeListener(syncSidebarViewport);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(sidebarPreferenceKey, String(isDesktopSidebarExpanded));
+  }, [isDesktopSidebarExpanded]);
+
+  useEffect(() => {
+    if (!isCompactViewport || !isMobileSidebarOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isCompactViewport, isMobileSidebarOpen]);
+
+  useEffect(() => {
     if (!currentUser) return;
     void refreshAll();
   }, [currentUser, refreshAll]);
@@ -743,6 +795,31 @@ export default function App() {
     } finally {
       setAuthBusy(false);
       setAuthReady(true);
+    }
+  };
+
+  const toggleSidebar = () => {
+    if (isCompactViewport) {
+      setIsMobileSidebarOpen((current) => !current);
+      return;
+    }
+
+    setIsDesktopSidebarExpanded((current) => !current);
+  };
+
+  const closeSidebar = () => {
+    if (isCompactViewport) {
+      setIsMobileSidebarOpen(false);
+      return;
+    }
+
+    setIsDesktopSidebarExpanded(false);
+  };
+
+  const handleTabSelection = (tabId: TabId) => {
+    setActiveTab(tabId);
+    if (isCompactViewport) {
+      setIsMobileSidebarOpen(false);
     }
   };
 
@@ -1400,8 +1477,25 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
+    <main
+      className={`app-shell ${isSidebarVisible ? 'app-shell--sidebar-open' : 'app-shell--sidebar-hidden'} ${
+        isCompactViewport ? 'app-shell--compact' : ''
+      }`.trim()}
+    >
+      {isCompactViewport && isSidebarVisible ? (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          aria-label="Close navigation menu"
+          onClick={closeSidebar}
+        />
+      ) : null}
+
+      <aside
+        id="workspace-sidebar"
+        className={`sidebar ${isSidebarVisible ? 'is-open' : 'is-hidden'} ${isCompactViewport ? 'is-compact' : ''}`.trim()}
+        aria-hidden={isCompactViewport && !isSidebarVisible}
+      >
         <div className="sidebar-top">
           <div className="brand-card">
             <div className="brand-title">
@@ -1427,7 +1521,12 @@ export default function App() {
 
         <nav className="nav-stack">
           {availableTabs.map((tab) => (
-            <button key={tab.id} type="button" className={`nav-button ${activeTab === tab.id ? 'active' : ''}`} onClick={() => setActiveTab(tab.id)}>
+            <button
+              key={tab.id}
+              type="button"
+              className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => handleTabSelection(tab.id)}
+            >
               <span className="nav-icon">
                 <UiIcon name={tab.icon} size={18} />
               </span>
@@ -1445,6 +1544,19 @@ export default function App() {
       </aside>
 
       <section className="content">
+        <div className="content-shell-head">
+          <button
+            type="button"
+            className={`sidebar-toggle ${isSidebarVisible ? 'is-open' : 'is-closed'}`}
+            onClick={toggleSidebar}
+            aria-controls="workspace-sidebar"
+            aria-expanded={isSidebarVisible}
+          >
+            <UiIcon name={isSidebarVisible ? 'close' : 'menu'} size={18} />
+            <span>{isSidebarVisible ? 'Hide menu' : 'Show menu'}</span>
+          </button>
+        </div>
+
         {showPageHeader ? (
           <header className="page-header">
             <div>
