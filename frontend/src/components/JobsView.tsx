@@ -11,6 +11,7 @@ export type JobFormState = {
   story: string;
   unit: string;
   section: string;
+  area: string;
   service: string;
   description: string;
   materialCost: string;
@@ -99,7 +100,7 @@ export function JobsView({
     {
       number: '01',
       title: 'Location',
-      description: 'Property, story, unit and service.',
+      description: 'Property, story, unit, area and service.',
       icon: 'home',
       complete: Boolean(form.propertyId && form.service.trim()),
     },
@@ -184,7 +185,7 @@ export function JobsView({
                     <UiIcon name="home" />
                     <span>Property and service</span>
                   </h3>
-                  <p>Start by choosing where the job happens and what service will be performed.</p>
+                  <p>Start by choosing where the job happens, the area, and what service will be performed.</p>
                 </div>
               </div>
               <span className={`pill ${form.propertyId && form.service.trim() ? 'tone-success' : 'tone-neutral'}`}>
@@ -243,10 +244,21 @@ export function JobsView({
                 </label>
               </div>
 
-              <label className="span-3">
-                Services *
-                <input value={form.service} onChange={(event) => onFieldChange('service', event.target.value)} required />
-              </label>
+              <div className="job-form-secondary-grid span-3">
+                <label>
+                  Area
+                  <input
+                    value={form.area}
+                    onChange={(event) => onFieldChange('area', event.target.value)}
+                    placeholder="Kitchen, Bathroom, Hallway..."
+                  />
+                </label>
+
+                <label>
+                  Service *
+                  <input value={form.service} onChange={(event) => onFieldChange('service', event.target.value)} required />
+                </label>
+              </div>
             </div>
           </section>
 

@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { buildAssetUrl } from '../lib/api';
 import { formatDate, formatMoney } from '../lib/format';
+import { formatAreaServiceLabel } from '../lib/jobLocation';
 import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
 import { getWorkerAccentClass } from '../lib/workerVisuals';
 import type { BootstrapPayload, JobFile, JobRow, Tone } from '../types';
+import { ProtectedAssetFrame } from './ProtectedAssetFrame';
+import { ProtectedAssetImage } from './ProtectedAssetImage';
 import { UiIcon } from './UiIcon';
 
 const timelineOptions = [
@@ -123,24 +126,6 @@ const getJobFilePreviewMode = (file: JobFile): 'image' | 'pdf' | 'frame' | 'unsu
   return 'unsupported';
 };
 
-const createPdfPreviewUrl = async (sourceUrl: string) => {
-  const response = await fetch(sourceUrl, {
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    throw new Error(`Could not load PDF preview (${response.status})`);
-  }
-
-  const sourceBlob = await response.blob();
-  const pdfBlob =
-    sourceBlob.type === 'application/pdf'
-      ? sourceBlob
-      : new Blob([await sourceBlob.arrayBuffer()], { type: 'application/pdf' });
-
-  return URL.createObjectURL(pdfBlob);
-};
-
 type TrackerMediaDialogState =
   | {
       mode: 'compare';
@@ -222,7 +207,7 @@ export function JobTrackerView({
             <input
               value={filters.search}
               onChange={(event) => onFilterChange('search', event.target.value)}
-              placeholder="Search property, story, unit, service..."
+              placeholder="Search property, story, unit, area, service..."
             />
           </label>
 
@@ -306,6 +291,7 @@ export function JobTrackerView({
               <span>Property</span>
               <span>Story</span>
               <span>Unit</span>
+              <span>Area</span>
               <span>Services</span>
               <span>Worker</span>
               <span>Material cost per Unit</span>
@@ -331,6 +317,7 @@ export function JobTrackerView({
                     <span className="tracker-property-cell">{job.propertyName}</span>
                     <span className="tracker-story-cell">{job.story || '-'}</span>
                     <span className="tracker-unit-cell">{job.unit || '-'}</span>
+                    <span className="tracker-area-cell">{job.area || '-'}</span>
                     <div className="tracker-service-details">
                       <div className="tracker-service-summary">
                         <span className="tracker-service-summary-copy">
@@ -515,11 +502,6 @@ function TrackerReceiptPreviewDialog({
   state: TrackerReceiptPreviewState;
   onClose: () => void;
 }) {
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [loadedPdfSource, setLoadedPdfSource] = useState<string | null>(null);
-  const [failedPdfSource, setFailedPdfSource] = useState<string | null>(null);
-  const [pdfPreviewError, setPdfPreviewError] = useState<string | null>(null);
-
   useEffect(() => {
     if (!state) return undefined;
 
@@ -535,60 +517,13 @@ function TrackerReceiptPreviewDialog({
     };
   }, [state, onClose]);
 
-  const pdfSourceUrl =
-    state && getJobFilePreviewMode(state.file) === 'pdf'
-      ? buildAssetUrl(state.file.url)
-      : null;
-
-  useEffect(() => {
-    if (!pdfSourceUrl) return undefined;
-
-    const sourceUrl = pdfSourceUrl;
-    let isCancelled = false;
-    let objectUrl: string | null = null;
-
-    void createPdfPreviewUrl(sourceUrl)
-      .then((url) => {
-        if (isCancelled) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-
-        objectUrl = url;
-        setPdfPreviewUrl(url);
-        setLoadedPdfSource(sourceUrl);
-        setFailedPdfSource(null);
-        setPdfPreviewError(null);
-      })
-      .catch((error) => {
-        if (!isCancelled) {
-          const message = error instanceof Error ? error.message : 'Could not load PDF preview.';
-          setLoadedPdfSource(null);
-          setFailedPdfSource(sourceUrl);
-          setPdfPreviewError(message);
-        }
-      })
-      .finally(() => undefined);
-
-    return () => {
-      isCancelled = true;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [pdfSourceUrl]);
-
   if (!state) return null;
 
   const { job, file } = state;
   const previewMode = getJobFilePreviewMode(file);
   const previewUrl = buildAssetUrl(file.url);
-  const locationLabel = [job.propertyName, job.story, job.unit, job.service].filter(Boolean).join(' | ');
+  const locationLabel = [job.propertyName, job.story, job.unit, job.area, job.service].filter(Boolean).join(' | ');
   const descriptionLines = splitDescriptionLines(job.description);
-  const isPdfPreviewLoading = Boolean(
-    pdfSourceUrl && loadedPdfSource !== pdfSourceUrl && failedPdfSource !== pdfSourceUrl,
-  );
-  const activePdfPreviewUrl = loadedPdfSource === pdfSourceUrl ? pdfPreviewUrl : null;
 
   return (
     <div className="document-preview-backdrop" role="presentation" onClick={onClose}>
@@ -614,33 +549,62 @@ function TrackerReceiptPreviewDialog({
         <div className="document-preview-body">
           <div className="document-preview-stage">
             {previewMode === 'image' ? (
-              <img className="document-preview-image" src={previewUrl} alt={file.name} />
-            ) : previewMode === 'pdf' ? (
-              isPdfPreviewLoading ? (
-                <div className="document-preview-empty">
-                  <strong>Loading PDF preview...</strong>
-                  <span>Preparing the receipt preview for inline viewing.</span>
-                </div>
-              ) : activePdfPreviewUrl ? (
-                <object
-                  className="document-preview-frame"
-                  data={activePdfPreviewUrl}
-                  type="application/pdf"
-                  aria-label={`Receipt preview for ${file.name}`}
-                >
+              <ProtectedAssetImage
+                className="document-preview-image"
+                src={previewUrl}
+                alt={file.name}
+                mimeType={file.mimeType}
+                loadingFallback={
                   <div className="document-preview-empty">
-                    <strong>Could not render this PDF inline</strong>
+                    <strong>Loading receipt image...</strong>
+                    <span>Please wait while the saved file opens.</span>
+                  </div>
+                }
+                errorFallback={
+                  <div className="document-preview-empty">
+                    <strong>Could not load this receipt image</strong>
                     <span>Use Download to inspect the file on your device.</span>
                   </div>
-                </object>
-              ) : (
-                <div className="document-preview-empty">
-                  <strong>Could not render this PDF inline</strong>
-                  <span>{pdfPreviewError || 'Use Download to inspect the file on your device.'}</span>
-                </div>
-              )
+                }
+              />
+            ) : previewMode === 'pdf' ? (
+              <ProtectedAssetFrame
+                className="document-preview-frame"
+                src={previewUrl}
+                title={`Receipt preview for ${file.name}`}
+                mimeType="application/pdf"
+                loadingFallback={
+                  <div className="document-preview-empty">
+                    <strong>Loading receipt PDF...</strong>
+                    <span>Please wait while the saved file opens.</span>
+                  </div>
+                }
+                errorFallback={
+                  <div className="document-preview-empty">
+                    <strong>Could not load this receipt PDF</strong>
+                    <span>Use Download to inspect the file on your device.</span>
+                  </div>
+                }
+              />
             ) : previewMode === 'frame' ? (
-              <iframe className="document-preview-frame" src={previewUrl} title={`Receipt preview for ${file.name}`} />
+              <ProtectedAssetFrame
+                className="document-preview-frame"
+                src={previewUrl}
+                title={`Receipt preview for ${file.name}`}
+                mimeType="text/html"
+                loadingFallback={
+                  <div className="document-preview-empty">
+                    <strong>Loading receipt preview...</strong>
+                    <span>Please wait while the saved file opens.</span>
+                  </div>
+                }
+                errorFallback={
+                  <div className="document-preview-empty">
+                    <strong>Could not load this receipt preview</strong>
+                    <span>Use Download to inspect the file on your device.</span>
+                  </div>
+                }
+              />
             ) : (
               <div className="document-preview-empty">
                 <strong>Preview not available</strong>
@@ -666,6 +630,10 @@ function TrackerReceiptPreviewDialog({
               <article className="document-preview-meta-card">
                 <span>Story / Unit</span>
                 <strong>{[job.story, job.unit].filter(Boolean).join(' / ') || 'Whole property'}</strong>
+              </article>
+              <article className="document-preview-meta-card">
+                <span>Area</span>
+                <strong>{job.area || '-'}</strong>
               </article>
               <article className="document-preview-meta-card document-preview-meta-card--wide">
                 <span>Property</span>
@@ -712,7 +680,7 @@ function TrackerDescriptionDialog({
 }) {
   if (!job) return null;
 
-  const locationLabel = [job.propertyName, job.story, job.unit].filter(Boolean).join(' | ');
+  const locationLabel = [job.propertyName, job.story, job.unit, job.area].filter(Boolean).join(' | ');
   const descriptionLines = splitDescriptionLines(job.description);
 
   return (
@@ -727,7 +695,7 @@ function TrackerDescriptionDialog({
         <div className="tracker-media-dialog-head">
           <div>
             <p className="eyebrow">Service description</p>
-            <h2 id="tracker-description-dialog-title">{job.service}</h2>
+            <h2 id="tracker-description-dialog-title">{formatAreaServiceLabel(job.area, job.service)}</h2>
             <p className="tracker-media-dialog-copy">{locationLabel}</p>
           </div>
 
@@ -745,6 +713,10 @@ function TrackerDescriptionDialog({
             <article className="tracker-description-meta-card">
               <span>Story / Unit</span>
               <strong>{[job.story, job.unit].filter(Boolean).join(' / ') || 'Whole property'}</strong>
+            </article>
+            <article className="tracker-description-meta-card">
+              <span>Area</span>
+              <strong>{job.area || '-'}</strong>
             </article>
           </div>
 
@@ -786,6 +758,7 @@ function TrackerMediaDialog({
     state.job.propertyName,
     state.job.story || '',
     state.job.unit || '',
+    state.job.area || '',
     state.job.service || '',
   ]
     .filter(Boolean)
@@ -820,10 +793,23 @@ function TrackerMediaDialog({
               <div className="tracker-compare-stage">
                 <div className="tracker-compare-panel tracker-compare-panel--after">
                   {compareAfter ? (
-                    <img
+                    <ProtectedAssetImage
                       className="tracker-compare-image"
-                      src={buildAssetUrl(compareAfter.url)}
-                      alt={`After - ${state.job.service}`}
+                      src={compareAfter.url}
+                      alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                      mimeType={compareAfter.mimeType}
+                      loadingFallback={
+                        <div className="tracker-compare-empty">
+                          <strong>Loading after photo...</strong>
+                          <span>Please wait while the file opens.</span>
+                        </div>
+                      }
+                      errorFallback={
+                        <div className="tracker-compare-empty">
+                          <strong>Could not load the after photo</strong>
+                          <span>Open the file in a new tab to inspect it.</span>
+                        </div>
+                      }
                     />
                   ) : (
                     <div className="tracker-compare-empty">
@@ -838,10 +824,23 @@ function TrackerMediaDialog({
                   style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
                 >
                   {compareBefore ? (
-                    <img
+                    <ProtectedAssetImage
                       className="tracker-compare-image"
-                      src={buildAssetUrl(compareBefore.url)}
-                      alt={`Before - ${state.job.service}`}
+                      src={compareBefore.url}
+                      alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                      mimeType={compareBefore.mimeType}
+                      loadingFallback={
+                        <div className="tracker-compare-empty">
+                          <strong>Loading before photo...</strong>
+                          <span>Please wait while the file opens.</span>
+                        </div>
+                      }
+                      errorFallback={
+                        <div className="tracker-compare-empty">
+                          <strong>Could not load the before photo</strong>
+                          <span>Open the file in a new tab to inspect it.</span>
+                        </div>
+                      }
                     />
                   ) : (
                     <div className="tracker-compare-empty">
@@ -868,7 +867,7 @@ function TrackerMediaDialog({
                     max="100"
                     value={comparePosition}
                     onChange={(event) => setComparePosition(Number(event.target.value))}
-                    aria-label={`Compare before and after photos for ${state.job.service}`}
+                    aria-label={`Compare before and after photos for ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
                   />
                 </div>
               </div>
@@ -904,10 +903,23 @@ function TrackerMediaDialog({
                         Open file
                       </a>
                     </div>
-                    <img
+                    <ProtectedAssetImage
                       className="tracker-progress-image"
-                      src={buildAssetUrl(file.url)}
-                      alt={`Progress ${index + 1} - ${state.job.service}`}
+                      src={file.url}
+                      alt={`Progress ${index + 1} - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                      mimeType={file.mimeType}
+                      loadingFallback={
+                        <div className="tracker-compare-empty">
+                          <strong>Loading progress photo...</strong>
+                          <span>Please wait while the file opens.</span>
+                        </div>
+                      }
+                      errorFallback={
+                        <div className="tracker-compare-empty">
+                          <strong>Could not load this progress photo</strong>
+                          <span>Open the file in a new tab to inspect it.</span>
+                        </div>
+                      }
                     />
                     <div className="tracker-progress-copy">
                       <strong>{file.name}</strong>

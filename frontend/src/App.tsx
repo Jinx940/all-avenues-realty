@@ -14,6 +14,7 @@ import { formatMoney } from './lib/format';
 import { buildAdvanceCashAlerts, type AdvanceCashAlert } from './lib/advanceCashAlerts';
 import {
   buildInternalSectionValue,
+  formatAreaServiceLabel,
   findMatchingStoryLabel,
   findMatchingUnitLabel,
   parseJobLocationValue,
@@ -180,6 +181,7 @@ const createJobForm = (bootstrap?: BootstrapPayload | null): JobFormState => ({
   story: '',
   section: '',
   unit: '',
+  area: '',
   service: '',
   description: '',
   materialCost: '0',
@@ -459,7 +461,7 @@ function AdvanceCashAlertsBell({
 
                 {headlineAlert ? (
                   <div className="advance-cash-panel-focus">
-                    <strong>{headlineAlert.service}</strong>
+                    <strong>{formatAreaServiceLabel(headlineAlert.area, headlineAlert.service)}</strong>
                     <span>{headlineAlert.propertyName}</span>
                   </div>
                 ) : null}
@@ -474,7 +476,7 @@ function AdvanceCashAlertsBell({
                     >
                       <div className="advance-cash-card-head">
                         <div>
-                          <strong>{alert.service}</strong>
+                          <strong>{formatAreaServiceLabel(alert.area, alert.service)}</strong>
                           <p>{alert.propertyName}</p>
                         </div>
                         <span
@@ -581,6 +583,7 @@ export default function App() {
       job.propertyName,
       job.story,
       job.unit,
+      job.area,
       job.service,
       job.description,
       job.workers.map((worker) => worker.name).join(' '),
@@ -798,6 +801,7 @@ export default function App() {
             story: location.story,
             unit: location.unit,
             section: overrides?.section ?? job.section,
+            area: overrides?.area ?? job.area,
             service: overrides?.service ?? job.service,
             description: overrides?.description ?? job.description,
             materialCost: String(overrides?.materialCost ?? job.materialCost),
@@ -822,7 +826,8 @@ export default function App() {
     formData.append('propertyId', job.propertyId);
     formData.append('story', job.story || '');
     formData.append('unit', job.unit || '');
-    formData.append('section', buildInternalSectionValue(job.story, job.unit, job.section));
+    formData.append('section', buildInternalSectionValue(job.story, job.unit, job.area || job.section || job.service));
+    formData.append('area', job.area || '');
     formData.append('service', job.service);
     formData.append('description', job.description || '');
     formData.append('materialCost', String(job.materialCost));
@@ -906,6 +911,7 @@ export default function App() {
       story: location.story,
       unit: location.unit,
       section: job.section,
+      area: job.area,
       service: job.service,
       description: job.description,
       materialCost: String(job.materialCost),
@@ -945,7 +951,8 @@ export default function App() {
       formData.append('propertyId', jobForm.propertyId);
       formData.append('story', matchedStory);
       formData.append('unit', matchedUnit);
-      formData.append('section', buildInternalSectionValue(jobForm.story, jobForm.unit, jobForm.service));
+      formData.append('section', buildInternalSectionValue(jobForm.story, jobForm.unit, jobForm.area || jobForm.service));
+      formData.append('area', jobForm.area);
       formData.append('service', jobForm.service);
       formData.append('description', jobForm.description);
       formData.append('materialCost', jobForm.materialCost);

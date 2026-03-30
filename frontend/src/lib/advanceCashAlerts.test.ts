@@ -9,6 +9,7 @@ const makeJob = (overrides: Partial<JobRow>): JobRow => ({
   story: overrides.story ?? 'Story 1',
   unit: overrides.unit ?? 'Unit 1',
   section: overrides.section ?? 'Story 1 / Unit 1',
+  area: overrides.area ?? 'Kitchen',
   service: overrides.service ?? 'Kitchen',
   description: overrides.description ?? '',
   materialCost: overrides.materialCost ?? 0,

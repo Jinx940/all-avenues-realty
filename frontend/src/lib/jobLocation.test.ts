@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildInternalSectionValue,
+  formatAreaServiceLabel,
+  formatJobLocationSummary,
   findMatchingStoryLabel,
   findMatchingUnitLabel,
   parseJobLocationValue,
@@ -54,5 +56,16 @@ describe('jobLocation helpers', () => {
       story: '1',
       unit: '1',
     });
+  });
+
+  it('formats area and service labels in display order', () => {
+    expect(formatAreaServiceLabel('Kitchen', 'Electrical')).toBe('Kitchen / Electrical');
+    expect(formatAreaServiceLabel('', 'Electrical')).toBe('Electrical');
+  });
+
+  it('formats full job location summaries with area before service', () => {
+    expect(formatJobLocationSummary('Story 1', 'Unit 1', 'Kitchen', 'Electrical')).toBe(
+      'Story 1 / Unit 1 / Kitchen / Electrical',
+    );
   });
 });

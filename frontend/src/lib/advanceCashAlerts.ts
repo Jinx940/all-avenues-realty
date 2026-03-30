@@ -9,6 +9,7 @@ export type AdvanceCashAlert = {
   propertyName: string;
   story: string;
   unit: string;
+  area: string;
   service: string;
   advanceCashApp: number;
   dueDate: string | null;
@@ -55,6 +56,7 @@ export const buildAdvanceCashAlerts = (jobs: JobRow[]) =>
         propertyName: job.propertyName,
         story: job.story,
         unit: job.unit,
+        area: job.area,
         service: job.service,
         advanceCashApp: job.advanceCashApp,
         dueDate: job.dueDate,

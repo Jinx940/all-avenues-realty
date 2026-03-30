@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { buildAssetUrl, requestJson } from '../lib/api';
 import { buildGeneratedPdfBlob, downloadPdfBlob } from '../lib/generatedPdf';
+import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import { ConfirmDialog } from './ConfirmDialog';
 import { UiIcon } from './UiIcon';
@@ -888,7 +889,7 @@ export function InvoiceQuoteView({
   const effectiveDocumentNumber = documentNumber.trim() || suggestedNumber;
 
   const selectedItems: PdfServiceItem[] = selectedJobs.map((job) => ({
-    service: job.service,
+    service: formatAreaServiceLabel(job.area, job.service),
     description: job.description || '',
     unitPrice: job.totalCost,
   }));
@@ -1228,7 +1229,7 @@ export function InvoiceQuoteView({
             <div className="invoice-services-table">
               <div className="invoice-services-row invoice-services-row--header">
                 <span>Select</span>
-                <span>Service</span>
+                <span>Area / Service</span>
                 <span>Description</span>
                 <span>Unit Price (USD)</span>
               </div>
@@ -1244,7 +1245,7 @@ export function InvoiceQuoteView({
                         onChange={() => toggleJobSelection(job.id)}
                       />
                     </span>
-                    <span className="invoice-service-name">{job.service}</span>
+                    <span className="invoice-service-name">{formatAreaServiceLabel(job.area, job.service)}</span>
                     <span>{job.description || '-'}</span>
                     <span>{formatUsd(job.totalCost)}</span>
                   </div>

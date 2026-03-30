@@ -80,7 +80,27 @@ export const requestJson = async <T>(path: string, init?: RequestInit): Promise<
   return (await response.json()) as T;
 };
 
+export const fetchAssetBlob = async (url: string) => {
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      credentials: 'include',
+    });
+  } catch {
+    throw new Error('Could not load the protected file.');
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await readErrorMessage(response));
+  }
+
+  return response.blob();
+};
+
 export const buildAssetUrl = (path: string) =>
   apiBaseUrl ? new URL(path, `${apiBaseUrl}/`).toString() : path;
+
+export const assetImageCrossOrigin = apiBaseUrl ? ('use-credentials' as const) : undefined;
 
 export { apiBaseUrl };

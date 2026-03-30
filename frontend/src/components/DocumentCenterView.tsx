@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buildAssetUrl } from '../lib/api';
+import { formatJobLocationSummary } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
+import { ProtectedAssetFrame } from './ProtectedAssetFrame';
+import { ProtectedAssetImage } from './ProtectedAssetImage';
 import { UiIcon } from './UiIcon';
 
 type DocumentCenterItem = {
@@ -94,24 +97,6 @@ const getDocumentDisplayName = (item: DocumentCenterItem) => {
   return item.fileName.replace(/\.(html?|pdf)$/i, '');
 };
 
-const createPdfPreviewUrl = async (sourceUrl: string) => {
-  const response = await fetch(sourceUrl, {
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    throw new Error(`Unable to load PDF preview (${response.status}).`);
-  }
-
-  const sourceBlob = await response.blob();
-  const pdfBlob =
-    sourceBlob.type === 'application/pdf'
-      ? sourceBlob
-      : new Blob([await sourceBlob.arrayBuffer()], { type: 'application/pdf' });
-
-  return URL.createObjectURL(pdfBlob);
-};
-
 export function DocumentCenterView({
   properties,
   jobs,
@@ -141,9 +126,9 @@ export function DocumentCenterView({
       createdAt: document.createdAt,
       linkedJobCount: document.linkedJobCount,
       linkedJobSummary: document.linkedJobs
-        .map((job) => [job.story, job.unit, job.service].filter(Boolean).join(' / '))
+        .map((job) => formatJobLocationSummary(job.story, job.unit, job.area, job.service))
         .slice(0, 3)
-        .join(' • '),
+        .join(' | '),
       openUrl: buildAssetUrl(document.url),
       downloadUrl: buildAssetUrl(document.url),
     }));
@@ -160,7 +145,7 @@ export function DocumentCenterView({
         issueDate: file.createdAt,
         createdAt: file.createdAt,
         linkedJobCount: 1,
-        linkedJobSummary: [job.story, job.unit, job.service].filter(Boolean).join(' / '),
+        linkedJobSummary: formatJobLocationSummary(job.story, job.unit, job.area, job.service),
         openUrl: buildAssetUrl(file.url),
         downloadUrl: buildAssetUrl(file.url),
       })),
@@ -372,11 +357,6 @@ function DocumentPreviewDialog({
   item: DocumentCenterItem | null;
   onClose: () => void;
 }) {
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [loadedPdfSource, setLoadedPdfSource] = useState<string | null>(null);
-  const [failedPdfSource, setFailedPdfSource] = useState<string | null>(null);
-  const [pdfPreviewError, setPdfPreviewError] = useState<string | null>(null);
-
   useEffect(() => {
     if (!item) return undefined;
 
@@ -392,51 +372,10 @@ function DocumentPreviewDialog({
     };
   }, [item, onClose]);
 
-  const pdfSourceUrl = item && getDocumentPreviewMode(item) === 'pdf' ? item.openUrl : null;
-
-  useEffect(() => {
-    if (!pdfSourceUrl) return undefined;
-
-    let isActive = true;
-    let nextObjectUrl: string | null = null;
-
-    void createPdfPreviewUrl(pdfSourceUrl)
-      .then((objectUrl) => {
-        if (!isActive) {
-          URL.revokeObjectURL(objectUrl);
-          return;
-        }
-
-        nextObjectUrl = objectUrl;
-        setPdfPreviewUrl(objectUrl);
-        setLoadedPdfSource(pdfSourceUrl);
-        setFailedPdfSource(null);
-        setPdfPreviewError(null);
-      })
-      .catch(() => {
-        if (!isActive) return;
-        setLoadedPdfSource(null);
-        setFailedPdfSource(pdfSourceUrl);
-        setPdfPreviewError('Could not render this PDF inline');
-      });
-
-    return () => {
-      isActive = false;
-      if (nextObjectUrl) {
-        URL.revokeObjectURL(nextObjectUrl);
-      }
-    };
-  }, [pdfSourceUrl]);
-
   if (!item) return null;
 
   const previewMode = getDocumentPreviewMode(item);
   const displayName = getDocumentDisplayName(item);
-  const isPdfPreviewLoading = Boolean(
-    pdfSourceUrl && loadedPdfSource !== pdfSourceUrl && failedPdfSource !== pdfSourceUrl,
-  );
-  const activePdfPreviewUrl = loadedPdfSource === pdfSourceUrl ? pdfPreviewUrl : null;
-
   return (
     <div className="document-preview-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -461,40 +400,60 @@ function DocumentPreviewDialog({
         <div className="document-preview-body">
           <div className="document-preview-stage">
             {previewMode === 'image' ? (
-              <img
+              <ProtectedAssetImage
                 className="document-preview-image"
                 src={item.openUrl}
                 alt={displayName}
+                loadingFallback={
+                  <div className="document-preview-empty">
+                    <strong>Loading image preview...</strong>
+                    <span>Please wait while the saved file opens.</span>
+                  </div>
+                }
+                errorFallback={
+                  <div className="document-preview-empty">
+                    <strong>Could not load this image preview</strong>
+                    <span>Use Open or Download to inspect the file on your device.</span>
+                  </div>
+                }
               />
             ) : previewMode === 'pdf' ? (
-              isPdfPreviewLoading ? (
-                <div className="document-preview-empty">
-                  <strong>Loading PDF preview...</strong>
-                  <span>Please wait a moment.</span>
-                </div>
-              ) : activePdfPreviewUrl ? (
-                <object
-                  className="document-preview-frame"
-                  data={activePdfPreviewUrl}
-                  type="application/pdf"
-                  aria-label={`Preview for ${displayName}`}
-                >
-                  <div className="document-preview-empty">
-                    <strong>Could not render this PDF inline</strong>
-                    <span>Use Download to inspect the file on your device.</span>
-                  </div>
-                </object>
-              ) : (
-                <div className="document-preview-empty">
-                  <strong>{pdfPreviewError ?? 'Could not render this PDF inline'}</strong>
-                  <span>Use Download to inspect the file on your device.</span>
-                </div>
-              )
-            ) : previewMode === 'frame' ? (
-              <iframe
+              <ProtectedAssetFrame
                 className="document-preview-frame"
                 src={item.openUrl}
                 title={`Preview for ${displayName}`}
+                mimeType="application/pdf"
+                loadingFallback={
+                  <div className="document-preview-empty">
+                    <strong>Loading PDF preview...</strong>
+                    <span>Please wait while the saved file opens.</span>
+                  </div>
+                }
+                errorFallback={
+                  <div className="document-preview-empty">
+                    <strong>Could not load this PDF preview</strong>
+                    <span>Use Open or Download to inspect the file on your device.</span>
+                  </div>
+                }
+              />
+            ) : previewMode === 'frame' ? (
+              <ProtectedAssetFrame
+                className="document-preview-frame"
+                src={item.openUrl}
+                title={`Preview for ${displayName}`}
+                mimeType="text/html"
+                loadingFallback={
+                  <div className="document-preview-empty">
+                    <strong>Loading document preview...</strong>
+                    <span>Please wait while the saved file opens.</span>
+                  </div>
+                }
+                errorFallback={
+                  <div className="document-preview-empty">
+                    <strong>Could not load this document preview</strong>
+                    <span>Use Open or Download to inspect the file on your device.</span>
+                  </div>
+                }
               />
             ) : (
               <div className="document-preview-empty">

@@ -140,6 +140,7 @@ model Job {
   story          String         @default("")
   unit           String         @default("")
   section        String
+  area           String         @default("")
   service        String
   description    String         @default("")
   materialCost   Decimal        @default(0) @db.Decimal(12, 2)

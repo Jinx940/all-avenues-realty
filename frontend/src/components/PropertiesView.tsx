@@ -1,5 +1,5 @@
 import { useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react';
-import { buildAssetUrl } from '../lib/api';
+import { formatAreaServiceLabel } from '../lib/jobLocation';
 import { paymentStatusColor, workStatusColor } from '../lib/statusVisuals';
 import {
   propertyUnitSpecFields,
@@ -13,6 +13,7 @@ import type {
   PropertyStory,
   PropertyUnit,
 } from '../types';
+import { ProtectedAssetImage } from './ProtectedAssetImage';
 import { UiIcon, type UiIconName } from './UiIcon';
 
 type PropertyFormBaseState = {
@@ -34,6 +35,7 @@ type SectionTimelineItem = {
   section: string;
   items: Array<{
     id: string;
+    area: string;
     service: string;
     before: { file: JobFile; service: string } | null;
     after: { file: JobFile; service: string } | null;
@@ -141,7 +143,7 @@ export function PropertiesView({
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
     : '';
 
-  const heroImageUrl = selectedProperty?.coverImageUrl || null;
+  const heroImageUrl = selectedProperty?.coverImageUrl ?? null;
   const totalStoryUnits =
     selectedProperty?.stories.reduce((total, story) => total + story.units.length, 0) ?? 0;
   const propertyAlerts = buildPropertyAlerts(selectedProperty, propertyJobs);
@@ -480,7 +482,23 @@ export function PropertiesView({
 
                 <div className="property-summary-media">
                   {heroImageUrl ? (
-                    <img className="property-hero-image" src={heroImageUrl} alt={selectedProperty.name} />
+                    <ProtectedAssetImage
+                      className="property-hero-image"
+                      src={heroImageUrl}
+                      alt={selectedProperty.name}
+                      loadingFallback={
+                        <div className="image-placeholder property-image-placeholder">
+                          <strong>Loading property photo...</strong>
+                          <span>Please wait while the saved image opens.</span>
+                        </div>
+                      }
+                      errorFallback={
+                        <div className="image-placeholder property-image-placeholder">
+                          <strong>Could not load property photo</strong>
+                          <span>Re-upload the image or open the file in a new tab to inspect it.</span>
+                        </div>
+                      }
+                    />
                   ) : (
                     <div className="image-placeholder property-image-placeholder">
                       <strong>Property photo placeholder</strong>
@@ -608,7 +626,7 @@ export function PropertiesView({
                             })
                           }
                         >
-                          {item.service}
+                          {formatAreaServiceLabel(item.area, item.service)}
                         </button>
                       ))}
                     </div>
@@ -616,10 +634,23 @@ export function PropertiesView({
                     <div className="before-after-compare">
                       <div className="before-after-stage before-after-stage--after">
                         {currentTimelineItem?.after ? (
-                          <img
+                          <ProtectedAssetImage
                             className="before-after-image"
-                            src={buildAssetUrl(currentTimelineItem.after.file.url)}
-                            alt={`After - ${currentTimeline.section} - ${currentTimelineItem.service}`}
+                            src={currentTimelineItem.after.file.url}
+                            alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
+                            mimeType={currentTimelineItem.after.file.mimeType}
+                            loadingFallback={
+                              <div className="before-after-empty">
+                                <strong>Loading after photo...</strong>
+                                <span>Please wait while the file opens.</span>
+                              </div>
+                            }
+                            errorFallback={
+                              <div className="before-after-empty">
+                                <strong>Could not load the after photo</strong>
+                                <span>Open the file from the job to inspect it in a new tab.</span>
+                              </div>
+                            }
                           />
                         ) : (
                           <div className="before-after-empty">
@@ -634,10 +665,23 @@ export function PropertiesView({
                         style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
                       >
                         {currentTimelineItem?.before ? (
-                          <img
+                          <ProtectedAssetImage
                             className="before-after-image"
-                            src={buildAssetUrl(currentTimelineItem.before.file.url)}
-                            alt={`Before - ${currentTimeline.section} - ${currentTimelineItem.service}`}
+                            src={currentTimelineItem.before.file.url}
+                            alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
+                            mimeType={currentTimelineItem.before.file.mimeType}
+                            loadingFallback={
+                              <div className="before-after-empty">
+                                <strong>Loading before photo...</strong>
+                                <span>Please wait while the file opens.</span>
+                              </div>
+                            }
+                            errorFallback={
+                              <div className="before-after-empty">
+                                <strong>Could not load the before photo</strong>
+                                <span>Open the file from the job to inspect it in a new tab.</span>
+                              </div>
+                            }
                           />
                         ) : (
                           <div className="before-after-empty">
@@ -671,7 +715,7 @@ export function PropertiesView({
                               comparePosition: Number(event.target.value),
                             })
                           }
-                          aria-label={`Compare before and after photos for ${currentTimeline.section}`}
+                          aria-label={`Compare before and after photos for ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
                         />
                       </div>
                     </div>
@@ -680,6 +724,10 @@ export function PropertiesView({
                       <div>
                         <strong>Story / Unit</strong>
                         <span>{currentTimeline.section}</span>
+                      </div>
+                      <div>
+                        <strong>Area</strong>
+                        <span>{currentTimelineItem?.area || 'Pending'}</span>
                       </div>
                       <div>
                         <strong>Service</strong>
@@ -779,6 +827,7 @@ function buildSectionTimeline(jobs: JobRow[]): SectionTimelineItem[] {
       services: Map<
         string,
         {
+          area: string;
           service: string;
           beforeEntries: Array<{ file: JobFile; service: string }>;
           afterEntries: Array<{ file: JobFile; service: string }>;
@@ -789,13 +838,16 @@ function buildSectionTimeline(jobs: JobRow[]): SectionTimelineItem[] {
 
   jobs.forEach((job) => {
     const section = [job.story.trim(), job.unit.trim()].filter(Boolean).join(' / ') || 'Whole property';
+    const area = job.area.trim();
     const service = job.service.trim() || 'General Service';
+    const serviceKey = `${area.toLowerCase()}::${service.toLowerCase()}`;
     const current = groups.get(section) ?? {
       section,
       services: new Map(),
     };
 
-    const currentService = current.services.get(service) ?? {
+    const currentService = current.services.get(serviceKey) ?? {
+      area,
       service,
       beforeEntries: [],
       afterEntries: [],
@@ -809,7 +861,7 @@ function buildSectionTimeline(jobs: JobRow[]): SectionTimelineItem[] {
       currentService.afterEntries.push({ file, service: job.service });
     });
 
-    current.services.set(service, currentService);
+    current.services.set(serviceKey, currentService);
     groups.set(section, current);
   });
 
@@ -819,13 +871,18 @@ function buildSectionTimeline(jobs: JobRow[]): SectionTimelineItem[] {
       section: group.section,
       items: Array.from(group.services.values())
         .map((serviceGroup) => ({
-          id: `${group.section}-${serviceGroup.service}`.toLowerCase().replace(/\s+/g, '-'),
+          id: `${group.section}-${serviceGroup.area}-${serviceGroup.service}`.toLowerCase().replace(/\s+/g, '-'),
+          area: serviceGroup.area,
           service: serviceGroup.service,
           before: pickTimelineEntry(serviceGroup.beforeEntries, 'asc'),
           after: pickTimelineEntry(serviceGroup.afterEntries, 'desc'),
         }))
         .filter((item) => item.before && item.after)
-        .sort((left, right) => left.service.localeCompare(right.service)),
+        .sort((left, right) =>
+          formatAreaServiceLabel(left.area, left.service).localeCompare(
+            formatAreaServiceLabel(right.area, right.service),
+          ),
+        ),
     }))
     .filter((group) => group.items.length > 0)
     .sort((left, right) => left.section.localeCompare(right.section));

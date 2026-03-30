@@ -155,6 +155,7 @@ export type JobRow = {
   story: string;
   unit: string;
   section: string;
+  area: string;
   service: string;
   description: string;
   materialCost: number;
@@ -219,6 +220,7 @@ export type GeneratedDocumentHistoryItem = {
     story: string;
     unit: string;
     section: string;
+    area: string;
     service: string;
   }>;
 };

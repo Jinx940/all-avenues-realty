@@ -47,6 +47,7 @@ import {
 } from './lib/auth.js';
 import {
   buildDocumentResponse,
+  buildPdfPreviewResponse,
   buildGeneratedDocumentUrl,
   buildJobFileUrl,
   buildPropertyCoverUrl,
@@ -179,6 +180,7 @@ const jobInputSchema = z.object({
   story: z.string().trim().max(120).optional().transform((value) => normalizeStoryInput(value ?? '')),
   unit: z.string().trim().max(180).optional().transform((value) => normalizeUnitInput(value ?? '')),
   section: z.string().trim().max(120).optional().transform((value) => value ?? ''),
+  area: z.string().trim().max(180).optional().or(z.literal('')),
   service: z.string().trim().min(1).max(180),
   description: z.string().trim().max(3000).optional().or(z.literal('')),
   materialCost: z.coerce.number().min(0).default(0),
@@ -534,6 +536,7 @@ const serializeJob = (job: {
   story: string;
   unit: string;
   section: string;
+  area: string;
   service: string;
   description: string;
   materialCost: number | Prisma.Decimal;
@@ -567,6 +570,7 @@ const serializeJob = (job: {
   story: job.story,
   unit: job.unit,
   section: job.section,
+  area: job.area,
   service: job.service,
   description: job.description,
   materialCost: numericValue(job.materialCost),
@@ -670,6 +674,7 @@ const serializeGeneratedDocument = (document: {
       story: string;
       unit: string;
       section: string;
+      area: string;
       service: string;
     };
   }>;
@@ -683,6 +688,7 @@ const serializeGeneratedDocument = (document: {
           story: file.job.story,
           unit: file.job.unit,
           section: file.job.section,
+          area: file.job.area,
           service: file.job.service,
         },
       ]),
@@ -1120,6 +1126,8 @@ app.get(
     }
 
     const fileId = String(request.params.fileId);
+    const previewMode = String(request.query.preview ?? '') === '1';
+    const rawMode = String(request.query.raw ?? '') === '1';
     const file = await prisma.jobFile.findFirst({
       where: {
         id: fileId,
@@ -1137,6 +1145,20 @@ app.get(
 
     if (!file?.storedName) {
       response.status(404).json({ message: 'File not found.' });
+      return;
+    }
+
+    if (file.mimeType === 'application/pdf' && previewMode && !rawMode) {
+      const previewResponse = buildPdfPreviewResponse(
+        `${buildJobFileUrl(fileId)}?raw=1`,
+        file.originalName,
+      );
+
+      Object.entries(previewResponse.headers).forEach(([key, value]) => {
+        response.setHeader(key, value);
+      });
+      response.setHeader('Content-Type', 'text/html; charset=utf-8');
+      response.send(previewResponse.html);
       return;
     }
 
@@ -1571,6 +1593,7 @@ app.get(
                 story: true,
                 unit: true,
                 section: true,
+                area: true,
                 service: true,
               },
             },
@@ -1594,6 +1617,8 @@ app.get(
 
     const documentId = String(request.params.documentId);
     const printMode = String(request.query.print ?? '') === '1';
+    const previewMode = String(request.query.preview ?? '') === '1';
+    const rawMode = String(request.query.raw ?? '') === '1';
 
     const document = await prisma.generatedDocument.findFirst({
       where: {
@@ -1609,6 +1634,20 @@ app.get(
 
     if (!document) {
       response.status(404).json({ message: 'Document not found.' });
+      return;
+    }
+
+    if (document.mimeType === 'application/pdf' && previewMode && !rawMode) {
+      const previewResponse = buildPdfPreviewResponse(
+        `${buildGeneratedDocumentUrl(documentId)}?raw=1`,
+        document.fileName,
+      );
+
+      Object.entries(previewResponse.headers).forEach(([key, value]) => {
+        response.setHeader(key, value);
+      });
+      response.setHeader('Content-Type', 'text/html; charset=utf-8');
+      response.send(previewResponse.html);
       return;
     }
 
@@ -1788,7 +1827,8 @@ app.post(
         },
         story: payload.story,
         unit: payload.unit,
-        section: buildJobSectionValue(payload.story, payload.unit, payload.section || payload.service),
+        section: buildJobSectionValue(payload.story, payload.unit, payload.section || payload.area || payload.service),
+        area: payload.area || '',
         service: payload.service,
         description: payload.description || '',
         materialCost: payload.materialCost,
@@ -1878,7 +1918,8 @@ app.put(
         },
         story: payload.story,
         unit: payload.unit,
-        section: buildJobSectionValue(payload.story, payload.unit, payload.section || payload.service),
+        section: buildJobSectionValue(payload.story, payload.unit, payload.section || payload.area || payload.service),
+        area: payload.area || '',
         service: payload.service,
         description: payload.description || '',
         materialCost: payload.materialCost,

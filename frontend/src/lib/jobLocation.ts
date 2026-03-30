@@ -28,6 +28,23 @@ export const toStoryFieldValue = (value: string) => stripPrefixedValue(value, 's
 
 export const toUnitFieldValue = (value: string) => stripPrefixedValue(value, 'unit');
 
+const joinLocationParts = (parts: string[]) =>
+  parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(' / ');
+
+export const formatAreaServiceLabel = (area: string, service: string, fallback = 'General Service') =>
+  joinLocationParts([area, service]) || fallback;
+
+export const formatJobLocationSummary = (
+  story: string,
+  unit: string,
+  area: string,
+  service: string,
+  fallback = 'Whole property',
+) => joinLocationParts([story, unit, area, service]) || fallback;
+
 const findStoryByLabel = (story: string, property: PropertySummary | null) => {
   const normalizedInput = normalizeStoryInput(story).toLowerCase();
   if (!normalizedInput) return null;
