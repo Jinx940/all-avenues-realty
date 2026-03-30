@@ -2190,6 +2190,11 @@ textarea {
   z-index: 1;
 }
 
+.before-after-stage--before .before-after-image,
+.before-after-stage--after .before-after-image {
+  padding: 52px 44px;
+}
+
 .before-after-image {
   width: 100%;
   height: 100%;
@@ -5935,6 +5940,11 @@ textarea {
 
 .tracker-compare-panel--after {
   z-index: 1;
+}
+
+.tracker-compare-panel--before .tracker-compare-image,
+.tracker-compare-panel--after .tracker-compare-image {
+  padding: 56px 48px;
 }
 
 .tracker-compare-image {
