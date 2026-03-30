@@ -219,13 +219,21 @@ export function DashboardView({
 
               <div className="dashboard-hero-actions">
                 {canCreateJob ? (
-                  <button type="button" onClick={onCreateJob}>
+                  <button
+                    type="button"
+                    className="dashboard-hero-button dashboard-hero-button--create"
+                    onClick={onCreateJob}
+                  >
                     <UiIcon name="plus" />
                     Create job
                   </button>
                 ) : null}
                 {canOpenSettings ? (
-                  <button type="button" className="ghost-button" onClick={onOpenSettings}>
+                  <button
+                    type="button"
+                    className="ghost-button dashboard-hero-button dashboard-hero-button--settings"
+                    onClick={onOpenSettings}
+                  >
                     <UiIcon name="settings" />
                     Open settings
                   </button>
