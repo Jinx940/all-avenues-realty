@@ -180,7 +180,8 @@ export function PropertiesView({
     ),
     1.8,
   );
-  const compareStageMaxWidth = `${Math.round(420 * compareAspectRatio)}px`;
+  const compareStageDisplayAspectRatio = Math.max(compareAspectRatio, 1.25);
+  const compareStageMaxWidth = `${Math.round(420 * compareStageDisplayAspectRatio)}px`;
 
   useEffect(() => {
     setBeforePhotoState(currentTimelineItem?.before ? 'loading' : 'idle');

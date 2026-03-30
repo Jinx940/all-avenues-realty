@@ -783,7 +783,8 @@ function TrackerMediaDialog({
     ),
     1.8,
   );
-  const compareStageMaxWidth = `${Math.round(580 * compareAspectRatio)}px`;
+  const compareStageDisplayAspectRatio = Math.max(compareAspectRatio, 1.25);
+  const compareStageMaxWidth = `${Math.round(580 * compareStageDisplayAspectRatio)}px`;
 
   useEffect(() => {
     setBeforePhotoState(compareBefore ? 'loading' : 'idle');
