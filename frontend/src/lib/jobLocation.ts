@@ -1,12 +1,28 @@
 import type { PropertySummary } from '../types';
 
+const storyPrefixExpression = /^(?:story|floor)\s+/i;
+const unitPrefixExpression = /^unit\s+/i;
+
+const prefixLabel = {
+  story: 'Floor',
+  unit: 'Unit',
+} as const;
+
+const removeKnownPrefix = (value: string, prefix: 'story' | 'unit') =>
+  value.replace(prefix === 'story' ? storyPrefixExpression : unitPrefixExpression, '').trim();
+
 const normalizePrefixedValue = (value: string, prefix: 'story' | 'unit') => {
   const trimmed = value.trim();
   if (!trimmed) return '';
 
-  const withoutPrefix = trimmed.replace(new RegExp(`^${prefix}\\s+`, 'i'), '').trim();
+  const withoutPrefix = removeKnownPrefix(trimmed, prefix);
+  const hadKnownPrefix = withoutPrefix !== trimmed;
   if (/^\d+[a-z]?$/i.test(withoutPrefix)) {
-    return `${prefix[0]!.toUpperCase()}${prefix.slice(1)} ${withoutPrefix.toUpperCase()}`;
+    return `${prefixLabel[prefix]} ${withoutPrefix.toUpperCase()}`;
+  }
+
+  if (hadKnownPrefix && withoutPrefix) {
+    return `${prefixLabel[prefix]} ${withoutPrefix}`;
   }
 
   return trimmed;
@@ -16,13 +32,14 @@ const stripPrefixedValue = (value: string, prefix: 'story' | 'unit') => {
   const trimmed = value.trim();
   if (!trimmed) return '';
 
-  const matched = trimmed.match(new RegExp(`^${prefix}\\s+(.+)$`, 'i'));
-  return matched?.[1]?.trim() || trimmed;
+  return removeKnownPrefix(trimmed, prefix) || trimmed;
 };
 
 export const normalizeStoryInput = (value: string) => normalizePrefixedValue(value, 'story');
 
 export const normalizeUnitInput = (value: string) => normalizePrefixedValue(value, 'unit');
+
+export const formatStoryDisplayLabel = (value: string) => normalizeStoryInput(value);
 
 export const toStoryFieldValue = (value: string) => stripPrefixedValue(value, 'story');
 
@@ -43,20 +60,20 @@ export const formatJobLocationSummary = (
   area: string,
   service: string,
   fallback = 'Whole property',
-) => joinLocationParts([story, unit, area, service]) || fallback;
+) => joinLocationParts([formatStoryDisplayLabel(story), unit, area, service]) || fallback;
 
 const findStoryByLabel = (story: string, property: PropertySummary | null) => {
   const normalizedInput = normalizeStoryInput(story).toLowerCase();
   if (!normalizedInput) return null;
 
   return (
-    property?.stories.find((item) => item.label.trim().toLowerCase() === normalizedInput) ?? null
+    property?.stories.find((item) => normalizeStoryInput(item.label).toLowerCase() === normalizedInput) ?? null
   );
 };
 
 export const findMatchingStoryLabel = (story: string, property: PropertySummary | null) => {
   const matchedStory = findStoryByLabel(story, property);
-  return matchedStory?.label ?? normalizeStoryInput(story);
+  return matchedStory ? formatStoryDisplayLabel(matchedStory.label) : normalizeStoryInput(story);
 };
 
 export const findMatchingUnitLabel = (
@@ -97,7 +114,9 @@ export const parseJobLocationValue = (value: string, property: PropertySummary |
   }
 
   const exactStory =
-    property?.stories.find((story) => story.label.trim().toLowerCase() === normalizeStoryInput(raw).toLowerCase()) ??
+    property?.stories.find(
+      (story) => normalizeStoryInput(story.label).toLowerCase() === normalizeStoryInput(raw).toLowerCase(),
+    ) ??
     null;
   if (exactStory) {
     return { story: toStoryFieldValue(exactStory.label), unit: '' };

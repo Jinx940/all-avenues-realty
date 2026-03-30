@@ -6,9 +6,10 @@ import {
   normalizeUnitInput,
 } from '../src/lib/jobLocation.js';
 
-test('normalizeStoryInput converts numeric values to canonical story labels', () => {
-  assert.equal(normalizeStoryInput('1'), 'Story 1');
-  assert.equal(normalizeStoryInput('story 02'), 'Story 02');
+test('normalizeStoryInput converts numeric values to canonical floor labels', () => {
+  assert.equal(normalizeStoryInput('1'), 'Floor 1');
+  assert.equal(normalizeStoryInput('story 02'), 'Floor 02');
+  assert.equal(normalizeStoryInput('floor 03'), 'Floor 03');
   assert.equal(normalizeStoryInput('Basement'), 'Basement');
 });
 
@@ -19,6 +20,6 @@ test('normalizeUnitInput converts numeric values to canonical unit labels', () =
 });
 
 test('buildJobSectionValue joins normalized story and unit values', () => {
-  assert.equal(buildJobSectionValue('1', '2', 'Kitchen'), 'Story 1 / Unit 2');
+  assert.equal(buildJobSectionValue('1', '2', 'Kitchen'), 'Floor 1 / Unit 2');
   assert.equal(buildJobSectionValue('', '', 'Kitchen'), 'Kitchen');
 });

@@ -563,7 +563,7 @@ const serializeJob = (job: {
   id: job.id,
   propertyId: job.property.id,
   propertyName: job.property.name,
-  story: job.story,
+  story: normalizeStoryInput(job.story),
   unit: job.unit,
   section: job.section,
   area: job.area,
@@ -720,7 +720,7 @@ const serializeGeneratedDocument = (document: {
         file.job.id,
         {
           id: file.job.id,
-          story: file.job.story,
+          story: normalizeStoryInput(file.job.story),
           unit: file.job.unit,
           section: file.job.section,
           area: file.job.area,

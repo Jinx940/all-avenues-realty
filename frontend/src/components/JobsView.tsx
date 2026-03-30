@@ -100,7 +100,7 @@ export function JobsView({
     {
       number: '01',
       title: 'Location',
-      description: 'Property, story, unit, area and service.',
+      description: 'Property, floor, unit, area and service.',
       icon: 'home',
       complete: Boolean(form.propertyId && form.service.trim()),
     },
@@ -208,7 +208,7 @@ export function JobsView({
                 </label>
 
                 <label>
-                  Story
+                  Floor
                   <input
                     value={form.story}
                     onChange={(event) => onFieldChange('story', event.target.value)}

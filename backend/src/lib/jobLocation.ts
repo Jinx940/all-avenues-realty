@@ -1,10 +1,26 @@
+const storyPrefixExpression = /^(?:story|floor)\s+/i;
+const unitPrefixExpression = /^unit\s+/i;
+
+const prefixLabel = {
+  story: 'Floor',
+  unit: 'Unit',
+} as const;
+
+const removeKnownPrefix = (value: string, prefix: 'story' | 'unit') =>
+  value.replace(prefix === 'story' ? storyPrefixExpression : unitPrefixExpression, '').trim();
+
 const normalizePrefixedValue = (value: string, prefix: 'story' | 'unit') => {
   const trimmed = value.trim();
   if (!trimmed) return '';
 
-  const withoutPrefix = trimmed.replace(new RegExp(`^${prefix}\\s+`, 'i'), '').trim();
+  const withoutPrefix = removeKnownPrefix(trimmed, prefix);
+  const hadKnownPrefix = withoutPrefix !== trimmed;
   if (/^\d+[a-z]?$/i.test(withoutPrefix)) {
-    return `${prefix[0]!.toUpperCase()}${prefix.slice(1)} ${withoutPrefix.toUpperCase()}`;
+    return `${prefixLabel[prefix]} ${withoutPrefix.toUpperCase()}`;
+  }
+
+  if (hadKnownPrefix && withoutPrefix) {
+    return `${prefixLabel[prefix]} ${withoutPrefix}`;
   }
 
   return trimmed;

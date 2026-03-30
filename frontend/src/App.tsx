@@ -14,9 +14,11 @@ import { formatMoney } from './lib/format';
 import { buildAdvanceCashAlerts, type AdvanceCashAlert } from './lib/advanceCashAlerts';
 import {
   buildInternalSectionValue,
+  formatStoryDisplayLabel,
   formatAreaServiceLabel,
   findMatchingStoryLabel,
   findMatchingUnitLabel,
+  normalizeStoryInput,
   parseJobLocationValue,
 } from './lib/jobLocation';
 import type {
@@ -236,7 +238,7 @@ const createPropertyPayload = (
     .filter(storyHasAnyValue)
     .map((story, storyIndex) => ({
       id: story.id,
-      label: story.label.trim() || `Story ${storyIndex + 1}`,
+      label: normalizeStoryInput(story.label) || `Floor ${storyIndex + 1}`,
       units: story.units
         .filter(unitHasAnyValue)
         .map((unit, unitIndex) => ({
@@ -504,7 +506,10 @@ function AdvanceCashAlertsBell({
                       </div>
 
                       <div className="advance-cash-card-meta">
-                        <span>{[alert.story, alert.unit].filter(Boolean).join(' / ') || 'Whole property'}</span>
+                        <span>
+                          {[formatStoryDisplayLabel(alert.story), alert.unit].filter(Boolean).join(' / ') ||
+                            'Whole property'}
+                        </span>
                         <span>{formatAdvanceCashDueDate(alert.dueDate)}</span>
                         <span>{formatMoney(alert.advanceCashApp)}</span>
                       </div>
@@ -609,6 +614,7 @@ export default function App() {
     const haystack = [
       job.propertyName,
       job.story,
+      formatStoryDisplayLabel(job.story),
       job.unit,
       job.area,
       job.service,
@@ -1114,7 +1120,7 @@ export default function App() {
       ...current,
       stories: [
         ...current.stories,
-        createEmptyPropertyStoryForm(`Story ${current.stories.length + 1}`),
+        createEmptyPropertyStoryForm(`Floor ${current.stories.length + 1}`),
       ],
     }));
   };

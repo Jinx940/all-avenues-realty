@@ -42,17 +42,18 @@ const property: PropertySummary = {
 
 describe('jobLocation helpers', () => {
   it('matches canonical story and unit labels from numeric input', () => {
-    expect(findMatchingStoryLabel('1', property)).toBe('Story 1');
+    expect(findMatchingStoryLabel('1', property)).toBe('Floor 1');
+    expect(findMatchingStoryLabel('floor 1', property)).toBe('Floor 1');
     expect(findMatchingUnitLabel('1', '1', property)).toBe('Unit 1');
   });
 
   it('builds normalized internal section labels', () => {
-    expect(buildInternalSectionValue('1', '2', 'Kitchen')).toBe('Story 1 / Unit 2');
+    expect(buildInternalSectionValue('1', '2', 'Kitchen')).toBe('Floor 1 / Unit 2');
     expect(buildInternalSectionValue('', '', 'Kitchen')).toBe('Kitchen');
   });
 
   it('parses stored labels back into compact form fields', () => {
-    expect(parseJobLocationValue('Story 1 / Unit 1', property)).toEqual({
+    expect(parseJobLocationValue('Floor 1 / Unit 1', property)).toEqual({
       story: '1',
       unit: '1',
     });
@@ -65,7 +66,7 @@ describe('jobLocation helpers', () => {
 
   it('formats full job location summaries with area before service', () => {
     expect(formatJobLocationSummary('Story 1', 'Unit 1', 'Kitchen', 'Electrical')).toBe(
-      'Story 1 / Unit 1 / Kitchen / Electrical',
+      'Floor 1 / Unit 1 / Kitchen / Electrical',
     );
   });
 });

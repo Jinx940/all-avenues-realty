@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
+import { normalizeStoryInput } from './lib/jobLocation.js';
 
 export const propertySpecFieldNames = [
   'floors',
@@ -100,6 +101,7 @@ const propertyStoryJsonSchema = z
   })
   .transform((story) => ({
     ...story,
+    label: normalizeStoryInput(story.label),
     id: story.id || randomUUID(),
   }));
 
@@ -145,7 +147,7 @@ export const normalizePropertyStories = (
 
   return parsedLegacyGroups.data.map((group, index) => ({
     id: randomUUID(),
-    label: group.coveredFloors.trim() || `Story ${index + 1}`,
+    label: normalizeStoryInput(group.coveredFloors.trim() || `Floor ${index + 1}`),
     units: [
       {
         id: group.id || randomUUID(),

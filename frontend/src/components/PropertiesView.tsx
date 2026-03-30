@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react';
-import { formatAreaServiceLabel } from '../lib/jobLocation';
+import { formatAreaServiceLabel, formatJobLocationSummary, formatStoryDisplayLabel } from '../lib/jobLocation';
 import { paymentStatusColor, workStatusColor } from '../lib/statusVisuals';
 import {
   propertyUnitSpecFields,
@@ -386,12 +386,12 @@ export function PropertiesView({
               <div className="span-2 property-structure-section">
                 <div className="property-structure-head">
                   <div>
-                    <h3>Story by story, unit by unit</h3>
+                    <h3>Floor by floor, unit by unit</h3>
                   </div>
 
                   <button type="button" className="ghost-button" onClick={onAddStory}>
                     <UiIcon name="plus" />
-                    Add story
+                    Add floor
                   </button>
                 </div>
 
@@ -401,13 +401,13 @@ export function PropertiesView({
                       <article key={story.id} className="property-story-card">
                         <div className="property-story-head">
                           <label className="property-story-title">
-                            <span>Story</span>
+                            <span>Floor</span>
                             <input
                               value={story.label}
                               onChange={(event) =>
                                 onStoryChange(story.id, 'label', event.target.value)
                               }
-                              placeholder={`Story ${storyIndex + 1}`}
+                              placeholder={`Floor ${storyIndex + 1}`}
                             />
                           </label>
 
@@ -426,7 +426,7 @@ export function PropertiesView({
                               onClick={() => onRemoveStory(story.id)}
                             >
                               <UiIcon name="trash" />
-                              Remove story
+                              Remove floor
                             </button>
                           </div>
                         </div>
@@ -480,7 +480,7 @@ export function PropertiesView({
                           </div>
                         ) : (
                           <div className="empty-box">
-                            Add the units or tenants that belong to this story before saving.
+                            Add the units or tenants that belong to this floor before saving.
                           </div>
                         )}
                       </article>
@@ -488,7 +488,7 @@ export function PropertiesView({
                   </div>
                 ) : (
                   <div className="empty-box">
-                    Start by adding a story, then create the units or tenants inside it.
+                    Start by adding a floor, then create the units or tenants inside it.
                   </div>
                 )}
               </div>
@@ -581,7 +581,7 @@ export function PropertiesView({
                   />
                 ) : (
                   <div className="empty-box">
-                    This property does not have a story and unit breakdown yet. Register it in
+                    This property does not have a floor and unit breakdown yet. Register it in
                     Property register to see the house data here.
                   </div>
                 )}
@@ -844,7 +844,7 @@ export function PropertiesView({
 
                     <div className="carousel-caption photo-timeline-caption">
                       <div>
-                        <strong>Story / Unit</strong>
+                        <strong>Floor / Unit</strong>
                         <span>{currentTimeline.section}</span>
                       </div>
                       <div>
@@ -959,7 +959,7 @@ function buildSectionTimeline(jobs: JobRow[]): SectionTimelineItem[] {
   >();
 
   jobs.forEach((job) => {
-    const section = [job.story.trim(), job.unit.trim()].filter(Boolean).join(' / ') || 'Whole property';
+    const section = formatJobLocationSummary(job.story, job.unit, '', '', 'Whole property');
     const area = job.area.trim();
     const service = job.service.trim() || 'General Service';
     const serviceKey = `${area.toLowerCase()}::${service.toLowerCase()}`;
@@ -1043,8 +1043,8 @@ function buildPropertyAlerts(property: PropertySummary | null, jobs: JobRow[]) {
       ? {
           tone: 'neutral',
           icon: 'building' as UiIconName,
-          label: 'Story breakdown pending',
-          text: 'Add the stories and units of this property so the house structure is clearly organized.',
+          label: 'Floor breakdown pending',
+          text: 'Add the floors and units of this property so the house structure is clearly organized.',
         }
       : null,
     property.stories.length > 0 && totalUnits === 0
@@ -1052,7 +1052,7 @@ function buildPropertyAlerts(property: PropertySummary | null, jobs: JobRow[]) {
           tone: 'neutral',
           icon: 'home' as UiIconName,
           label: 'Units pending',
-          text: 'At least one story is registered, but it still needs units or tenants inside it.',
+          text: 'At least one floor is registered, but it still needs units or tenants inside it.',
         }
       : null,
     missingSpecsCount > 0
@@ -1104,7 +1104,7 @@ function PropertyStructureLaunchCard({
             <UiIcon name="building" size={18} />
           </span>
           <div>
-            <span>Stories</span>
+            <span>Floors</span>
             <strong>{storyCount}</strong>
           </div>
         </div>
@@ -1120,10 +1120,10 @@ function PropertyStructureLaunchCard({
       </div>
 
       <div className="property-layout-launcher-actions">
-        <p>Open the story layout in a separate window.</p>
+        <p>Open the floor layout in a separate window.</p>
         <button type="button" onClick={onOpen}>
           <UiIcon name="search" size={15} />
-          View stories and units
+          View floors and units
         </button>
       </div>
     </div>
@@ -1194,7 +1194,7 @@ function PropertyStructureViewer({
       <div className="property-structure-filter-bar">
         <div className="property-structure-filter-group">
           <div className="property-structure-filter-head">
-            <span className="property-structure-filter-label">Stories</span>
+            <span className="property-structure-filter-label">Floors</span>
             <div className="property-structure-filter-meta">
               <span className="property-structure-mini-chip property-structure-mini-chip--soft">
                 <UiIcon name="building" size={13} />
@@ -1213,7 +1213,7 @@ function PropertyStructureViewer({
               onClick={() => setSelectedStoryId('all')}
             >
               <UiIcon name="dashboard" size={14} />
-              All stories
+              All floors
             </button>
             {stories.map((story) => (
               <button
@@ -1223,7 +1223,7 @@ function PropertyStructureViewer({
                 onClick={() => setSelectedStoryId(story.id)}
               >
                 <UiIcon name="building" size={14} />
-                {story.label}
+                {formatStoryDisplayLabel(story.label)}
               </button>
             ))}
           </div>
@@ -1277,8 +1277,8 @@ function PropertyStoryPanel({
             <UiIcon name="building" size={17} />
           </span>
           <div className="property-story-panel-copy">
-            <p className="eyebrow">Story {storyNumber}</p>
-            <h3>{story.label}</h3>
+            <p className="eyebrow">Floor {storyNumber}</p>
+            <h3>{formatStoryDisplayLabel(story.label)}</h3>
           </div>
         </div>
 

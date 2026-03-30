@@ -1,4 +1,5 @@
 import type { UiIconName } from './components/UiIcon';
+import { normalizeStoryInput } from './lib/jobLocation';
 import type {
   PropertySpecificationSnapshot,
   PropertyStory,
@@ -83,7 +84,7 @@ export const createEmptyPropertyUnitForm = (label = ''): PropertyUnitFormState =
 
 export const createEmptyPropertyStoryForm = (label = ''): PropertyStoryFormState => ({
   id: createClientId(),
-  label,
+  label: normalizeStoryInput(label),
   units: [],
 });
 
@@ -97,7 +98,7 @@ export const createPropertyStoryFormFromSummary = (
   story: PropertyStory,
 ): PropertyStoryFormState => ({
   id: story.id,
-  label: story.label,
+  label: normalizeStoryInput(story.label),
   units: story.units.map(createPropertyUnitFormFromSummary),
 });
 

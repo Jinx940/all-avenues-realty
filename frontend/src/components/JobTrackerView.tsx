@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { buildAssetUrl } from '../lib/api';
 import { formatDate, formatMoney } from '../lib/format';
-import { formatAreaServiceLabel } from '../lib/jobLocation';
+import { formatAreaServiceLabel, formatStoryDisplayLabel } from '../lib/jobLocation';
 import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
 import { getWorkerAccentClass } from '../lib/workerVisuals';
 import type { BootstrapPayload, JobFile, JobRow, Tone } from '../types';
@@ -223,7 +223,7 @@ export function JobTrackerView({
             <input
               value={filters.search}
               onChange={(event) => onFilterChange('search', event.target.value)}
-              placeholder="Search property, story, unit, area, service..."
+              placeholder="Search property, floor, unit, area, service..."
             />
           </label>
 
@@ -305,7 +305,7 @@ export function JobTrackerView({
           <div className="tracker-table tracker-table--central">
             <div className="tracker-row tracker-row--central tracker-header">
               <span>Property</span>
-              <span>Story</span>
+              <span>Floor</span>
               <span>Unit</span>
               <span>Area</span>
               <span>Services</span>
@@ -331,7 +331,7 @@ export function JobTrackerView({
                     className={`tracker-row tracker-row--central tracker-row--tone-${timelineVisual.tone}`}
                   >
                     <span className="tracker-property-cell">{job.propertyName}</span>
-                    <span className="tracker-story-cell">{job.story || '-'}</span>
+                    <span className="tracker-story-cell">{formatStoryDisplayLabel(job.story) || '-'}</span>
                     <span className="tracker-unit-cell">{job.unit || '-'}</span>
                     <span className="tracker-area-cell">{job.area || '-'}</span>
                     <div className="tracker-service-details">
@@ -538,7 +538,15 @@ function TrackerReceiptPreviewDialog({
   const { job, file } = state;
   const previewMode = getJobFilePreviewMode(file);
   const previewUrl = buildAssetUrl(file.url);
-  const locationLabel = [job.propertyName, job.story, job.unit, job.area, job.service].filter(Boolean).join(' | ');
+  const locationLabel = [
+    job.propertyName,
+    formatStoryDisplayLabel(job.story),
+    job.unit,
+    job.area,
+    job.service,
+  ]
+    .filter(Boolean)
+    .join(' | ');
   const descriptionLines = splitDescriptionLines(job.description);
 
   return (
@@ -644,8 +652,10 @@ function TrackerReceiptPreviewDialog({
                 <strong>{formatDate(file.createdAt)}</strong>
               </article>
               <article className="document-preview-meta-card">
-                <span>Story / Unit</span>
-                <strong>{[job.story, job.unit].filter(Boolean).join(' / ') || 'Whole property'}</strong>
+                <span>Floor / Unit</span>
+                <strong>
+                  {[formatStoryDisplayLabel(job.story), job.unit].filter(Boolean).join(' / ') || 'Whole property'}
+                </strong>
               </article>
               <article className="document-preview-meta-card">
                 <span>Area</span>
@@ -696,7 +706,9 @@ function TrackerDescriptionDialog({
 }) {
   if (!job) return null;
 
-  const locationLabel = [job.propertyName, job.story, job.unit, job.area].filter(Boolean).join(' | ');
+  const locationLabel = [job.propertyName, formatStoryDisplayLabel(job.story), job.unit, job.area]
+    .filter(Boolean)
+    .join(' | ');
   const descriptionLines = splitDescriptionLines(job.description);
 
   return (
@@ -727,8 +739,10 @@ function TrackerDescriptionDialog({
               <strong>{job.propertyName}</strong>
             </article>
             <article className="tracker-description-meta-card">
-              <span>Story / Unit</span>
-              <strong>{[job.story, job.unit].filter(Boolean).join(' / ') || 'Whole property'}</strong>
+              <span>Floor / Unit</span>
+              <strong>
+                {[formatStoryDisplayLabel(job.story), job.unit].filter(Boolean).join(' / ') || 'Whole property'}
+              </strong>
             </article>
             <article className="tracker-description-meta-card">
               <span>Area</span>
@@ -774,7 +788,7 @@ function TrackerMediaDialog({
   const dialogEyebrow = state?.mode === 'compare' ? 'Photo comparison' : 'Progress pictures';
   const locationLabel = [
     state?.job.propertyName ?? '',
-    state?.job.story || '',
+    formatStoryDisplayLabel(state?.job.story || ''),
     state?.job.unit || '',
     state?.job.area || '',
     state?.job.service || '',

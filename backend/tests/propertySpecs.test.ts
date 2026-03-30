@@ -29,7 +29,7 @@ test('normalizePropertyStories keeps valid stories and units and generates missi
   ]);
 
   assert.equal(stories.length, 1);
-  assert.equal(stories[0]?.label, 'Story 1');
+  assert.equal(stories[0]?.label, 'Floor 1');
   assert.equal(stories[0]?.units[0]?.label, 'Unit 1');
   assert.equal(typeof stories[0]?.id, 'string');
   assert.equal(typeof stories[0]?.units[0]?.id, 'string');
@@ -56,7 +56,7 @@ test('normalizePropertyStories converts the legacy flat floor groups into storie
   ]);
 
   assert.equal(stories.length, 1);
-  assert.equal(stories[0]?.label, 'Story 1');
+  assert.equal(stories[0]?.label, 'Floor 1');
   assert.equal(stories[0]?.units[0]?.label, 'Tenant A / Unit 1');
 });
 
