@@ -63,18 +63,24 @@ export const managedStoredRefFromValue = (value: string | null | undefined) => {
   return null;
 };
 
-export const uploadManagedFile = async (
-  file: Express.Multer.File,
+type ManagedUploadInput = {
+  originalName: string;
+  mimeType: string;
+  buffer: Buffer;
+};
+
+export const uploadManagedBuffer = async (
+  file: ManagedUploadInput,
   pathSegments: string[],
 ) => {
-  const fileName = createStoredUploadName(file.originalname);
+  const fileName = createStoredUploadName(file.originalName);
 
   if (supabase && env.supabase) {
     const storagePath = normalizeStoragePath(
       [...pathSegments.map(sanitizePathSegment).filter(Boolean), fileName].join('/'),
     );
     const { error } = await supabase.storage.from(env.supabase.bucket).upload(storagePath, file.buffer, {
-      contentType: file.mimetype,
+      contentType: file.mimeType,
       upsert: false,
     });
 
@@ -89,6 +95,19 @@ export const uploadManagedFile = async (
   await fs.promises.writeFile(resolveStoredFilePath(fileName), file.buffer);
   return fileName;
 };
+
+export const uploadManagedFile = async (
+  file: Express.Multer.File,
+  pathSegments: string[],
+) =>
+  uploadManagedBuffer(
+    {
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      buffer: file.buffer,
+    },
+    pathSegments,
+  );
 
 export const readManagedFile = async (storedRef: string) => {
   if (isSupabaseStorageRef(storedRef)) {
