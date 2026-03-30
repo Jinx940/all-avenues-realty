@@ -9169,18 +9169,23 @@ input.invoice-service-check:focus-visible {
 
 .advance-cash-bell--floating {
   position: fixed;
-  right: 10px;
+  right: -8px;
   top: 50%;
   transform: translateY(-50%);
   width: auto;
-  max-width: min(312px, calc(100vw - 18px));
+  max-width: min(88px, calc(100vw - 18px));
   margin: 0;
   pointer-events: auto;
   z-index: 70;
+  animation: advanceCashFloatingPrompt 2.8s ease-in-out infinite;
 }
 
 .advance-cash-bell.is-open {
   z-index: 46;
+}
+
+.advance-cash-bell--floating.is-open {
+  animation: none;
 }
 
 .advance-cash-bell-button {
@@ -9209,10 +9214,14 @@ input.invoice-service-check:focus-visible {
 }
 
 .advance-cash-bell--floating .advance-cash-bell-button {
-  width: auto;
-  min-width: 240px;
+  width: 76px;
+  min-width: 76px;
   min-height: 72px;
-  padding: 14px 18px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
   border-radius: 999px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
@@ -9299,7 +9308,7 @@ input.invoice-service-check:focus-visible {
 }
 
 .advance-cash-bell--floating .advance-cash-bell-copy {
-  gap: 0;
+  display: none;
 }
 
 .advance-cash-bell-copy strong {
@@ -9319,9 +9328,19 @@ input.invoice-service-check:focus-visible {
 }
 
 .advance-cash-bell--floating .advance-cash-bell-copy small {
-  display: block;
-  font-size: 0.77rem;
-  white-space: nowrap;
+  display: none;
+}
+
+.advance-cash-bell--floating .advance-cash-bell-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+}
+
+.advance-cash-bell--floating .advance-cash-bell-badge {
+  position: absolute;
+  top: 7px;
+  right: 14px;
 }
 
 .advance-cash-bell-button.has-overdue .advance-cash-bell-copy strong {
@@ -9748,6 +9767,22 @@ input.invoice-service-check:focus-visible {
   }
 }
 
+@keyframes advanceCashFloatingPrompt {
+  0%,
+  70%,
+  100% {
+    transform: translateY(-50%) translateX(0);
+  }
+
+  78% {
+    transform: translateY(-50%) translateX(-8px);
+  }
+
+  86% {
+    transform: translateY(-50%) translateX(-3px);
+  }
+}
+
 @media (max-width: 960px) {
   .advance-cash-panel {
     width: min(100%, calc(100vw - 56px));
@@ -9764,13 +9799,15 @@ input.invoice-service-check:focus-visible {
     top: auto;
     bottom: 18px;
     transform: none;
-    max-width: calc(100vw - 28px);
+    max-width: 88px;
+    animation: advanceCashFloatingPromptMobile 2.8s ease-in-out infinite;
   }
 
   .advance-cash-bell--floating .advance-cash-bell-button {
     min-width: 78px;
     min-height: 68px;
-    padding: 12px 16px;
+    width: 78px;
+    padding: 0;
   }
 
   .advance-cash-bell--floating .advance-cash-bell-copy small {
@@ -9809,5 +9846,21 @@ input.invoice-service-check:focus-visible {
   .dashboard-hero-card--side .advance-cash-bell-button {
     min-height: 70px;
     padding: 12px 14px;
+  }
+}
+
+@keyframes advanceCashFloatingPromptMobile {
+  0%,
+  70%,
+  100% {
+    transform: translateX(0);
+  }
+
+  78% {
+    transform: translateX(-8px);
+  }
+
+  86% {
+    transform: translateX(-3px);
   }
 }
