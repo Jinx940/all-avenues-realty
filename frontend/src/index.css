@@ -2174,6 +2174,7 @@ textarea {
 .before-after-stage {
   display: grid;
   place-items: center;
+  overflow: hidden;
 }
 
 .before-after-stage--single {
@@ -5920,6 +5921,7 @@ textarea {
 .tracker-compare-panel {
   display: grid;
   place-items: center;
+  overflow: hidden;
 }
 
 .tracker-compare-panel--single {
