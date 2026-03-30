@@ -60,6 +60,11 @@ export const managedStoredRefFromValue = (value: string | null | undefined) => {
     return raw.slice('/uploads/'.length) || null;
   }
 
+  // Legacy local uploads may still be stored as a bare file name in the database.
+  if (!raw.includes('/') && !raw.includes('\\')) {
+    return raw;
+  }
+
   return null;
 };
 

@@ -23,6 +23,10 @@ test('managedStoredRefFromValue supports Supabase refs and legacy uploads urls',
     managedStoredRefFromValue('/uploads/legacy-photo.png'),
     'legacy-photo.png',
   );
+  assert.equal(
+    managedStoredRefFromValue('legacy-photo.png'),
+    'legacy-photo.png',
+  );
   assert.equal(managedStoredRefFromValue('https://example.com/photo.png'), null);
   assert.equal(managedStoredRefFromValue(''), null);
 });
