@@ -170,11 +170,13 @@ export function PropertiesView({
   const afterPhotoId = currentTimelineItem?.after?.file.id ?? '';
   const shouldShowAfterOnly = Boolean(currentTimelineItem?.after) && (!currentTimelineItem?.before || beforePhotoState === 'error');
   const shouldShowBeforeOnly = Boolean(currentTimelineItem?.before) && (!currentTimelineItem?.after || afterPhotoState === 'error');
+  const availableAspectRatios = [beforePhotoDimensions, afterPhotoDimensions]
+    .filter((dimensions): dimensions is ProtectedAssetDimensions => Boolean(dimensions))
+    .map((dimensions) => dimensions.width / Math.max(dimensions.height, 1));
   const compareAspectRatio = Math.min(
     Math.max(
-      beforePhotoDimensions ? beforePhotoDimensions.width / Math.max(beforePhotoDimensions.height, 1) : 1,
-      afterPhotoDimensions ? afterPhotoDimensions.width / Math.max(afterPhotoDimensions.height, 1) : 1,
-      0.85,
+      availableAspectRatios.length ? Math.min(...availableAspectRatios) : 1,
+      0.7,
     ),
     1.8,
   );
