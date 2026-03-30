@@ -46,6 +46,17 @@ type SectionTimelineItem = {
   }>;
 };
 
+const getPropertyCompareImageStyle = (
+  dimensions: ProtectedAssetDimensions | null,
+): CSSProperties | undefined => {
+  if (!dimensions) return undefined;
+  const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
+  if (aspectRatio < 0.95) return undefined;
+  return {
+    padding: 'clamp(66px, 16%, 84px) clamp(60px, 18%, 96px)',
+  };
+};
+
 export function PropertiesView({
   focusMode,
   form,
@@ -182,6 +193,8 @@ export function PropertiesView({
   );
   const compareStageDisplayAspectRatio = Math.max(compareAspectRatio, 1.25);
   const compareStageMaxWidth = `${Math.round(420 * compareStageDisplayAspectRatio)}px`;
+  const beforeCompareImageStyle = getPropertyCompareImageStyle(beforePhotoDimensions);
+  const afterCompareImageStyle = getPropertyCompareImageStyle(afterPhotoDimensions);
 
   useEffect(() => {
     setBeforePhotoState(currentTimelineItem?.before ? 'loading' : 'idle');
@@ -678,6 +691,7 @@ export function PropertiesView({
                             src={currentTimelineItem?.after?.file.url ?? null}
                             alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
                             mimeType={currentTimelineItem?.after?.file.mimeType}
+                            style={afterCompareImageStyle}
                             onStateChange={setAfterPhotoState}
                             onDimensionsChange={setAfterPhotoDimensions}
                             loadingFallback={
@@ -705,6 +719,7 @@ export function PropertiesView({
                             src={currentTimelineItem?.before?.file.url ?? null}
                             alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
                             mimeType={currentTimelineItem?.before?.file.mimeType}
+                            style={beforeCompareImageStyle}
                             onStateChange={setBeforePhotoState}
                             onDimensionsChange={setBeforePhotoDimensions}
                             loadingFallback={
@@ -737,6 +752,7 @@ export function PropertiesView({
                                 src={currentTimelineItem.after.file.url}
                                 alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
                                 mimeType={currentTimelineItem.after.file.mimeType}
+                                style={afterCompareImageStyle}
                                 onStateChange={setAfterPhotoState}
                                 onDimensionsChange={setAfterPhotoDimensions}
                                 loadingFallback={
@@ -770,6 +786,7 @@ export function PropertiesView({
                                 src={currentTimelineItem.before.file.url}
                                 alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
                                 mimeType={currentTimelineItem.before.file.mimeType}
+                                style={beforeCompareImageStyle}
                                 onStateChange={setBeforePhotoState}
                                 onDimensionsChange={setBeforePhotoDimensions}
                                 loadingFallback={

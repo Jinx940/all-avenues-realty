@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { buildAssetUrl } from '../lib/api';
 import { formatDate, formatMoney } from '../lib/format';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
@@ -37,6 +37,17 @@ const invoiceToneFor = (job: JobRow): Tone =>
 
 const paymentToneFor = (job: JobRow): Tone => {
   return paymentStatusTone(job.paymentStatusLabel || job.paymentStatus);
+};
+
+const getTrackerCompareImageStyle = (
+  dimensions: ProtectedAssetDimensions | null,
+): CSSProperties | undefined => {
+  if (!dimensions) return undefined;
+  const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
+  if (aspectRatio < 0.95) return undefined;
+  return {
+    padding: 'clamp(82px, 15%, 108px) clamp(72px, 16%, 128px)',
+  };
 };
 
 const timelineVisualFor = (job: JobRow) => {
@@ -785,6 +796,8 @@ function TrackerMediaDialog({
   );
   const compareStageDisplayAspectRatio = Math.max(compareAspectRatio, 1.25);
   const compareStageMaxWidth = `${Math.round(580 * compareStageDisplayAspectRatio)}px`;
+  const beforeCompareImageStyle = getTrackerCompareImageStyle(beforePhotoDimensions);
+  const afterCompareImageStyle = getTrackerCompareImageStyle(afterPhotoDimensions);
 
   useEffect(() => {
     setBeforePhotoState(compareBefore ? 'loading' : 'idle');
@@ -837,6 +850,7 @@ function TrackerMediaDialog({
                       src={compareAfter?.url ?? null}
                       alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
                       mimeType={compareAfter?.mimeType}
+                      style={afterCompareImageStyle}
                       onStateChange={setAfterPhotoState}
                       onDimensionsChange={setAfterPhotoDimensions}
                       loadingFallback={
@@ -864,6 +878,7 @@ function TrackerMediaDialog({
                       src={compareBefore?.url ?? null}
                       alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
                       mimeType={compareBefore?.mimeType}
+                      style={beforeCompareImageStyle}
                       onStateChange={setBeforePhotoState}
                       onDimensionsChange={setBeforePhotoDimensions}
                       loadingFallback={
@@ -896,6 +911,7 @@ function TrackerMediaDialog({
                           src={compareAfter.url}
                           alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
                           mimeType={compareAfter.mimeType}
+                          style={afterCompareImageStyle}
                           onStateChange={setAfterPhotoState}
                           onDimensionsChange={setAfterPhotoDimensions}
                           loadingFallback={
@@ -929,6 +945,7 @@ function TrackerMediaDialog({
                           src={compareBefore.url}
                           alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
                           mimeType={compareBefore.mimeType}
+                          style={beforeCompareImageStyle}
                           onStateChange={setBeforePhotoState}
                           onDimensionsChange={setBeforePhotoDimensions}
                           loadingFallback={

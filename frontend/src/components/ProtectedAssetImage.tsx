@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { useProtectedAssetUrl } from '../lib/protectedAsset';
 
 export type ProtectedAssetLoadState = 'idle' | 'loading' | 'ready' | 'error';
@@ -9,6 +9,7 @@ export function ProtectedAssetImage({
   alt,
   className,
   mimeType,
+  style,
   loadingFallback,
   errorFallback,
   onStateChange,
@@ -18,6 +19,7 @@ export function ProtectedAssetImage({
   alt: string;
   className: string;
   mimeType?: string;
+  style?: CSSProperties;
   loadingFallback?: ReactNode;
   errorFallback?: ReactNode | ((message: string) => ReactNode);
   onStateChange?: (state: ProtectedAssetLoadState) => void;
@@ -72,6 +74,7 @@ export function ProtectedAssetImage({
       className={className}
       src={assetUrl}
       alt={alt}
+      style={style}
       onLoad={(event) =>
         onDimensionsChange?.({
           width: event.currentTarget.naturalWidth,
