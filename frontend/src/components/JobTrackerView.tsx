@@ -123,6 +123,24 @@ const getJobFilePreviewMode = (file: JobFile): 'image' | 'pdf' | 'frame' | 'unsu
   return 'unsupported';
 };
 
+const createPdfPreviewUrl = async (sourceUrl: string) => {
+  const response = await fetch(sourceUrl, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Could not load PDF preview (${response.status})`);
+  }
+
+  const sourceBlob = await response.blob();
+  const pdfBlob =
+    sourceBlob.type === 'application/pdf'
+      ? sourceBlob
+      : new Blob([await sourceBlob.arrayBuffer()], { type: 'application/pdf' });
+
+  return URL.createObjectURL(pdfBlob);
+};
+
 type TrackerMediaDialogState =
   | {
       mode: 'compare';
@@ -497,6 +515,11 @@ function TrackerReceiptPreviewDialog({
   state: TrackerReceiptPreviewState;
   onClose: () => void;
 }) {
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [loadedPdfSource, setLoadedPdfSource] = useState<string | null>(null);
+  const [failedPdfSource, setFailedPdfSource] = useState<string | null>(null);
+  const [pdfPreviewError, setPdfPreviewError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!state) return undefined;
 
@@ -512,6 +535,49 @@ function TrackerReceiptPreviewDialog({
     };
   }, [state, onClose]);
 
+  const pdfSourceUrl =
+    state && getJobFilePreviewMode(state.file) === 'pdf'
+      ? buildAssetUrl(state.file.url)
+      : null;
+
+  useEffect(() => {
+    if (!pdfSourceUrl) return undefined;
+
+    const sourceUrl = pdfSourceUrl;
+    let isCancelled = false;
+    let objectUrl: string | null = null;
+
+    void createPdfPreviewUrl(sourceUrl)
+      .then((url) => {
+        if (isCancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+
+        objectUrl = url;
+        setPdfPreviewUrl(url);
+        setLoadedPdfSource(sourceUrl);
+        setFailedPdfSource(null);
+        setPdfPreviewError(null);
+      })
+      .catch((error) => {
+        if (!isCancelled) {
+          const message = error instanceof Error ? error.message : 'Could not load PDF preview.';
+          setLoadedPdfSource(null);
+          setFailedPdfSource(sourceUrl);
+          setPdfPreviewError(message);
+        }
+      })
+      .finally(() => undefined);
+
+    return () => {
+      isCancelled = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [pdfSourceUrl]);
+
   if (!state) return null;
 
   const { job, file } = state;
@@ -519,6 +585,10 @@ function TrackerReceiptPreviewDialog({
   const previewUrl = buildAssetUrl(file.url);
   const locationLabel = [job.propertyName, job.story, job.unit, job.service].filter(Boolean).join(' | ');
   const descriptionLines = splitDescriptionLines(job.description);
+  const isPdfPreviewLoading = Boolean(
+    pdfSourceUrl && loadedPdfSource !== pdfSourceUrl && failedPdfSource !== pdfSourceUrl,
+  );
+  const activePdfPreviewUrl = loadedPdfSource === pdfSourceUrl ? pdfPreviewUrl : null;
 
   return (
     <div className="document-preview-backdrop" role="presentation" onClick={onClose}>
@@ -546,17 +616,29 @@ function TrackerReceiptPreviewDialog({
             {previewMode === 'image' ? (
               <img className="document-preview-image" src={previewUrl} alt={file.name} />
             ) : previewMode === 'pdf' ? (
-              <object
-                className="document-preview-frame"
-                data={previewUrl}
-                type="application/pdf"
-                aria-label={`Receipt preview for ${file.name}`}
-              >
+              isPdfPreviewLoading ? (
+                <div className="document-preview-empty">
+                  <strong>Loading PDF preview...</strong>
+                  <span>Preparing the receipt preview for inline viewing.</span>
+                </div>
+              ) : activePdfPreviewUrl ? (
+                <object
+                  className="document-preview-frame"
+                  data={activePdfPreviewUrl}
+                  type="application/pdf"
+                  aria-label={`Receipt preview for ${file.name}`}
+                >
+                  <div className="document-preview-empty">
+                    <strong>Could not render this PDF inline</strong>
+                    <span>Use Download to inspect the file on your device.</span>
+                  </div>
+                </object>
+              ) : (
                 <div className="document-preview-empty">
                   <strong>Could not render this PDF inline</strong>
-                  <span>Use Download to inspect the file on your device.</span>
+                  <span>{pdfPreviewError || 'Use Download to inspect the file on your device.'}</span>
                 </div>
-              </object>
+              )
             ) : previewMode === 'frame' ? (
               <iframe className="document-preview-frame" src={previewUrl} title={`Receipt preview for ${file.name}`} />
             ) : (

@@ -94,6 +94,24 @@ const getDocumentDisplayName = (item: DocumentCenterItem) => {
   return item.fileName.replace(/\.(html?|pdf)$/i, '');
 };
 
+const createPdfPreviewUrl = async (sourceUrl: string) => {
+  const response = await fetch(sourceUrl, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Unable to load PDF preview (${response.status}).`);
+  }
+
+  const sourceBlob = await response.blob();
+  const pdfBlob =
+    sourceBlob.type === 'application/pdf'
+      ? sourceBlob
+      : new Blob([await sourceBlob.arrayBuffer()], { type: 'application/pdf' });
+
+  return URL.createObjectURL(pdfBlob);
+};
+
 export function DocumentCenterView({
   properties,
   jobs,
@@ -354,6 +372,11 @@ function DocumentPreviewDialog({
   item: DocumentCenterItem | null;
   onClose: () => void;
 }) {
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [loadedPdfSource, setLoadedPdfSource] = useState<string | null>(null);
+  const [failedPdfSource, setFailedPdfSource] = useState<string | null>(null);
+  const [pdfPreviewError, setPdfPreviewError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!item) return undefined;
 
@@ -369,10 +392,50 @@ function DocumentPreviewDialog({
     };
   }, [item, onClose]);
 
+  const pdfSourceUrl = item && getDocumentPreviewMode(item) === 'pdf' ? item.openUrl : null;
+
+  useEffect(() => {
+    if (!pdfSourceUrl) return undefined;
+
+    let isActive = true;
+    let nextObjectUrl: string | null = null;
+
+    void createPdfPreviewUrl(pdfSourceUrl)
+      .then((objectUrl) => {
+        if (!isActive) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+
+        nextObjectUrl = objectUrl;
+        setPdfPreviewUrl(objectUrl);
+        setLoadedPdfSource(pdfSourceUrl);
+        setFailedPdfSource(null);
+        setPdfPreviewError(null);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setLoadedPdfSource(null);
+        setFailedPdfSource(pdfSourceUrl);
+        setPdfPreviewError('Could not render this PDF inline');
+      });
+
+    return () => {
+      isActive = false;
+      if (nextObjectUrl) {
+        URL.revokeObjectURL(nextObjectUrl);
+      }
+    };
+  }, [pdfSourceUrl]);
+
   if (!item) return null;
 
   const previewMode = getDocumentPreviewMode(item);
   const displayName = getDocumentDisplayName(item);
+  const isPdfPreviewLoading = Boolean(
+    pdfSourceUrl && loadedPdfSource !== pdfSourceUrl && failedPdfSource !== pdfSourceUrl,
+  );
+  const activePdfPreviewUrl = loadedPdfSource === pdfSourceUrl ? pdfPreviewUrl : null;
 
   return (
     <div className="document-preview-backdrop" role="presentation" onClick={onClose}>
@@ -404,17 +467,29 @@ function DocumentPreviewDialog({
                 alt={displayName}
               />
             ) : previewMode === 'pdf' ? (
-              <object
-                className="document-preview-frame"
-                data={item.openUrl}
-                type="application/pdf"
-                aria-label={`Preview for ${displayName}`}
-              >
+              isPdfPreviewLoading ? (
                 <div className="document-preview-empty">
-                  <strong>Could not render this PDF inline</strong>
+                  <strong>Loading PDF preview...</strong>
+                  <span>Please wait a moment.</span>
+                </div>
+              ) : activePdfPreviewUrl ? (
+                <object
+                  className="document-preview-frame"
+                  data={activePdfPreviewUrl}
+                  type="application/pdf"
+                  aria-label={`Preview for ${displayName}`}
+                >
+                  <div className="document-preview-empty">
+                    <strong>Could not render this PDF inline</strong>
+                    <span>Use Download to inspect the file on your device.</span>
+                  </div>
+                </object>
+              ) : (
+                <div className="document-preview-empty">
+                  <strong>{pdfPreviewError ?? 'Could not render this PDF inline'}</strong>
                   <span>Use Download to inspect the file on your device.</span>
                 </div>
-              </object>
+              )
             ) : previewMode === 'frame' ? (
               <iframe
                 className="document-preview-frame"
