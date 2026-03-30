@@ -28,7 +28,7 @@ const contentSecurityPolicy = (nonce?: string) =>
     "default-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
-    "frame-ancestors 'none'",
+    "frame-ancestors 'self'",
     "img-src 'self' data: https:",
     "font-src 'self' data: https:",
     "style-src 'unsafe-inline'",
