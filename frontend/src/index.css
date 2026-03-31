@@ -3986,6 +3986,11 @@ textarea {
   align-content: start;
 }
 
+.settings-section-stack {
+  display: grid;
+  gap: 16px;
+}
+
 .settings-card-head {
   display: flex;
   align-items: flex-start;

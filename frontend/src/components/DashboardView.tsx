@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { paymentStatusColor, workStatusColor } from '../lib/statusVisuals';
 import type { ChartDatum, DashboardPayload, JobRow, Tone } from '../types';
+import { downloadCsv } from '../lib/csv';
 import { formatMoney } from '../lib/format';
 import { UiIcon, type UiIconName } from './UiIcon';
 
@@ -141,6 +142,70 @@ export function DashboardView({
   const workloadStateLabel =
     lateJobs > 0 ? 'Urgent attention needed' : inProgressJobs > 0 ? 'Active production' : 'Stable flow';
   const workloadStateTone = lateJobs > 0 ? 'danger' : inProgressJobs > 0 ? 'warning' : 'success';
+  const exportDate = new Date().toISOString().slice(0, 10);
+
+  const exportJobsReport = () => {
+    downloadCsv(`jobs-report-${exportDate}.csv`, [
+      [
+        'Property',
+        'Story',
+        'Unit',
+        'Area',
+        'Service',
+        'Status',
+        'Payment status',
+        'Invoice status',
+        'Advance cash',
+        'Material',
+        'Labor',
+        'Total',
+        'Workers',
+        'Start date',
+        'Due date',
+      ],
+      ...filteredJobs.map((job) => [
+        job.propertyName,
+        job.story,
+        job.unit,
+        job.area,
+        job.service,
+        job.statusLabel,
+        job.paymentStatusLabel,
+        job.invoiceStatusLabel,
+        job.advanceCashApp,
+        job.materialCost,
+        job.laborCost,
+        job.totalCost,
+        job.workers.map((worker) => worker.name).join(' | '),
+        job.startDate ?? '',
+        job.dueDate ?? '',
+      ]),
+    ]);
+  };
+
+  const exportFinanceReport = () => {
+    downloadCsv(`finance-summary-${exportDate}.csv`, [
+      ['Metric', 'Value'],
+      ['Total jobs', totalJobs],
+      ['Completed jobs', doneJobs],
+      ['In progress jobs', inProgressJobs],
+      ['Pending jobs', pendingJobs],
+      ['Late jobs', lateJobs],
+      ['Completion rate', `${completionRate}%`],
+      ['Payment exposure', `${paymentRiskRate}%`],
+      ['Overdue rate', `${overdueRate}%`],
+      ['Material total', materialTotal],
+      ['Labor total', laborTotal],
+      ['Portfolio value', overallInvestment],
+      ['Estimated revenue', estimatedRevenue],
+      ['Collected revenue', collectedRevenue],
+      ['Outstanding revenue', outstandingRevenue],
+      ['Partial cash collected', partialCashCollected],
+      ['Uninvoiced revenue', uninvoicedRevenue],
+      ['Overdue receivable', overdueReceivable],
+      ['Recovery rate', `${recoveryRate}%`],
+    ]);
+  };
 
   const chartCards = [
     <DonutInsightCard
@@ -265,6 +330,22 @@ export function DashboardView({
               </div>
 
               <div className="dashboard-hero-actions">
+                <button
+                  type="button"
+                  className="ghost-button dashboard-hero-button dashboard-hero-button--settings"
+                  onClick={exportJobsReport}
+                >
+                  <UiIcon name="download" />
+                  Export jobs CSV
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button dashboard-hero-button dashboard-hero-button--settings"
+                  onClick={exportFinanceReport}
+                >
+                  <UiIcon name="download" />
+                  Export finance CSV
+                </button>
                 {canCreateJob ? (
                   <button
                     type="button"

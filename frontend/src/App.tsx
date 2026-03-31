@@ -4,18 +4,15 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type FormEvent,
 } from 'react';
-import { createPortal } from 'react-dom';
 import { ApiError, requestJson } from './lib/api';
 import { formatMoney } from './lib/format';
-import { buildAdvanceCashAlerts, type AdvanceCashAlert } from './lib/advanceCashAlerts';
+import { buildAdvanceCashAlerts } from './lib/advanceCashAlerts';
 import {
   buildInternalSectionValue,
   formatStoryDisplayLabel,
-  formatAreaServiceLabel,
   findMatchingStoryLabel,
   findMatchingUnitLabel,
   normalizeStoryInput,
@@ -48,7 +45,8 @@ import { InvoiceQuoteView } from './components/InvoiceQuoteView';
 import { DocumentCenterView } from './components/DocumentCenterView';
 import { WorkersView } from './components/WorkersView';
 import { SettingsView } from './components/SettingsView';
-import { UiIcon, type UiIconName } from './components/UiIcon';
+import { AdvanceCashAlertsBell } from './components/AdvanceCashAlertsBell';
+import { UiIcon } from './components/UiIcon';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { LoginView } from './components/LoginView';
 import {
@@ -65,99 +63,7 @@ import {
   storyHasAnyValue,
   unitHasAnyValue,
 } from './propertySpecs';
-
-const tabs: Array<{ id: TabId; label: string; icon: UiIconName }> = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { id: 'new-job', label: 'New Job', icon: 'plus' },
-  { id: 'property-info', label: 'Property Info', icon: 'home' },
-  { id: 'property-register', label: 'Property register', icon: 'settings' },
-  { id: 'job-tracker', label: 'Job Tracker', icon: 'activity' },
-  { id: 'generate-invoice-quote', label: 'Generate Invoice/Quote', icon: 'file' },
-  { id: 'document-center', label: 'Document Center', icon: 'receipt' },
-  { id: 'workers', label: 'Workers', icon: 'users' },
-  { id: 'settings', label: 'Settings', icon: 'settings' },
-];
-
-const pageMeta: Record<TabId, { title: string; description: string }> = {
-  dashboard: {
-    title: 'Dashboard',
-    description:
-      'Overview of jobs, labor, payments and workload distribution across the properties in your database.',
-  },
-  'new-job': {
-    title: 'New Job',
-    description:
-      'Create or edit a job and save it with workers, dates, payment status and supporting files.',
-  },
-  'property-info': {
-    title: 'Property Information',
-    description:
-      'Browse a property, review its gallery and activity, and manage the portfolio in one place.',
-  },
-  'property-register': {
-    title: 'Property register',
-    description:
-      'Create a new property or update the selected property details, specifications and main photo.',
-  },
-  'job-tracker': {
-    title: 'Job Tracker',
-    description: 'Central board for jobs, units, files and statuses in one table.',
-  },
-  'generate-invoice-quote': {
-    title: 'Generate Invoice / Quote',
-    description:
-      'Prepare a simple invoice or quote preview using the jobs registered under a property.',
-  },
-  'document-center': {
-    title: 'Document Center',
-    description:
-      'Search invoices, quotes and receipts, then open, print or download them from one place.',
-  },
-  workers: {
-    title: 'Workers',
-    description:
-      'Add, enable, disable or remove workers while preserving the assignment history.',
-  },
-  settings: {
-    title: 'Settings',
-    description:
-      'Protected tools for imports, system setup and administrative actions.',
-  },
-};
-
-const roleTabs: Record<AuthUser['role'], TabId[]> = {
-  ADMIN: [
-    'dashboard',
-    'new-job',
-    'property-info',
-    'property-register',
-    'job-tracker',
-    'generate-invoice-quote',
-    'document-center',
-    'workers',
-    'settings',
-  ],
-  OFFICE: [
-    'dashboard',
-    'new-job',
-    'property-info',
-    'job-tracker',
-    'generate-invoice-quote',
-    'document-center',
-  ],
-  WORKER: ['dashboard', 'property-info', 'job-tracker', 'document-center'],
-  VIEWER: ['dashboard', 'property-info', 'job-tracker', 'document-center'],
-};
-
-const sidebarPreferenceKey = 'aar-sidebar-expanded';
-
-function readStoredSidebarPreference() {
-  if (typeof window === 'undefined') return true;
-
-  const storedValue = window.localStorage.getItem(sidebarPreferenceKey);
-  if (storedValue == null) return true;
-  return storedValue === 'true';
-}
+import { pageMeta, readStoredSidebarPreference, roleTabs, sidebarPreferenceKey, tabs } from './lib/navigation';
 
 type ConfirmDialogState = {
   title: string;
@@ -174,6 +80,11 @@ type UserDraftState = {
   password: string;
   role: AuthUser['role'];
   workerId: string;
+};
+type PasswordChangeState = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 };
 
 const emptyLocalFiles = (): Record<JobFileField, File[]> => ({
@@ -299,6 +210,12 @@ const createUserDraft = (): UserDraftState => ({
   workerId: '',
 });
 
+const createPasswordChangeForm = (): PasswordChangeState => ({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+});
+
 const createUserDraftFromManagedUser = (user: ManagedUser): UserDraftState => ({
   username: user.username,
   displayName: user.displayName,
@@ -306,6 +223,13 @@ const createUserDraftFromManagedUser = (user: ManagedUser): UserDraftState => ({
   role: user.role,
   workerId: user.linkedWorker?.id ?? '',
 });
+
+const serializePasswordChangeDraft = (draft: PasswordChangeState) =>
+  JSON.stringify({
+    currentPassword: draft.currentPassword,
+    newPassword: draft.newPassword,
+    confirmPassword: draft.confirmPassword,
+  });
 
 const timelineStateFor = (job: JobRow) => {
   if (job.status === 'DONE') return 'DONE';
@@ -317,258 +241,6 @@ const timelineStateFor = (job: JobRow) => {
 const canAdmin = (user: AuthUser | null) => user?.role === 'ADMIN';
 const canManageJobs = (user: AuthUser | null) =>
   user?.role === 'ADMIN' || user?.role === 'OFFICE';
-
-const advanceCashPriorityLabel = (alert: AdvanceCashAlert) => {
-  if (alert.priority === 'overdue') {
-    const days = Math.abs(alert.daysDelta ?? 0);
-    return `${days} day${days === 1 ? '' : 's'} overdue`;
-  }
-
-  if (alert.priority === 'today') {
-    return 'Due today';
-  }
-
-  if (alert.priority === 'upcoming') {
-    const days = alert.daysDelta ?? 0;
-    return `Due in ${days} day${days === 1 ? '' : 's'}`;
-  }
-
-  return 'Missing due date';
-};
-
-const formatAdvanceCashDueDate = (value: string | null) => {
-  if (!value) return 'No due date';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'No due date';
-
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(date);
-};
-
-function AdvanceCashAlertsBell({
-  alerts,
-  onOpenJob,
-}: {
-  alerts: AdvanceCashAlert[];
-  onOpenJob: (jobId: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const [panelStyle, setPanelStyle] = useState({ top: 0, left: 0, width: 460 });
-  const overdueCount = alerts.filter((alert) => alert.priority === 'overdue').length;
-  const totalAmount = alerts.reduce((sum, alert) => sum + alert.advanceCashApp, 0);
-  const headlineAlert = alerts[0] ?? null;
-  const headlineTone = headlineAlert?.priority ?? 'upcoming';
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-
-    const updatePanelPosition = () => {
-      if (!buttonRef.current) return;
-
-      const rect = buttonRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      const width = Math.min(460, Math.max(320, viewportWidth - 28));
-      const left = Math.min(
-        Math.max(14, rect.right - width),
-        Math.max(14, viewportWidth - width - 14),
-      );
-      const estimatedPanelHeight = panelRef.current?.offsetHeight ?? 520;
-      const preferredTop = rect.bottom + 12;
-      const top =
-        preferredTop + estimatedPanelHeight > viewportHeight - 14
-          ? Math.max(14, rect.top - estimatedPanelHeight - 12)
-          : preferredTop;
-
-      setPanelStyle({
-        top,
-        left,
-        width,
-      });
-    };
-
-    updatePanelPosition();
-
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (
-        rootRef.current &&
-        !rootRef.current.contains(target) &&
-        panelRef.current &&
-        !panelRef.current.contains(target)
-      ) {
-        setIsOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
-    };
-
-    window.addEventListener('mousedown', handlePointerDown);
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('resize', updatePanelPosition);
-    window.addEventListener('scroll', updatePanelPosition, true);
-    return () => {
-      window.removeEventListener('mousedown', handlePointerDown);
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('resize', updatePanelPosition);
-      window.removeEventListener('scroll', updatePanelPosition, true);
-    };
-  }, [isOpen]);
-
-  const bellWidget = (
-    <div
-      ref={rootRef}
-      className={`advance-cash-bell advance-cash-bell--floating ${
-        alerts.length ? 'has-alerts' : ''
-      } ${overdueCount ? 'has-overdue' : ''} ${isOpen ? 'is-open' : ''}`.trim()}
-    >
-      <button
-        ref={buttonRef}
-        type="button"
-        className={`advance-cash-bell-button ${
-          alerts.length ? 'has-alerts' : ''
-        } ${overdueCount ? 'has-overdue' : ''}`.trim()}
-        onClick={() => setIsOpen((current) => !current)}
-        aria-expanded={isOpen}
-        aria-haspopup="dialog"
-      >
-        <span className="advance-cash-bell-icon">
-          <UiIcon name="bell" size={18} />
-        </span>
-        <span className="advance-cash-bell-copy">
-          <strong>Advance Cash App</strong>
-          <small>
-            {alerts.length
-              ? `${overdueCount ? `${overdueCount} overdue` : `${alerts.length} pending`} follow-up${alerts.length === 1 ? '' : 's'}`
-              : 'No pending follow-ups'}
-          </small>
-        </span>
-        <span className={`advance-cash-bell-badge ${alerts.length ? 'is-visible' : ''}`.trim()}>
-          {alerts.length}
-        </span>
-      </button>
-
-      {isOpen && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              ref={panelRef}
-              className="advance-cash-panel"
-              role="dialog"
-              aria-label="Advance Cash App alerts"
-              style={{
-                top: `${panelStyle.top}px`,
-                left: `${panelStyle.left}px`,
-                width: `${panelStyle.width}px`,
-              }}
-            >
-              <div className="advance-cash-panel-hero">
-                <div className="advance-cash-panel-hero-head">
-                  <div className="advance-cash-panel-hero-title">
-                    <p className="eyebrow">Advance Cash App</p>
-                    <h3>Payment watchlist</h3>
-                  </div>
-                  <span
-                    className={`pill advance-cash-priority-pill advance-cash-priority-pill--${headlineTone}`}
-                  >
-                    {headlineAlert ? advanceCashPriorityLabel(headlineAlert) : 'All clear'}
-                  </span>
-                </div>
-
-                <div className="advance-cash-panel-hero-metrics">
-                  <span className="advance-cash-panel-metric">
-                    <strong>{overdueCount}</strong>
-                    <small>overdue</small>
-                  </span>
-                  <span className="advance-cash-panel-metric">
-                    <strong>{alerts.length}</strong>
-                    <small>alerts</small>
-                  </span>
-                  <span className="advance-cash-panel-metric advance-cash-panel-metric--money">
-                    <strong>{formatMoney(totalAmount)}</strong>
-                    <small>pending</small>
-                  </span>
-                </div>
-
-                {headlineAlert ? (
-                  <div className="advance-cash-panel-focus">
-                    <strong>{formatAreaServiceLabel(headlineAlert.area, headlineAlert.service)}</strong>
-                    <span>{headlineAlert.propertyName}</span>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="advance-cash-panel-list">
-                {alerts.length ? (
-                  alerts.map((alert) => (
-                    <article
-                      key={alert.id}
-                      className={`advance-cash-card advance-cash-card--${alert.priority}`.trim()}
-                    >
-                      <div className="advance-cash-card-head">
-                        <div>
-                          <strong>{formatAreaServiceLabel(alert.area, alert.service)}</strong>
-                          <p>{alert.propertyName}</p>
-                        </div>
-                        <span
-                          className={`pill advance-cash-priority-pill advance-cash-priority-pill--${alert.priority}`}
-                        >
-                          {advanceCashPriorityLabel(alert)}
-                        </span>
-                      </div>
-
-                      <div className="advance-cash-card-meta">
-                        <span>
-                          {[formatStoryDisplayLabel(alert.story), alert.unit].filter(Boolean).join(' / ') ||
-                            'Whole property'}
-                        </span>
-                        <span>{formatAdvanceCashDueDate(alert.dueDate)}</span>
-                        <span>{formatMoney(alert.advanceCashApp)}</span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="ghost-button advance-cash-card-button"
-                        onClick={() => {
-                          setIsOpen(false);
-                          onOpenJob(alert.jobId);
-                        }}
-                      >
-                        <UiIcon name="clipboard" size={15} />
-                        Open job
-                      </button>
-                    </article>
-                  ))
-                ) : (
-                  <div className="advance-cash-empty">
-                    <strong>Everything is under control</strong>
-                    <span>No partial payments with Advance Cash App are waiting for follow-up.</span>
-                  </div>
-                )}
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
-    </div>
-  );
-
-  if (typeof document === 'undefined') {
-    return bellWidget;
-  }
-
-  return createPortal(bellWidget, document.body);
-}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
@@ -597,6 +269,7 @@ export default function App() {
   const [userDraft, setUserDraft] = useState<UserDraftState>(createUserDraft());
   const [userDraftBaseline, setUserDraftBaseline] = useState(() => serializeUserDraft(createUserDraft()));
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [passwordChangeDraft, setPasswordChangeDraft] = useState<PasswordChangeState>(createPasswordChangeForm());
   const [message, setMessage] = useState<FlashMessage | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
   const [isConfirmingAction, setIsConfirmingAction] = useState(false);
@@ -607,6 +280,7 @@ export default function App() {
   const [isClearingPropertyCover, setIsClearingPropertyCover] = useState(false);
   const [isSavingWorker, setIsSavingWorker] = useState(false);
   const [isSavingUser, setIsSavingUser] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [jobFilters, setJobFilters] = useState(createJobFilters());
   const deferredSearch = useDeferredValue(jobFilters.search);
   const availableTabs = currentUser ? tabs.filter((tab) => roleTabs[currentUser.role].includes(tab.id)) : [];
@@ -693,13 +367,23 @@ export default function App() {
     [propertyEditorMode, selectedProperty],
   );
   const currentUserDraftSignature = useMemo(() => serializeUserDraft(userDraft), [userDraft]);
+  const emptyPasswordChangeSignature = useMemo(
+    () => serializePasswordChangeDraft(createPasswordChangeForm()),
+    [],
+  );
+  const currentPasswordChangeSignature = useMemo(
+    () => serializePasswordChangeDraft(passwordChangeDraft),
+    [passwordChangeDraft],
+  );
   const hasUnsavedJobChanges =
     activeTab === 'new-job' && currentJobDraftSignature !== cleanJobDraftSignature;
   const hasUnsavedPropertyChanges =
     (activeTab === 'property-info' || activeTab === 'property-register') &&
     currentPropertyDraftSignature !== cleanPropertyDraftSignature;
   const hasUnsavedUserChanges =
-    activeTab === 'settings' && currentUserDraftSignature !== userDraftBaseline;
+    activeTab === 'settings' &&
+    (currentUserDraftSignature !== userDraftBaseline ||
+      currentPasswordChangeSignature !== emptyPasswordChangeSignature);
   const unsavedChangesContext = hasUnsavedJobChanges
     ? 'job form'
     : hasUnsavedPropertyChanges
@@ -711,6 +395,7 @@ export default function App() {
 
   const resetWorkspaceState = useCallback((loginErrorText = '') => {
     const freshUserDraft = createUserDraft();
+    const freshPasswordDraft = createPasswordChangeForm();
     setCurrentUser(null);
     setBootstrap(null);
     setDashboard(null);
@@ -725,6 +410,7 @@ export default function App() {
     setEditingUserId(null);
     setUserDraft(freshUserDraft);
     setUserDraftBaseline(serializeUserDraft(freshUserDraft));
+    setPasswordChangeDraft(freshPasswordDraft);
   }, []);
 
   const refreshAll = useCallback(async (successMessage?: FlashMessage) => {
@@ -1543,6 +1229,10 @@ export default function App() {
     setUserDraftBaseline(serializeUserDraft(freshUserDraft));
   }, []);
 
+  const resetPasswordChangeState = useCallback(() => {
+    setPasswordChangeDraft(createPasswordChangeForm());
+  }, []);
+
   const startUserEdit = useCallback((userId: string) => {
     const user = users.find((item) => item.id === userId);
     if (!user) return;
@@ -1583,6 +1273,26 @@ export default function App() {
       setMessage({ type: 'error', text: messageFrom(error) });
     } finally {
       setIsSavingUser(false);
+    }
+  };
+
+  const submitPasswordChange = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentUser) return;
+
+    setIsChangingPassword(true);
+    try {
+      await requestJson<{ ok: boolean }>('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(passwordChangeDraft),
+      });
+      resetPasswordChangeState();
+      setMessage({ type: 'success', text: 'Password updated successfully.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: messageFrom(error) });
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -1767,7 +1477,7 @@ export default function App() {
             onCreateJob={() => handleTabSelection('new-job')}
             onOpenSettings={() => handleTabSelection('settings')}
             canCreateJob={canManageJobs(currentUser)}
-            canOpenSettings={canAdmin(currentUser)}
+            canOpenSettings={Boolean(currentUser)}
           />
         ) : null}
 
@@ -1933,7 +1643,10 @@ export default function App() {
             draft={userDraft}
             editingUserId={editingUserId}
             isSavingUser={isSavingUser}
+            passwordDraft={passwordChangeDraft}
+            isChangingPassword={isChangingPassword}
             onSubmit={submitUser}
+            onPasswordSubmit={submitPasswordChange}
             onFieldChange={(field, value) =>
               setUserDraft((current) => ({
                 ...current,
@@ -1941,8 +1654,15 @@ export default function App() {
                 ...(field === 'role' && value !== 'WORKER' ? { workerId: '' } : {}),
               }))
             }
+            onPasswordFieldChange={(field, value) =>
+              setPasswordChangeDraft((current) => ({
+                ...current,
+                [field]: value,
+              }))
+            }
             onStartEdit={startUserEdit}
             onCancelEdit={resetUserDraftState}
+            onCancelPasswordEdit={resetPasswordChangeState}
             onToggleUserStatus={toggleUserStatus}
             onDeleteUser={deleteUser}
             onLogout={() => void logout()}

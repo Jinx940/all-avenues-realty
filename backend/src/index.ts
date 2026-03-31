@@ -15,7 +15,6 @@ import {
   PaymentStatus,
   UserRole,
   UserStatus,
-  WorkerHistoryAction,
   WorkerStatus,
 } from '@prisma/client';
 import { z } from 'zod';
@@ -31,21 +30,20 @@ import {
   jobStatusOptions,
   paymentStatusLabels,
   visiblePaymentStatusOptions,
-  workerHistoryActionLabels,
   workerStatusLabels,
 } from './data/defaults.js';
 import { env } from './env.js';
 import { buildInfo, buildSummary } from './lib/buildInfo.js';
+import { recordAuditLog } from './lib/audit.js';
+import { type AuthUser } from './lib/auth.js';
 import {
-  authUserSelect,
-  createSessionToken,
-  hashPassword,
-  hashSessionToken,
-  normalizeUsername,
-  serializeAuthUser,
-  verifyPassword,
-  type AuthUser,
-} from './lib/auth.js';
+  requireAdmin,
+  requireDocumentManager,
+  requireJobManager,
+  roleScopeForDocuments,
+  roleScopeForJobs,
+  roleScopeForProperties,
+} from './lib/access.js';
 import {
   buildDocumentResponse,
   buildPdfPreviewResponse,
@@ -54,12 +52,10 @@ import {
   buildPropertyCoverUrl,
   sanitizeGeneratedDocumentHtml,
 } from './lib/documents.js';
+import { asyncRoute, type AuthenticatedRequest } from './lib/http.js';
 import { prisma } from './lib/prisma.js';
-import {
-  clearSessionCookie,
-  sessionTokenFromRequest,
-  setSessionCookie,
-} from './lib/session.js';
+import { sessionMiddleware } from './lib/sessionAuth.js';
+import { serializeWorkerSummary } from './lib/workers.js';
 import {
   normalizePropertyStories,
   propertySnapshotFromStories,
@@ -84,6 +80,9 @@ import {
   readManagedFile,
   uploadManagedFile,
 } from './lib/fileStorage.js';
+import { registerAuthRoutes } from './routes/auth.js';
+import { registerUserRoutes } from './routes/users.js';
+import { registerWorkerRoutes } from './routes/workers.js';
 
 const app = express();
 const currentFilePath = fileURLToPath(import.meta.url);
@@ -93,38 +92,6 @@ const frontendIndexFile = path.join(frontendDistDir, 'index.html');
 
 type FileFieldName = keyof typeof fileFieldToCategory;
 type UploadedFilesMap = Partial<Record<FileFieldName, Express.Multer.File[]>>;
-type Handler = (request: Request, response: Response, next: NextFunction) => Promise<void> | void;
-type AuthenticatedRequest = Request & { auth?: AuthUser };
-type AuditLogClient = Pick<typeof prisma, 'auditLog'>;
-type AuditLogEntry = {
-  entityType: string;
-  entityId?: string | null;
-  entityLabel?: string | null;
-  action: string;
-  summary: string;
-  metadata?: Prisma.InputJsonValue;
-};
-
-const loginSchema = z.object({
-  username: z.string().trim().min(1),
-  password: z.string().min(1),
-});
-
-const userCreateSchema = z.object({
-  username: z.string().trim().min(3).max(50),
-  displayName: z.string().trim().min(2).max(120),
-  password: z.string().min(6).max(120),
-  role: z.nativeEnum(UserRole),
-  workerId: z.string().trim().optional().or(z.literal('')).nullable(),
-});
-
-const userUpdateSchema = z.object({
-  displayName: z.string().trim().min(2).max(120).optional(),
-  password: z.string().min(6).max(120).optional().or(z.literal('')),
-  role: z.nativeEnum(UserRole).optional(),
-  status: z.nativeEnum(UserStatus).optional(),
-  workerId: z.string().trim().optional().or(z.literal('')).nullable(),
-});
 
 const optionalIntegerField = z.preprocess((value) => {
   const raw = String(value ?? '').trim();
@@ -151,16 +118,6 @@ const propertyCreateSchema = z.object({
 
 const propertyUpdateSchema = propertyCreateSchema.partial().extend({
   stories: propertyStoriesInputSchema.optional(),
-});
-
-const workerSchema = z.object({
-  name: z.string().trim().min(2).max(80),
-  performedBy: z.string().trim().max(120).optional().or(z.literal('')),
-});
-
-const workerStatusSchema = z.object({
-  status: z.nativeEnum(WorkerStatus),
-  performedBy: z.string().trim().max(120).optional().or(z.literal('')),
 });
 
 const parseStringArray = (value: unknown) => {
@@ -237,21 +194,7 @@ const generatedDocumentSchema = z.object({
   }
 });
 
-const asyncRoute = (handler: Handler) => async (
-  request: Request,
-  response: Response,
-  next: NextFunction,
-) => {
-  try {
-    await handler(request, response, next);
-  } catch (error) {
-    next(error);
-  }
-};
-
 const today = () => new Date(new Date().toDateString());
-
-const sessionDurationMs = env.AUTH_SESSION_DAYS * 24 * 60 * 60 * 1000;
 
 const numericValue = (value: number | Prisma.Decimal) =>
   typeof value === 'number' ? value : value.toNumber();
@@ -295,44 +238,6 @@ const normalizedPropertyCoverInput = (
 
 const isExternalUrl = (value: string | null | undefined) => /^https?:\/\//i.test(String(value ?? '').trim());
 
-const setNoStore = (response: Response) => {
-  response.setHeader('Cache-Control', 'no-store');
-};
-
-const actorFromRequest = (request: Request) => {
-  const auth = (request as AuthenticatedRequest).auth;
-  return auth?.displayName || auth?.username || 'Admin';
-};
-
-const auditActorFromRequest = (request: Request) => {
-  const auth = (request as AuthenticatedRequest).auth;
-  return {
-    userId: auth?.id ?? null,
-    name: actorFromRequest(request),
-  };
-};
-
-const recordAuditLog = async (
-  client: AuditLogClient,
-  request: Request,
-  entry: AuditLogEntry,
-) => {
-  const actor = auditActorFromRequest(request);
-
-  await client.auditLog.create({
-    data: {
-      entityType: entry.entityType,
-      entityId: entry.entityId ?? null,
-      entityLabel: entry.entityLabel ?? null,
-      action: entry.action,
-      summary: entry.summary,
-      ...(entry.metadata !== undefined ? { metadata: entry.metadata } : {}),
-      performedByUserId: actor.userId,
-      performedByName: actor.name,
-    },
-  });
-};
-
 const normalizeOrigin = (value: string | undefined) => String(value ?? '').trim().replace(/\/$/, '');
 
 const requestPublicOrigin = (request: Request) => {
@@ -349,74 +254,6 @@ const requestPublicOrigin = (request: Request) => {
 };
 
 const hasFrontendBuild = () => fs.existsSync(frontendIndexFile);
-
-const isAdmin = (role: UserRole) => role === UserRole.ADMIN;
-const canManageJobs = (role: UserRole) => role === UserRole.ADMIN || role === UserRole.OFFICE;
-const canViewAllJobs = (role: UserRole) =>
-  role === UserRole.ADMIN || role === UserRole.OFFICE || role === UserRole.VIEWER;
-const canManageDocuments = (role: UserRole) =>
-  role === UserRole.ADMIN || role === UserRole.OFFICE;
-
-const roleScopeForJobs = (auth: AuthUser): Prisma.JobWhereInput =>
-  canViewAllJobs(auth.role)
-    ? {}
-    : {
-        assignments: {
-          some: {
-            workerId: auth.workerId ?? '__no-worker__',
-          },
-        },
-      };
-
-const roleScopeForProperties = (auth: AuthUser): Prisma.PropertyWhereInput =>
-  canViewAllJobs(auth.role)
-    ? {}
-    : {
-        jobs: {
-          some: roleScopeForJobs(auth),
-        },
-      };
-
-const roleScopeForDocuments = (auth: AuthUser): Prisma.GeneratedDocumentWhereInput =>
-  canViewAllJobs(auth.role)
-    ? {}
-    : {
-        files: {
-          some: {
-            job: roleScopeForJobs(auth),
-          },
-        },
-      };
-
-const assertRole = (
-  request: Request,
-  response: Response,
-  predicate: (role: UserRole) => boolean,
-  message: string,
-) => {
-  const auth = (request as AuthenticatedRequest).auth;
-  if (!auth || !predicate(auth.role)) {
-    response.status(403).json({ message });
-    return false;
-  }
-
-  return true;
-};
-
-const requireAdmin = (request: Request, response: Response, message = 'Admin access required.') =>
-  assertRole(request, response, isAdmin, message);
-
-const requireJobManager = (
-  request: Request,
-  response: Response,
-  message = 'You do not have permission to manage jobs.',
-) => assertRole(request, response, canManageJobs, message);
-
-const requireDocumentManager = (
-  request: Request,
-  response: Response,
-  message = 'You do not have permission to generate documents.',
-) => assertRole(request, response, canManageDocuments, message);
 
 const parseNullableDate = (value: string | undefined) => {
   const raw = String(value ?? '').trim();
@@ -715,22 +552,6 @@ const serializePropertySummary = (property: {
   };
 };
 
-const serializeWorkerSummary = (worker: {
-  id: string;
-  name: string;
-  status: WorkerStatus;
-  assignments: Array<{ jobId: string }>;
-  user: { id: string } | null;
-}) => ({
-  id: worker.id,
-  name: worker.name,
-  status: worker.status,
-  statusLabel: workerStatusLabels[worker.status],
-  totalJobCount: worker.assignments.length,
-  linkedUserCount: worker.user ? 1 : 0,
-  canDelete: worker.assignments.length === 0,
-});
-
 const serializeGeneratedDocument = (document: {
   id: string;
   documentType: GeneratedDocumentType;
@@ -811,23 +632,6 @@ const loadJob = (jobId: string) =>
         },
       },
       files: true,
-    },
-  });
-
-const loadWorker = (workerId: string) =>
-  prisma.worker.findUniqueOrThrow({
-    where: { id: workerId },
-    include: {
-      assignments: {
-        select: {
-          jobId: true,
-        },
-      },
-      user: {
-        select: {
-          id: true,
-        },
-      },
     },
   });
 
@@ -943,152 +747,6 @@ const dashboardData = async (auth: AuthUser) => {
   };
 };
 
-const userSummarySelect = {
-  id: true,
-  username: true,
-  displayName: true,
-  role: true,
-  status: true,
-  createdAt: true,
-  updatedAt: true,
-  worker: {
-    select: {
-      id: true,
-      name: true,
-      status: true,
-    },
-  },
-} satisfies Prisma.UserSelect;
-
-const serializeUserSummary = (
-  user: Prisma.UserGetPayload<{
-    select: typeof userSummarySelect;
-  }>,
-) => ({
-  id: user.id,
-  username: user.username,
-  displayName: user.displayName,
-  role: user.role,
-  status: user.status,
-  linkedWorker: user.worker
-    ? {
-        id: user.worker.id,
-        name: user.worker.name,
-        status: user.worker.status,
-      }
-    : null,
-  createdAt: user.createdAt.toISOString(),
-  updatedAt: user.updatedAt.toISOString(),
-});
-
-const auditLogSelect = {
-  id: true,
-  entityType: true,
-  entityLabel: true,
-  action: true,
-  summary: true,
-  performedByName: true,
-  createdAt: true,
-} satisfies Prisma.AuditLogSelect;
-
-const serializeAuditLog = (
-  item: Prisma.AuditLogGetPayload<{
-    select: typeof auditLogSelect;
-  }>,
-) => ({
-  id: item.id,
-  date: item.createdAt.toISOString(),
-  entityType: item.entityType,
-  entityLabel: item.entityLabel,
-  action: item.action,
-  summary: item.summary,
-  performedBy: item.performedByName,
-});
-
-const sessionMiddleware = asyncRoute(async (request, response, next) => {
-  const token = sessionTokenFromRequest(request, env.SESSION_COOKIE_NAME);
-  if (!token) {
-    response.status(401).json({ message: 'Authentication required.' });
-    return;
-  }
-
-  const session = await prisma.userSession.findUnique({
-    where: { tokenHash: hashSessionToken(token) },
-    include: {
-      user: {
-        select: authUserSelect,
-      },
-    },
-  });
-
-  if (!session || session.expiresAt < new Date() || session.user.status !== UserStatus.ACTIVE) {
-    if (session?.id) {
-      await prisma.userSession.deleteMany({
-        where: { id: session.id },
-      });
-    }
-    response.status(401).json({ message: 'Your session has expired. Please sign in again.' });
-    return;
-  }
-
-  await prisma.userSession.update({
-    where: { id: session.id },
-    data: { lastSeenAt: new Date() },
-  });
-
-  (request as AuthenticatedRequest).auth = session.user;
-  next();
-});
-
-const issueSession = async (userId: string) => {
-  const token = createSessionToken();
-  const session = await prisma.userSession.create({
-    data: {
-      userId,
-      tokenHash: hashSessionToken(token),
-      expiresAt: new Date(Date.now() + sessionDurationMs),
-    },
-  });
-
-  return {
-    token,
-    sessionId: session.id,
-    expiresAt: session.expiresAt.toISOString(),
-  };
-};
-
-const ensureWorkerRoleLink = async (role: UserRole, workerId: string | null | undefined) => {
-  void role;
-  void workerId;
-};
-
-const ensureActiveAdminGuard = async (input: {
-  currentUserId?: string;
-  existingRole: UserRole;
-  existingStatus: UserStatus;
-  nextRole: UserRole;
-  nextStatus: UserStatus;
-}) => {
-  if (input.existingRole !== UserRole.ADMIN) {
-    return;
-  }
-
-  if (input.nextRole === UserRole.ADMIN && input.nextStatus === UserStatus.ACTIVE) {
-    return;
-  }
-
-  const otherActiveAdmins = await prisma.user.count({
-    where: {
-      role: UserRole.ADMIN,
-      status: UserStatus.ACTIVE,
-      ...(input.currentUserId ? { NOT: { id: input.currentUserId } } : {}),
-    },
-  });
-
-  if (otherActiveAdmins === 0) {
-    throw new Error('At least one active admin account must remain available.');
-  }
-};
 
 ensureUploadsDir();
 
@@ -1151,67 +809,7 @@ app.get(
   }),
 );
 
-app.post(
-  '/api/auth/login',
-  asyncRoute(async (request, response) => {
-    setNoStore(response);
-    const payload = loginSchema.parse(request.body);
-    const username = normalizeUsername(payload.username);
-
-    const user = await prisma.user.findUnique({
-      where: { username },
-      select: {
-        ...authUserSelect,
-        passwordHash: true,
-      },
-    });
-
-    if (!user || user.status !== UserStatus.ACTIVE || !verifyPassword(payload.password, user.passwordHash)) {
-      response.status(401).json({ message: 'Invalid username or password.' });
-      return;
-    }
-
-    const { token, expiresAt } = await issueSession(user.id);
-    setSessionCookie(response, env, token);
-
-    response.json({
-      expiresAt,
-      user: serializeAuthUser(user),
-    });
-  }),
-);
-
-app.get(
-  '/api/auth/session',
-  sessionMiddleware,
-  asyncRoute(async (request, response) => {
-    setNoStore(response);
-    const auth = (request as AuthenticatedRequest).auth;
-    if (!auth) {
-      response.status(401).json({ message: 'Authentication required.' });
-      return;
-    }
-
-    response.json({
-      user: serializeAuthUser(auth),
-    });
-  }),
-);
-
-app.post(
-  '/api/auth/logout',
-  sessionMiddleware,
-  asyncRoute(async (request, response) => {
-    setNoStore(response);
-    const token = sessionTokenFromRequest(request, env.SESSION_COOKIE_NAME);
-    await prisma.userSession.deleteMany({
-      where: { tokenHash: hashSessionToken(token) },
-    });
-
-    clearSessionCookie(response, env);
-    response.json({ ok: true });
-  }),
-);
+registerAuthRoutes(app);
 
 app.use('/api', sessionMiddleware);
 
@@ -1402,267 +1000,7 @@ app.get(
   }),
 );
 
-app.get(
-  '/api/users',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const users = await prisma.user.findMany({
-      orderBy: [{ role: 'asc' }, { displayName: 'asc' }],
-      select: userSummarySelect,
-    });
-
-    response.json(users.map(serializeUserSummary));
-  }),
-);
-
-app.get(
-  '/api/audit-logs',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const requestedLimit = Number.parseInt(String(request.query.limit ?? '60'), 10);
-    const take = Number.isFinite(requestedLimit)
-      ? Math.min(Math.max(requestedLimit, 1), 200)
-      : 60;
-
-    const items = await prisma.auditLog.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take,
-      select: auditLogSelect,
-    });
-
-    response.json(items.map(serializeAuditLog));
-  }),
-);
-
-app.post(
-  '/api/users',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const payload = userCreateSchema.parse(request.body);
-    const username = normalizeUsername(payload.username);
-    const workerId = String(payload.workerId ?? '').trim() || null;
-
-    await ensureWorkerRoleLink(payload.role, workerId);
-
-    const existingUser = await prisma.user.findUnique({
-      where: { username },
-      select: { id: true },
-    });
-
-    if (existingUser) {
-      response.status(400).json({ message: 'That username is already in use.' });
-      return;
-    }
-
-    const displayName = payload.displayName.trim();
-    const createdUser = await prisma.$transaction(async (transaction) => {
-      const user = await transaction.user.create({
-        data: {
-          username,
-          displayName,
-          passwordHash: hashPassword(payload.password),
-          role: payload.role,
-          status: UserStatus.ACTIVE,
-          workerId: payload.role === UserRole.WORKER ? workerId : null,
-        },
-        select: userSummarySelect,
-      });
-
-      await recordAuditLog(transaction, request, {
-        entityType: 'User',
-        entityId: user.id,
-        entityLabel: displayName,
-        action: 'Created',
-        summary: `Created user "${displayName}" with role ${payload.role}.`,
-        metadata: {
-          username,
-          role: payload.role,
-          workerId: payload.role === UserRole.WORKER ? workerId : null,
-        },
-      });
-
-      return user;
-    });
-
-    response.status(201).json(serializeUserSummary(createdUser));
-  }),
-);
-
-app.patch(
-  '/api/users/:userId',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const userId = String(request.params.userId);
-    const payload = userUpdateSchema.parse(request.body);
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        role: true,
-        status: true,
-        workerId: true,
-      },
-    });
-
-    if (!existingUser) {
-      response.status(404).json({ message: 'User not found.' });
-      return;
-    }
-
-    const auth = (request as AuthenticatedRequest).auth;
-    const nextRole = payload.role ?? existingUser.role;
-    const nextStatus = payload.status ?? existingUser.status;
-    const workerId =
-      payload.workerId === undefined
-        ? existingUser.workerId
-        : String(payload.workerId ?? '').trim() || null;
-
-    if (auth?.id === existingUser.id && nextStatus !== UserStatus.ACTIVE) {
-      response.status(400).json({ message: 'You cannot disable your current account.' });
-      return;
-    }
-
-    if (auth?.id === existingUser.id && nextRole !== UserRole.ADMIN) {
-      response.status(400).json({ message: 'You cannot remove admin access from your current account.' });
-      return;
-    }
-
-    await ensureWorkerRoleLink(nextRole, workerId);
-    await ensureActiveAdminGuard({
-      currentUserId: existingUser.id,
-      existingRole: existingUser.role,
-      existingStatus: existingUser.status,
-      nextRole,
-      nextStatus,
-    });
-
-    const nextDisplayName = payload.displayName?.trim() || existingUser.displayName;
-    const changedFields = [
-      payload.displayName && nextDisplayName !== existingUser.displayName ? 'display name' : null,
-      payload.password ? 'password' : null,
-      payload.role && nextRole !== existingUser.role ? 'role' : null,
-      payload.status && nextStatus !== existingUser.status ? 'status' : null,
-      workerId !== existingUser.workerId ? 'linked worker' : null,
-    ].filter((value): value is string => Boolean(value));
-
-    const updatedUser = await prisma.$transaction(async (transaction) => {
-      const user = await transaction.user.update({
-        where: { id: userId },
-        data: {
-          ...(payload.displayName ? { displayName: nextDisplayName } : {}),
-          ...(payload.password ? { passwordHash: hashPassword(payload.password) } : {}),
-          ...(payload.role ? { role: nextRole } : {}),
-          ...(payload.status ? { status: nextStatus } : {}),
-          workerId: nextRole === UserRole.WORKER ? workerId : null,
-        },
-        select: userSummarySelect,
-      });
-
-      await recordAuditLog(transaction, request, {
-        entityType: 'User',
-        entityId: user.id,
-        entityLabel: nextDisplayName,
-        action: 'Updated',
-        summary: changedFields.length
-          ? `Updated user "${nextDisplayName}" (${changedFields.join(', ')}).`
-          : `Updated user "${nextDisplayName}".`,
-        metadata: {
-          username: existingUser.username,
-          role: nextRole,
-          status: nextStatus,
-          workerId: nextRole === UserRole.WORKER ? workerId : null,
-          changedFields,
-        },
-      });
-
-      return user;
-    });
-
-    response.json(serializeUserSummary(updatedUser));
-  }),
-);
-
-app.delete(
-  '/api/users/:userId',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const userId = String(request.params.userId);
-    const auth = (request as AuthenticatedRequest).auth;
-
-    if (auth?.id === userId) {
-      response.status(400).json({ message: 'You cannot delete your current account.' });
-      return;
-    }
-
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        role: true,
-        status: true,
-      },
-    });
-
-    if (!existingUser) {
-      response.status(404).json({ message: 'User not found.' });
-      return;
-    }
-
-    await ensureActiveAdminGuard({
-      currentUserId: existingUser.id,
-      existingRole: existingUser.role,
-      existingStatus: existingUser.status,
-      nextRole: UserRole.VIEWER,
-      nextStatus: UserStatus.INACTIVE,
-    });
-
-    await prisma.$transaction(async (transaction) => {
-      await transaction.userSession.deleteMany({
-        where: { userId },
-      });
-
-      await transaction.user.delete({
-        where: { id: userId },
-      });
-
-      await recordAuditLog(transaction, request, {
-        entityType: 'User',
-        entityId: existingUser.id,
-        entityLabel: existingUser.displayName,
-        action: 'Deleted',
-        summary: `Deleted user "${existingUser.displayName}".`,
-        metadata: {
-          username: existingUser.username,
-          role: existingUser.role,
-          status: existingUser.status,
-        },
-      });
-    });
-
-    response.json({ ok: true });
-  }),
-);
+registerUserRoutes(app);
 
 app.get(
   '/api/jobs',
@@ -2692,357 +2030,7 @@ app.delete(
   }),
 );
 
-app.post(
-  '/api/users/:userId/link-worker',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const userId = String(request.params.userId);
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        workerId: true,
-      },
-    });
-
-    if (!user) {
-      response.status(404).json({ message: 'User not found.' });
-      return;
-    }
-
-    if (user.role !== UserRole.WORKER) {
-      response.status(400).json({ message: 'Only WORKER users can be linked to a worker.' });
-      return;
-    }
-
-    if (user.workerId) {
-      response.status(400).json({ message: 'This user already has a linked worker.' });
-      return;
-    }
-
-    const workerName = user.username.trim();
-    const existingWorker = await prisma.worker.findUnique({
-      where: { name: workerName },
-      select: {
-        id: true,
-        name: true,
-        user: {
-          select: {
-            id: true,
-          },
-        },
-      },
-    });
-
-    let workerId = existingWorker?.id ?? null;
-
-    if (existingWorker?.user && existingWorker.user.id !== user.id) {
-      response.status(400).json({
-        message: `Worker "${workerName}" is already linked to another user.`,
-      });
-      return;
-    }
-
-    await prisma.$transaction(async (transaction) => {
-      if (!workerId) {
-        const created = await transaction.worker.create({
-          data: {
-            name: workerName,
-            status: WorkerStatus.ACTIVE,
-          },
-        });
-
-        workerId = created.id;
-
-        await transaction.workerHistory.create({
-          data: {
-            workerId: created.id,
-            workerName: created.name,
-            action: WorkerHistoryAction.ADDED,
-            newStatus: WorkerStatus.ACTIVE,
-            performedBy: actorFromRequest(request),
-          },
-        });
-      }
-
-      await transaction.user.update({
-        where: { id: user.id },
-        data: {
-          workerId,
-        },
-      });
-
-      await recordAuditLog(transaction, request, {
-        entityType: 'User',
-        entityId: user.id,
-        entityLabel: user.username,
-        action: 'Linked worker',
-        summary: `Linked worker "${workerName}" to user "${user.username}".`,
-        metadata: {
-          workerId,
-          workerName,
-        },
-      });
-    });
-
-    const updatedUser = await prisma.user.findUniqueOrThrow({
-      where: { id: user.id },
-      select: userSummarySelect,
-    });
-
-    response.json(serializeUserSummary(updatedUser));
-  }),
-);
-
-app.post(
-  '/api/workers',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const payload = workerSchema.parse(request.body);
-    const normalizedLookup = normalizeUsername(payload.name);
-
-    const availableUser = await prisma.user.findUnique({
-      where: { username: normalizedLookup },
-      select: {
-        id: true,
-        workerId: true,
-      },
-    });
-
-    const created = await prisma.$transaction(async (transaction) => {
-      const worker = await transaction.worker.create({
-        data: {
-          name: payload.name,
-          status: WorkerStatus.ACTIVE,
-        },
-      });
-
-      await transaction.workerHistory.create({
-        data: {
-          workerId: worker.id,
-          workerName: worker.name,
-          action: WorkerHistoryAction.ADDED,
-          newStatus: WorkerStatus.ACTIVE,
-          performedBy: actorFromRequest(request),
-        },
-      });
-
-      if (availableUser && !availableUser.workerId) {
-        await transaction.user.update({
-          where: { id: availableUser.id },
-          data: {
-            workerId: worker.id,
-          },
-        });
-      }
-
-      await recordAuditLog(transaction, request, {
-        entityType: 'Worker',
-        entityId: worker.id,
-        entityLabel: worker.name,
-        action: 'Created',
-        summary: `Created worker "${worker.name}".`,
-        metadata: {
-          linkedUserId: availableUser?.id ?? null,
-        },
-      });
-
-      return worker;
-    });
-
-    response.status(201).json(serializeWorkerSummary(await loadWorker(created.id)));
-  }),
-);
-
-app.patch(
-  '/api/workers/:workerId/status',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const workerId = String(request.params.workerId);
-    const payload = workerStatusSchema.parse(request.body);
-    const previous = await prisma.worker.findUniqueOrThrow({
-      where: {
-        id: workerId,
-      },
-    });
-
-    const worker = await prisma.$transaction(async (transaction) => {
-      const updatedWorker = await transaction.worker.update({
-        where: {
-          id: workerId,
-        },
-        data: {
-          status: payload.status,
-        },
-      });
-
-      await transaction.workerHistory.create({
-        data: {
-          workerId: updatedWorker.id,
-          workerName: updatedWorker.name,
-          action:
-            payload.status === WorkerStatus.ACTIVE
-              ? WorkerHistoryAction.ENABLED
-              : WorkerHistoryAction.DISABLED,
-          previousStatus: previous.status,
-          newStatus: payload.status,
-          performedBy: actorFromRequest(request),
-        },
-      });
-
-      await recordAuditLog(transaction, request, {
-        entityType: 'Worker',
-        entityId: updatedWorker.id,
-        entityLabel: updatedWorker.name,
-        action: 'Updated status',
-        summary: `Changed worker "${updatedWorker.name}" from ${previous.status} to ${payload.status}.`,
-        metadata: {
-          previousStatus: previous.status,
-          nextStatus: payload.status,
-        },
-      });
-
-      return updatedWorker;
-    });
-
-    response.json(serializeWorkerSummary(await loadWorker(worker.id)));
-  }),
-);
-
-app.delete(
-  '/api/workers/history',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const deletedCount = await prisma.workerHistory.deleteMany({});
-
-    await recordAuditLog(prisma, request, {
-      entityType: 'Worker history',
-      action: 'Cleared',
-      summary: `Cleared ${deletedCount.count} worker history entr${deletedCount.count === 1 ? 'y' : 'ies'}.`,
-      metadata: {
-        deletedCount: deletedCount.count,
-      },
-    });
-
-    response.json({ message: 'Worker history deleted successfully.' });
-  }),
-);
-
-app.delete(
-  '/api/workers/:workerId',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const workerId = String(request.params.workerId);
-    const worker = await prisma.worker.findUniqueOrThrow({
-      where: {
-        id: workerId,
-      },
-      include: {
-        assignments: {
-          select: {
-            jobId: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-          },
-        },
-      },
-    });
-
-    if (worker.assignments.length) {
-      response.status(400).json({
-        message: 'This worker already has job history. Disable the worker instead of deleting it.',
-      });
-      return;
-    }
-
-    await prisma.$transaction(async (transaction) => {
-      await transaction.user.updateMany({
-        where: {
-          workerId,
-        },
-        data: {
-          workerId: null,
-        },
-      });
-
-      await transaction.worker.delete({
-        where: {
-          id: workerId,
-        },
-      });
-
-      await transaction.workerHistory.create({
-        data: {
-          workerName: worker.name,
-          action: WorkerHistoryAction.DELETED,
-          previousStatus: worker.status,
-          performedBy: actorFromRequest(request),
-        },
-      });
-
-      await recordAuditLog(transaction, request, {
-        entityType: 'Worker',
-        entityId: worker.id,
-        entityLabel: worker.name,
-        action: 'Deleted',
-        summary: `Deleted worker "${worker.name}".`,
-        metadata: {
-          previousStatus: worker.status,
-        },
-      });
-    });
-
-    response.json({ message: 'Worker deleted successfully.' });
-  }),
-);
-
-app.get(
-  '/api/workers/history',
-  asyncRoute(async (request, response) => {
-    if (!requireAdmin(request, response)) {
-      return;
-    }
-
-    const history = await prisma.workerHistory.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    response.json(
-      history.map((item) => ({
-        id: item.id,
-        date: item.createdAt.toISOString(),
-        worker: item.workerName,
-        action: workerHistoryActionLabels[item.action],
-        previousStatus: item.previousStatus ? workerStatusLabels[item.previousStatus] : null,
-        newStatus: item.newStatus ? workerStatusLabels[item.newStatus] : null,
-        performedBy: item.performedBy,
-        notes: item.notes,
-      })),
-    );
-  }),
-);
+registerWorkerRoutes(app);
 
 app.post(
   '/api/system/seed',
