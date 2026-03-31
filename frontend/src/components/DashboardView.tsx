@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { paymentStatusColor, workStatusColor } from '../lib/statusVisuals';
 import type { ChartDatum, DashboardPayload, JobRow, Tone } from '../types';
 import { downloadCsv } from '../lib/csv';
+import { downloadFinanceWorkbook } from '../lib/financeWorkbook';
 import { formatMoney } from '../lib/format';
 import { UiIcon, type UiIconName } from './UiIcon';
 
@@ -188,82 +189,56 @@ export function DashboardView({
   };
 
   const exportFinanceReport = () => {
-    downloadCsv(`finance-summary-${exportDate}.csv`, [
-      ['Report', 'Finance summary', '', ''],
-      ['Generated at', exportTimestamp, '', ''],
-      ['Date scope', dashboardDateFilterLabel(dateFilter), '', ''],
-      ['Health score', `${healthScore}%`, '', ''],
-      [],
-      ['Section', 'Metric', 'Value', 'Notes'],
-      ['Operations', 'Total jobs', totalJobs, 'Jobs included in the current dashboard scope.'],
-      ['Operations', 'Completed jobs', doneJobs, 'Jobs already marked as done.'],
-      ['Operations', 'In progress jobs', inProgressJobs, 'Jobs currently active in production.'],
-      ['Operations', 'Pending jobs', pendingJobs, 'Jobs waiting to start or to be scheduled.'],
-      ['Operations', 'Late jobs', lateJobs, 'Jobs that are already overdue.'],
-      [
-        'Performance',
-        'Completion rate',
-        `${completionRate}%`,
-        'Completed jobs as a percentage of total jobs.',
+    void downloadFinanceWorkbook({
+      fileName: `finance-summary-${exportDate}.xlsx`,
+      title: 'All Avenues Realty - Finance Summary',
+      meta: [
+        { label: 'Report', value: 'Finance summary' },
+        { label: 'Generated at', value: exportTimestamp },
+        { label: 'Date scope', value: dashboardDateFilterLabel(dateFilter) },
+        { label: 'Health score', value: healthScore, format: 'percent' },
       ],
-      [
-        'Performance',
-        'Payment exposure',
-        `${paymentRiskRate}%`,
-        'Share of jobs that are unpaid or partially paid.',
+      sections: [
+        {
+          title: 'Operations Overview',
+          rows: [
+            { metric: 'Total jobs', value: totalJobs, format: 'integer' },
+            { metric: 'Completed jobs', value: doneJobs, format: 'integer' },
+            { metric: 'In progress jobs', value: inProgressJobs, format: 'integer' },
+            { metric: 'Pending jobs', value: pendingJobs, format: 'integer' },
+            { metric: 'Late jobs', value: lateJobs, format: 'integer' },
+          ],
+        },
+        {
+          title: 'Performance Indicators',
+          rows: [
+            { metric: 'Completion rate', value: completionRate, format: 'percent' },
+            { metric: 'Payment exposure', value: paymentRiskRate, format: 'percent' },
+            { metric: 'Overdue rate', value: overdueRate, format: 'percent' },
+            { metric: 'Recovery rate', value: recoveryRate, format: 'percent' },
+          ],
+        },
+        {
+          title: 'Costs And Revenue',
+          rows: [
+            { metric: 'Material total', value: materialTotal, format: 'currency' },
+            { metric: 'Labor total', value: laborTotal, format: 'currency' },
+            { metric: 'Portfolio value', value: overallInvestment, format: 'currency' },
+            { metric: 'Estimated revenue', value: estimatedRevenue, format: 'currency' },
+            { metric: 'Collected revenue', value: collectedRevenue, format: 'currency' },
+            { metric: 'Outstanding revenue', value: outstandingRevenue, format: 'currency' },
+          ],
+        },
+        {
+          title: 'Collections Snapshot',
+          rows: [
+            { metric: 'Partial cash collected', value: partialCashCollected, format: 'currency' },
+            { metric: 'Uninvoiced revenue', value: uninvoicedRevenue, format: 'currency' },
+            { metric: 'Overdue receivable', value: overdueReceivable, format: 'currency' },
+          ],
+        },
       ],
-      [
-        'Performance',
-        'Overdue rate',
-        `${overdueRate}%`,
-        'Share of jobs that are overdue.',
-      ],
-      ['Costs', 'Material total', formatMoney(materialTotal), 'Accumulated material spend.'],
-      ['Costs', 'Labor total', formatMoney(laborTotal), 'Accumulated labor spend.'],
-      ['Costs', 'Portfolio value', formatMoney(overallInvestment), 'Material plus labor investment.'],
-      [
-        'Revenue',
-        'Estimated revenue',
-        formatMoney(estimatedRevenue),
-        'Projected billing across the current portfolio.',
-      ],
-      [
-        'Revenue',
-        'Collected revenue',
-        formatMoney(collectedRevenue),
-        'Revenue already secured through paid jobs and partial cash.',
-      ],
-      [
-        'Revenue',
-        'Outstanding revenue',
-        formatMoney(outstandingRevenue),
-        'Revenue still pending collection.',
-      ],
-      [
-        'Collections',
-        'Partial cash collected',
-        formatMoney(partialCashCollected),
-        'Advance cash already captured on partial-payment jobs.',
-      ],
-      [
-        'Collections',
-        'Uninvoiced revenue',
-        formatMoney(uninvoicedRevenue),
-        'Revenue tied to jobs that still need an invoice.',
-      ],
-      [
-        'Collections',
-        'Overdue receivable',
-        formatMoney(overdueReceivable),
-        'Pending balance that is already overdue.',
-      ],
-      [
-        'Collections',
-        'Recovery rate',
-        `${recoveryRate}%`,
-        'Collected revenue as a percentage of estimated revenue.',
-      ],
-    ]);
+    });
   };
 
   const chartCards = [
@@ -403,7 +378,7 @@ export function DashboardView({
                   onClick={exportFinanceReport}
                 >
                   <UiIcon name="download" />
-                  Export finance CSV
+                  Export finance Excel
                 </button>
                 {canCreateJob ? (
                   <button
