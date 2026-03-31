@@ -1,5 +1,4 @@
 import type { FormEvent } from 'react';
-import { BuildInfoBadge } from './BuildInfoBadge';
 import { PasswordField } from './PasswordField';
 import { UiIcon } from './UiIcon';
 import logoMark from '../assets/all-avenues-realty-logo.png';
@@ -116,8 +115,6 @@ export function LoginView({
             <UiIcon name="shield" size={16} />
             <span>Accounts are managed by the administrator and protected by role permissions.</span>
           </div>
-
-          <BuildInfoBadge className="build-info-badge--login" />
         </div>
       </section>
     </main>

@@ -6529,18 +6529,6 @@ body {
   padding-top: 8px;
 }
 
-.build-info-badge--sidebar {
-  width: 100%;
-  justify-content: center;
-  border-color: rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.build-info-badge--sidebar svg {
-  color: rgba(255, 255, 255, 0.84);
-}
-
 .sidebar-signout-button {
   width: 100%;
   display: inline-flex;
@@ -7075,25 +7063,6 @@ select:focus {
   box-shadow:
     0 0 0 4px rgba(183, 218, 249, 0.36),
     inset 0 1px 0 rgba(255, 255, 255, 0.92);
-}
-
-.build-info-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(188, 212, 234, 0.85);
-  background: rgba(247, 251, 255, 0.86);
-  color: #5b7ea2;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
-}
-
-.build-info-badge svg {
-  color: #6e93ba;
 }
 
 textarea {
@@ -9229,10 +9198,6 @@ input.invoice-service-check:focus-visible {
   border-radius: 16px;
   border: 1px solid rgba(210, 225, 241, 0.85);
   background: rgba(243, 248, 255, 0.8);
-}
-
-.build-info-badge--login {
-  justify-self: start;
 }
 
 @media (max-width: 960px) {

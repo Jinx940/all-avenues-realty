@@ -47,7 +47,6 @@ import { InvoiceQuoteView } from './components/InvoiceQuoteView';
 import { DocumentCenterView } from './components/DocumentCenterView';
 import { WorkersView } from './components/WorkersView';
 import { SettingsView } from './components/SettingsView';
-import { BuildInfoBadge } from './components/BuildInfoBadge';
 import { UiIcon, type UiIconName } from './components/UiIcon';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { LoginView } from './components/LoginView';
@@ -1648,7 +1647,6 @@ export default function App() {
         </nav>
 
         <div className="sidebar-footer">
-          <BuildInfoBadge className="build-info-badge--sidebar" />
           <button type="button" className="sidebar-signout-button" onClick={() => void logout()}>
             <UiIcon name="logout" size={16} />
             <span>Sign out</span>
