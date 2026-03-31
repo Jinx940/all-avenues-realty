@@ -95,6 +95,15 @@ type FileFieldName = keyof typeof fileFieldToCategory;
 type UploadedFilesMap = Partial<Record<FileFieldName, Express.Multer.File[]>>;
 type Handler = (request: Request, response: Response, next: NextFunction) => Promise<void> | void;
 type AuthenticatedRequest = Request & { auth?: AuthUser };
+type AuditLogClient = Pick<typeof prisma, 'auditLog'>;
+type AuditLogEntry = {
+  entityType: string;
+  entityId?: string | null;
+  entityLabel?: string | null;
+  action: string;
+  summary: string;
+  metadata?: Prisma.InputJsonValue;
+};
 
 const loginSchema = z.object({
   username: z.string().trim().min(1),
@@ -293,6 +302,35 @@ const setNoStore = (response: Response) => {
 const actorFromRequest = (request: Request) => {
   const auth = (request as AuthenticatedRequest).auth;
   return auth?.displayName || auth?.username || 'Admin';
+};
+
+const auditActorFromRequest = (request: Request) => {
+  const auth = (request as AuthenticatedRequest).auth;
+  return {
+    userId: auth?.id ?? null,
+    name: actorFromRequest(request),
+  };
+};
+
+const recordAuditLog = async (
+  client: AuditLogClient,
+  request: Request,
+  entry: AuditLogEntry,
+) => {
+  const actor = auditActorFromRequest(request);
+
+  await client.auditLog.create({
+    data: {
+      entityType: entry.entityType,
+      entityId: entry.entityId ?? null,
+      entityLabel: entry.entityLabel ?? null,
+      action: entry.action,
+      summary: entry.summary,
+      ...(entry.metadata !== undefined ? { metadata: entry.metadata } : {}),
+      performedByUserId: actor.userId,
+      performedByName: actor.name,
+    },
+  });
 };
 
 const normalizeOrigin = (value: string | undefined) => String(value ?? '').trim().replace(/\/$/, '');
@@ -943,6 +981,30 @@ const serializeUserSummary = (
   updatedAt: user.updatedAt.toISOString(),
 });
 
+const auditLogSelect = {
+  id: true,
+  entityType: true,
+  entityLabel: true,
+  action: true,
+  summary: true,
+  performedByName: true,
+  createdAt: true,
+} satisfies Prisma.AuditLogSelect;
+
+const serializeAuditLog = (
+  item: Prisma.AuditLogGetPayload<{
+    select: typeof auditLogSelect;
+  }>,
+) => ({
+  id: item.id,
+  date: item.createdAt.toISOString(),
+  entityType: item.entityType,
+  entityLabel: item.entityLabel,
+  action: item.action,
+  summary: item.summary,
+  performedBy: item.performedByName,
+});
+
 const sessionMiddleware = asyncRoute(async (request, response, next) => {
   const token = sessionTokenFromRequest(request, env.SESSION_COOKIE_NAME);
   if (!token) {
@@ -1356,6 +1418,30 @@ app.get(
   }),
 );
 
+app.get(
+  '/api/audit-logs',
+  asyncRoute(async (request, response) => {
+    if (!requireAdmin(request, response)) {
+      return;
+    }
+
+    const requestedLimit = Number.parseInt(String(request.query.limit ?? '60'), 10);
+    const take = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 200)
+      : 60;
+
+    const items = await prisma.auditLog.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take,
+      select: auditLogSelect,
+    });
+
+    response.json(items.map(serializeAuditLog));
+  }),
+);
+
 app.post(
   '/api/users',
   asyncRoute(async (request, response) => {
@@ -1379,16 +1465,34 @@ app.post(
       return;
     }
 
-    const createdUser = await prisma.user.create({
-      data: {
-        username,
-        displayName: payload.displayName.trim(),
-        passwordHash: hashPassword(payload.password),
-        role: payload.role,
-        status: UserStatus.ACTIVE,
-        workerId: payload.role === UserRole.WORKER ? workerId : null,
-      },
-      select: userSummarySelect,
+    const displayName = payload.displayName.trim();
+    const createdUser = await prisma.$transaction(async (transaction) => {
+      const user = await transaction.user.create({
+        data: {
+          username,
+          displayName,
+          passwordHash: hashPassword(payload.password),
+          role: payload.role,
+          status: UserStatus.ACTIVE,
+          workerId: payload.role === UserRole.WORKER ? workerId : null,
+        },
+        select: userSummarySelect,
+      });
+
+      await recordAuditLog(transaction, request, {
+        entityType: 'User',
+        entityId: user.id,
+        entityLabel: displayName,
+        action: 'Created',
+        summary: `Created user "${displayName}" with role ${payload.role}.`,
+        metadata: {
+          username,
+          role: payload.role,
+          workerId: payload.role === UserRole.WORKER ? workerId : null,
+        },
+      });
+
+      return user;
     });
 
     response.status(201).json(serializeUserSummary(createdUser));
@@ -1408,6 +1512,8 @@ app.patch(
       where: { id: userId },
       select: {
         id: true,
+        username: true,
+        displayName: true,
         role: true,
         status: true,
         workerId: true,
@@ -1446,16 +1552,46 @@ app.patch(
       nextStatus,
     });
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(payload.displayName ? { displayName: payload.displayName.trim() } : {}),
-        ...(payload.password ? { passwordHash: hashPassword(payload.password) } : {}),
-        ...(payload.role ? { role: nextRole } : {}),
-        ...(payload.status ? { status: nextStatus } : {}),
-        workerId: nextRole === UserRole.WORKER ? workerId : null,
-      },
-      select: userSummarySelect,
+    const nextDisplayName = payload.displayName?.trim() || existingUser.displayName;
+    const changedFields = [
+      payload.displayName && nextDisplayName !== existingUser.displayName ? 'display name' : null,
+      payload.password ? 'password' : null,
+      payload.role && nextRole !== existingUser.role ? 'role' : null,
+      payload.status && nextStatus !== existingUser.status ? 'status' : null,
+      workerId !== existingUser.workerId ? 'linked worker' : null,
+    ].filter((value): value is string => Boolean(value));
+
+    const updatedUser = await prisma.$transaction(async (transaction) => {
+      const user = await transaction.user.update({
+        where: { id: userId },
+        data: {
+          ...(payload.displayName ? { displayName: nextDisplayName } : {}),
+          ...(payload.password ? { passwordHash: hashPassword(payload.password) } : {}),
+          ...(payload.role ? { role: nextRole } : {}),
+          ...(payload.status ? { status: nextStatus } : {}),
+          workerId: nextRole === UserRole.WORKER ? workerId : null,
+        },
+        select: userSummarySelect,
+      });
+
+      await recordAuditLog(transaction, request, {
+        entityType: 'User',
+        entityId: user.id,
+        entityLabel: nextDisplayName,
+        action: 'Updated',
+        summary: changedFields.length
+          ? `Updated user "${nextDisplayName}" (${changedFields.join(', ')}).`
+          : `Updated user "${nextDisplayName}".`,
+        metadata: {
+          username: existingUser.username,
+          role: nextRole,
+          status: nextStatus,
+          workerId: nextRole === UserRole.WORKER ? workerId : null,
+          changedFields,
+        },
+      });
+
+      return user;
     });
 
     response.json(serializeUserSummary(updatedUser));
@@ -1481,6 +1617,8 @@ app.delete(
       where: { id: userId },
       select: {
         id: true,
+        username: true,
+        displayName: true,
         role: true,
         status: true,
       },
@@ -1499,12 +1637,27 @@ app.delete(
       nextStatus: UserStatus.INACTIVE,
     });
 
-    await prisma.userSession.deleteMany({
-      where: { userId },
-    });
+    await prisma.$transaction(async (transaction) => {
+      await transaction.userSession.deleteMany({
+        where: { userId },
+      });
 
-    await prisma.user.delete({
-      where: { id: userId },
+      await transaction.user.delete({
+        where: { id: userId },
+      });
+
+      await recordAuditLog(transaction, request, {
+        entityType: 'User',
+        entityId: existingUser.id,
+        entityLabel: existingUser.displayName,
+        action: 'Deleted',
+        summary: `Deleted user "${existingUser.displayName}".`,
+        metadata: {
+          username: existingUser.username,
+          role: existingUser.role,
+          status: existingUser.status,
+        },
+      });
     });
 
     response.json({ ok: true });
@@ -1787,6 +1940,14 @@ app.post(
       select: { id: true },
     });
 
+    const property = await prisma.property.findUnique({
+      where: { id: payload.propertyId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
     if (relatedJobs.length !== uniqueJobIds.length) {
       response.status(400).json({
         message: 'Selected jobs do not belong to the chosen property.',
@@ -1861,6 +2022,20 @@ app.post(
         });
       }
 
+      await recordAuditLog(transaction, request, {
+        entityType: 'Document',
+        entityId: document.id,
+        entityLabel: payload.documentNumber,
+        action: 'Generated',
+        summary: `Generated ${payload.documentType.toLowerCase()} ${payload.documentNumber} for "${property?.name ?? 'property'}".`,
+        metadata: {
+          documentType: payload.documentType,
+          propertyId: payload.propertyId,
+          propertyName: property?.name ?? null,
+          linkedJobCount: relatedJobs.length,
+        },
+      });
+
       return document;
     });
 
@@ -1932,7 +2107,24 @@ app.post(
       throw error;
     }
 
-    response.status(201).json(serializeJob(await loadJob(createdJob.id)));
+    const hydratedJob = await loadJob(createdJob.id);
+
+    await recordAuditLog(prisma, request, {
+      entityType: 'Job',
+      entityId: hydratedJob.id,
+      entityLabel: `${hydratedJob.property.name} - ${hydratedJob.service}`,
+      action: 'Created',
+      summary: `Created job "${hydratedJob.service}" for "${hydratedJob.property.name}".`,
+      metadata: {
+        propertyId: hydratedJob.property.id,
+        propertyName: hydratedJob.property.name,
+        service: hydratedJob.service,
+        status: hydratedJob.status,
+        workerCount: hydratedJob.assignments.length,
+      },
+    });
+
+    response.status(201).json(serializeJob(hydratedJob));
   }),
 );
 
@@ -1950,6 +2142,14 @@ app.put(
     const existingJob = await prisma.job.findUniqueOrThrow({
       where: { id: jobId },
       select: {
+        id: true,
+        service: true,
+        property: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         status: true,
         completedAt: true,
       },
@@ -2009,7 +2209,24 @@ app.put(
       throw error;
     }
 
-    response.json(serializeJob(await loadJob(jobId)));
+    const hydratedJob = await loadJob(jobId);
+
+    await recordAuditLog(prisma, request, {
+      entityType: 'Job',
+      entityId: hydratedJob.id,
+      entityLabel: `${hydratedJob.property.name} - ${hydratedJob.service}`,
+      action: 'Updated',
+      summary: `Updated job "${hydratedJob.service}" for "${hydratedJob.property.name}".`,
+      metadata: {
+        previousService: existingJob.service,
+        propertyId: hydratedJob.property.id,
+        propertyName: hydratedJob.property.name,
+        status: hydratedJob.status,
+        workerCount: hydratedJob.assignments.length,
+      },
+    });
+
+    response.json(serializeJob(hydratedJob));
   }),
 );
 
@@ -2033,6 +2250,19 @@ app.delete(
         category: true,
         storedName: true,
         generatedDocumentId: true,
+        originalName: true,
+        job: {
+          select: {
+            id: true,
+            service: true,
+            property: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -2078,6 +2308,19 @@ app.delete(
       await deleteManagedFile(targetFile.storedName);
     }
 
+    await recordAuditLog(prisma, request, {
+      entityType: 'Job file',
+      entityId: targetFile.id,
+      entityLabel: targetFile.originalName,
+      action: 'Deleted',
+      summary: `Deleted ${targetFile.category.toLowerCase()} file "${targetFile.originalName}" from "${targetFile.job.service}" in "${targetFile.job.property.name}".`,
+      metadata: {
+        jobId: targetFile.job.id,
+        propertyId: targetFile.job.property.id,
+        category: targetFile.category,
+      },
+    });
+
     response.json({ message: 'File deleted successfully.' });
   }),
 );
@@ -2090,13 +2333,40 @@ app.delete(
     }
 
     const jobId = String(request.params.jobId);
+    const job = await prisma.job.findUniqueOrThrow({
+      where: { id: jobId },
+      select: {
+        id: true,
+        service: true,
+        property: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
     const files = await prisma.jobFile.findMany({
       where: { jobId },
       select: { storedName: true },
     });
 
-    await prisma.job.delete({
-      where: { id: jobId },
+    await prisma.$transaction(async (transaction) => {
+      await transaction.job.delete({
+        where: { id: jobId },
+      });
+
+      await recordAuditLog(transaction, request, {
+        entityType: 'Job',
+        entityId: job.id,
+        entityLabel: `${job.property.name} - ${job.service}`,
+        action: 'Deleted',
+        summary: `Deleted job "${job.service}" from "${job.property.name}".`,
+        metadata: {
+          propertyId: job.property.id,
+          propertyName: job.property.name,
+        },
+      });
     });
 
     await Promise.all(
@@ -2120,37 +2390,52 @@ app.post(
     const payload = propertyCreateSchema.parse(request.body);
     const stories = sanitizedPropertyStories(payload.stories);
     const derivedSpecs = stories.length ? propertySnapshotFromStories(stories) : null;
-    const property = await prisma.property.create({
-      data: {
-        name: payload.name,
-        address: payload.address || payload.name,
-        cityLine: payload.cityLine || null,
-        notes: payload.notes || null,
-        coverImageUrl: payload.coverImageUrl || null,
-        floors: derivedSpecs?.floors ?? payload.floors,
-        bedrooms: derivedSpecs?.bedrooms ?? payload.bedrooms,
-        bathrooms: derivedSpecs?.bathrooms ?? payload.bathrooms,
-        halfBathrooms: derivedSpecs?.halfBathrooms ?? payload.halfBathrooms,
-        livingRooms: derivedSpecs?.livingRooms ?? payload.livingRooms,
-        diningRooms: derivedSpecs?.diningRooms ?? payload.diningRooms,
-        kitchens: derivedSpecs?.kitchens ?? payload.kitchens,
-        sunroom: derivedSpecs?.sunroom ?? payload.sunroom,
-        garages: derivedSpecs?.garages ?? payload.garages,
-        attic: derivedSpecs?.attic ?? payload.attic,
-        frontPorch: derivedSpecs?.frontPorch ?? payload.frontPorch,
-        backPorch: derivedSpecs?.backPorch ?? payload.backPorch,
-        ...(stories.length
-          ? { floorGroups: propertyStoriesToJson(stories) }
-          : {}),
-      },
-      include: {
-        jobs: {
-          select: {
-            status: true,
-            dueDate: true,
+    const property = await prisma.$transaction(async (transaction) => {
+      const createdProperty = await transaction.property.create({
+        data: {
+          name: payload.name,
+          address: payload.address || payload.name,
+          cityLine: payload.cityLine || null,
+          notes: payload.notes || null,
+          coverImageUrl: payload.coverImageUrl || null,
+          floors: derivedSpecs?.floors ?? payload.floors,
+          bedrooms: derivedSpecs?.bedrooms ?? payload.bedrooms,
+          bathrooms: derivedSpecs?.bathrooms ?? payload.bathrooms,
+          halfBathrooms: derivedSpecs?.halfBathrooms ?? payload.halfBathrooms,
+          livingRooms: derivedSpecs?.livingRooms ?? payload.livingRooms,
+          diningRooms: derivedSpecs?.diningRooms ?? payload.diningRooms,
+          kitchens: derivedSpecs?.kitchens ?? payload.kitchens,
+          sunroom: derivedSpecs?.sunroom ?? payload.sunroom,
+          garages: derivedSpecs?.garages ?? payload.garages,
+          attic: derivedSpecs?.attic ?? payload.attic,
+          frontPorch: derivedSpecs?.frontPorch ?? payload.frontPorch,
+          backPorch: derivedSpecs?.backPorch ?? payload.backPorch,
+          ...(stories.length
+            ? { floorGroups: propertyStoriesToJson(stories) }
+            : {}),
+        },
+        include: {
+          jobs: {
+            select: {
+              status: true,
+              dueDate: true,
+            },
           },
         },
-      },
+      });
+
+      await recordAuditLog(transaction, request, {
+        entityType: 'Property',
+        entityId: createdProperty.id,
+        entityLabel: createdProperty.name,
+        action: 'Created',
+        summary: `Created property "${createdProperty.name}".`,
+        metadata: {
+          storyCount: stories.length,
+        },
+      });
+
+      return createdProperty;
     });
 
     response.status(201).json(serializePropertySummary(property));
@@ -2168,7 +2453,11 @@ app.patch(
     const payload = propertyUpdateSchema.parse(request.body);
     const previous = await prisma.property.findUniqueOrThrow({
       where: { id: propertyId },
-      select: { coverImageUrl: true },
+      select: {
+        id: true,
+        name: true,
+        coverImageUrl: true,
+      },
     });
     const nextCoverImageUrl =
       payload.coverImageUrl !== undefined
@@ -2180,78 +2469,94 @@ app.patch(
         : undefined;
     const derivedSpecs = nextStories ? propertySnapshotFromStories(nextStories) : null;
 
-    const property = await prisma.property.update({
-      where: { id: propertyId },
-      data: {
-        ...(payload.name !== undefined ? { name: payload.name } : {}),
-        ...(payload.address !== undefined ? { address: payload.address || null } : {}),
-        ...(payload.cityLine !== undefined ? { cityLine: payload.cityLine || null } : {}),
-        ...(payload.notes !== undefined ? { notes: payload.notes || null } : {}),
-        ...(nextCoverImageUrl !== undefined ? { coverImageUrl: nextCoverImageUrl } : {}),
-        ...(nextStories !== undefined
-          ? {
-              floors: derivedSpecs?.floors ?? null,
-              bedrooms: derivedSpecs?.bedrooms ?? null,
-              bathrooms: derivedSpecs?.bathrooms ?? null,
-              halfBathrooms: derivedSpecs?.halfBathrooms ?? null,
-              livingRooms: derivedSpecs?.livingRooms ?? null,
-              diningRooms: derivedSpecs?.diningRooms ?? null,
-              kitchens: derivedSpecs?.kitchens ?? null,
-              sunroom: derivedSpecs?.sunroom ?? null,
-              garages: derivedSpecs?.garages ?? null,
-              attic: derivedSpecs?.attic ?? null,
-              frontPorch: derivedSpecs?.frontPorch ?? null,
-              backPorch: derivedSpecs?.backPorch ?? null,
-              floorGroups: nextStories.length
-                ? propertyStoriesToJson(nextStories)
-                : Prisma.DbNull,
-            }
-          : {}),
-        ...(nextStories === undefined && payload.floors !== undefined
-          ? { floors: payload.floors }
-          : {}),
-        ...(nextStories === undefined && payload.bedrooms !== undefined
-          ? { bedrooms: payload.bedrooms }
-          : {}),
-        ...(nextStories === undefined && payload.bathrooms !== undefined
-          ? { bathrooms: payload.bathrooms }
-          : {}),
-        ...(nextStories === undefined && payload.halfBathrooms !== undefined
-          ? { halfBathrooms: payload.halfBathrooms }
-          : {}),
-        ...(nextStories === undefined && payload.livingRooms !== undefined
-          ? { livingRooms: payload.livingRooms }
-          : {}),
-        ...(nextStories === undefined && payload.diningRooms !== undefined
-          ? { diningRooms: payload.diningRooms }
-          : {}),
-        ...(nextStories === undefined && payload.kitchens !== undefined
-          ? { kitchens: payload.kitchens }
-          : {}),
-        ...(nextStories === undefined && payload.sunroom !== undefined
-          ? { sunroom: payload.sunroom }
-          : {}),
-        ...(nextStories === undefined && payload.garages !== undefined
-          ? { garages: payload.garages }
-          : {}),
-        ...(nextStories === undefined && payload.attic !== undefined
-          ? { attic: payload.attic }
-          : {}),
-        ...(nextStories === undefined && payload.frontPorch !== undefined
-          ? { frontPorch: payload.frontPorch }
-          : {}),
-        ...(nextStories === undefined && payload.backPorch !== undefined
-          ? { backPorch: payload.backPorch }
-          : {}),
-      },
-      include: {
-        jobs: {
-          select: {
-            status: true,
-            dueDate: true,
+    const property = await prisma.$transaction(async (transaction) => {
+      const updatedProperty = await transaction.property.update({
+        where: { id: propertyId },
+        data: {
+          ...(payload.name !== undefined ? { name: payload.name } : {}),
+          ...(payload.address !== undefined ? { address: payload.address || null } : {}),
+          ...(payload.cityLine !== undefined ? { cityLine: payload.cityLine || null } : {}),
+          ...(payload.notes !== undefined ? { notes: payload.notes || null } : {}),
+          ...(nextCoverImageUrl !== undefined ? { coverImageUrl: nextCoverImageUrl } : {}),
+          ...(nextStories !== undefined
+            ? {
+                floors: derivedSpecs?.floors ?? null,
+                bedrooms: derivedSpecs?.bedrooms ?? null,
+                bathrooms: derivedSpecs?.bathrooms ?? null,
+                halfBathrooms: derivedSpecs?.halfBathrooms ?? null,
+                livingRooms: derivedSpecs?.livingRooms ?? null,
+                diningRooms: derivedSpecs?.diningRooms ?? null,
+                kitchens: derivedSpecs?.kitchens ?? null,
+                sunroom: derivedSpecs?.sunroom ?? null,
+                garages: derivedSpecs?.garages ?? null,
+                attic: derivedSpecs?.attic ?? null,
+                frontPorch: derivedSpecs?.frontPorch ?? null,
+                backPorch: derivedSpecs?.backPorch ?? null,
+                floorGroups: nextStories.length
+                  ? propertyStoriesToJson(nextStories)
+                  : Prisma.DbNull,
+              }
+            : {}),
+          ...(nextStories === undefined && payload.floors !== undefined
+            ? { floors: payload.floors }
+            : {}),
+          ...(nextStories === undefined && payload.bedrooms !== undefined
+            ? { bedrooms: payload.bedrooms }
+            : {}),
+          ...(nextStories === undefined && payload.bathrooms !== undefined
+            ? { bathrooms: payload.bathrooms }
+            : {}),
+          ...(nextStories === undefined && payload.halfBathrooms !== undefined
+            ? { halfBathrooms: payload.halfBathrooms }
+            : {}),
+          ...(nextStories === undefined && payload.livingRooms !== undefined
+            ? { livingRooms: payload.livingRooms }
+            : {}),
+          ...(nextStories === undefined && payload.diningRooms !== undefined
+            ? { diningRooms: payload.diningRooms }
+            : {}),
+          ...(nextStories === undefined && payload.kitchens !== undefined
+            ? { kitchens: payload.kitchens }
+            : {}),
+          ...(nextStories === undefined && payload.sunroom !== undefined
+            ? { sunroom: payload.sunroom }
+            : {}),
+          ...(nextStories === undefined && payload.garages !== undefined
+            ? { garages: payload.garages }
+            : {}),
+          ...(nextStories === undefined && payload.attic !== undefined
+            ? { attic: payload.attic }
+            : {}),
+          ...(nextStories === undefined && payload.frontPorch !== undefined
+            ? { frontPorch: payload.frontPorch }
+            : {}),
+          ...(nextStories === undefined && payload.backPorch !== undefined
+            ? { backPorch: payload.backPorch }
+            : {}),
+        },
+        include: {
+          jobs: {
+            select: {
+              status: true,
+              dueDate: true,
+            },
           },
         },
-      },
+      });
+
+      await recordAuditLog(transaction, request, {
+        entityType: 'Property',
+        entityId: updatedProperty.id,
+        entityLabel: updatedProperty.name,
+        action: 'Updated',
+        summary: `Updated property "${updatedProperty.name}".`,
+        metadata: {
+          previousName: previous.name,
+          storyCount: nextStories?.length ?? null,
+        },
+      });
+
+      return updatedProperty;
     });
 
     const previousStoredName = managedStoredRefFromValue(previous.coverImageUrl);
@@ -2321,6 +2626,17 @@ app.post(
       await deleteManagedFile(previousStoredName);
     }
 
+    await recordAuditLog(prisma, request, {
+      entityType: 'Property',
+      entityId: property.id,
+      entityLabel: property.name,
+      action: 'Updated cover',
+      summary: `Updated main photo for property "${property.name}".`,
+      metadata: {
+        previousCoverImageUrl: previous.coverImageUrl,
+      },
+    });
+
     response.json(serializePropertySummary(property));
   }),
 );
@@ -2335,15 +2651,29 @@ app.delete(
     const propertyId = String(request.params.propertyId);
     const property = await prisma.property.findUniqueOrThrow({
       where: { id: propertyId },
-      select: { coverImageUrl: true },
+      select: {
+        id: true,
+        name: true,
+        coverImageUrl: true,
+      },
     });
     const files = await prisma.jobFile.findMany({
       where: { job: { propertyId } },
       select: { storedName: true },
     });
 
-    await prisma.property.delete({
-      where: { id: propertyId },
+    await prisma.$transaction(async (transaction) => {
+      await transaction.property.delete({
+        where: { id: propertyId },
+      });
+
+      await recordAuditLog(transaction, request, {
+        entityType: 'Property',
+        entityId: property.id,
+        entityLabel: property.name,
+        action: 'Deleted',
+        summary: `Deleted property "${property.name}".`,
+      });
     });
 
     await Promise.all(
@@ -2446,6 +2776,18 @@ app.post(
           workerId,
         },
       });
+
+      await recordAuditLog(transaction, request, {
+        entityType: 'User',
+        entityId: user.id,
+        entityLabel: user.username,
+        action: 'Linked worker',
+        summary: `Linked worker "${workerName}" to user "${user.username}".`,
+        metadata: {
+          workerId,
+          workerName,
+        },
+      });
     });
 
     const updatedUser = await prisma.user.findUniqueOrThrow({
@@ -2502,6 +2844,17 @@ app.post(
         });
       }
 
+      await recordAuditLog(transaction, request, {
+        entityType: 'Worker',
+        entityId: worker.id,
+        entityLabel: worker.name,
+        action: 'Created',
+        summary: `Created worker "${worker.name}".`,
+        metadata: {
+          linkedUserId: availableUser?.id ?? null,
+        },
+      });
+
       return worker;
     });
 
@@ -2524,27 +2877,43 @@ app.patch(
       },
     });
 
-    const worker = await prisma.worker.update({
-      where: {
-        id: workerId,
-      },
-      data: {
-        status: payload.status,
-      },
-    });
+    const worker = await prisma.$transaction(async (transaction) => {
+      const updatedWorker = await transaction.worker.update({
+        where: {
+          id: workerId,
+        },
+        data: {
+          status: payload.status,
+        },
+      });
 
-    await prisma.workerHistory.create({
-      data: {
-        workerId: worker.id,
-        workerName: worker.name,
-        action:
-          payload.status === WorkerStatus.ACTIVE
-            ? WorkerHistoryAction.ENABLED
-            : WorkerHistoryAction.DISABLED,
-        previousStatus: previous.status,
-        newStatus: payload.status,
-        performedBy: actorFromRequest(request),
-      },
+      await transaction.workerHistory.create({
+        data: {
+          workerId: updatedWorker.id,
+          workerName: updatedWorker.name,
+          action:
+            payload.status === WorkerStatus.ACTIVE
+              ? WorkerHistoryAction.ENABLED
+              : WorkerHistoryAction.DISABLED,
+          previousStatus: previous.status,
+          newStatus: payload.status,
+          performedBy: actorFromRequest(request),
+        },
+      });
+
+      await recordAuditLog(transaction, request, {
+        entityType: 'Worker',
+        entityId: updatedWorker.id,
+        entityLabel: updatedWorker.name,
+        action: 'Updated status',
+        summary: `Changed worker "${updatedWorker.name}" from ${previous.status} to ${payload.status}.`,
+        metadata: {
+          previousStatus: previous.status,
+          nextStatus: payload.status,
+        },
+      });
+
+      return updatedWorker;
     });
 
     response.json(serializeWorkerSummary(await loadWorker(worker.id)));
@@ -2558,7 +2927,16 @@ app.delete(
       return;
     }
 
-    await prisma.workerHistory.deleteMany({});
+    const deletedCount = await prisma.workerHistory.deleteMany({});
+
+    await recordAuditLog(prisma, request, {
+      entityType: 'Worker history',
+      action: 'Cleared',
+      summary: `Cleared ${deletedCount.count} worker history entr${deletedCount.count === 1 ? 'y' : 'ies'}.`,
+      metadata: {
+        deletedCount: deletedCount.count,
+      },
+    });
 
     response.json({ message: 'Worker history deleted successfully.' });
   }),
@@ -2619,6 +2997,17 @@ app.delete(
           action: WorkerHistoryAction.DELETED,
           previousStatus: worker.status,
           performedBy: actorFromRequest(request),
+        },
+      });
+
+      await recordAuditLog(transaction, request, {
+        entityType: 'Worker',
+        entityId: worker.id,
+        entityLabel: worker.name,
+        action: 'Deleted',
+        summary: `Deleted worker "${worker.name}".`,
+        metadata: {
+          previousStatus: worker.status,
         },
       });
     });

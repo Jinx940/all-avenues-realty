@@ -22,6 +22,7 @@ import {
   parseJobLocationValue,
 } from './lib/jobLocation';
 import type {
+  AuditLogRow,
   AuthSessionPayload,
   AuthUser,
   BootstrapPayload,
@@ -296,6 +297,14 @@ const createUserDraft = (): UserDraftState => ({
   password: '',
   role: 'WORKER',
   workerId: '',
+});
+
+const createUserDraftFromManagedUser = (user: ManagedUser): UserDraftState => ({
+  username: user.username,
+  displayName: user.displayName,
+  password: '',
+  role: user.role,
+  workerId: user.linkedWorker?.id ?? '',
 });
 
 const timelineStateFor = (job: JobRow) => {
@@ -579,12 +588,15 @@ export default function App() {
   const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocumentHistoryItem[]>([]);
   const [workerHistory, setWorkerHistory] = useState<WorkerHistoryRow[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [jobForm, setJobForm] = useState<JobFormState>(createJobForm());
   const [propertyForm, setPropertyForm] = useState<PropertyFormState>(createPropertyForm());
   const [propertyEditorMode, setPropertyEditorMode] = useState<PropertyEditorMode>('edit');
   const [workerName, setWorkerName] = useState('');
   const [userDraft, setUserDraft] = useState<UserDraftState>(createUserDraft());
+  const [userDraftBaseline, setUserDraftBaseline] = useState(() => serializeUserDraft(createUserDraft()));
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [message, setMessage] = useState<FlashMessage | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
   const [isConfirmingAction, setIsConfirmingAction] = useState(false);
@@ -614,7 +626,22 @@ export default function App() {
   const showPageBadges = showPageHeader && Boolean(currentUser);
   const isSidebarVisible = isCompactViewport ? isMobileSidebarOpen : isDesktopSidebarExpanded;
 
-  const allWorkers = bootstrap ? [...bootstrap.workers, ...bootstrap.inactiveWorkers] : [];
+  const allWorkers = useMemo(
+    () => (bootstrap ? [...bootstrap.workers, ...bootstrap.inactiveWorkers] : []),
+    [bootstrap],
+  );
+  const availableUserWorkers = useMemo(() => {
+    const linkedWorkerIds = new Set(
+      users
+        .filter((user) => user.id !== editingUserId)
+        .map((user) => user.linkedWorker?.id)
+        .filter((value): value is string => Boolean(value)),
+    );
+
+    return allWorkers
+      .filter((worker) => !linkedWorkerIds.has(worker.id))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [allWorkers, editingUserId, users]);
   const selectedProperty =
     bootstrap?.properties.find((property) => property.id === selectedPropertyId) ?? null;
   const filteredJobs = jobs.filter((job) => {
@@ -665,7 +692,6 @@ export default function App() {
       ),
     [propertyEditorMode, selectedProperty],
   );
-  const emptyUserDraftSignature = useMemo(() => serializeUserDraft(createUserDraft()), []);
   const currentUserDraftSignature = useMemo(() => serializeUserDraft(userDraft), [userDraft]);
   const hasUnsavedJobChanges =
     activeTab === 'new-job' && currentJobDraftSignature !== cleanJobDraftSignature;
@@ -673,7 +699,7 @@ export default function App() {
     (activeTab === 'property-info' || activeTab === 'property-register') &&
     currentPropertyDraftSignature !== cleanPropertyDraftSignature;
   const hasUnsavedUserChanges =
-    activeTab === 'settings' && currentUserDraftSignature !== emptyUserDraftSignature;
+    activeTab === 'settings' && currentUserDraftSignature !== userDraftBaseline;
   const unsavedChangesContext = hasUnsavedJobChanges
     ? 'job form'
     : hasUnsavedPropertyChanges
@@ -684,6 +710,7 @@ export default function App() {
   const hasUnsavedChanges = Boolean(unsavedChangesContext);
 
   const resetWorkspaceState = useCallback((loginErrorText = '') => {
+    const freshUserDraft = createUserDraft();
     setCurrentUser(null);
     setBootstrap(null);
     setDashboard(null);
@@ -691,16 +718,20 @@ export default function App() {
     setGeneratedDocuments([]);
     setWorkerHistory([]);
     setUsers([]);
+    setAuditLogs([]);
     setLoginUsername('');
     setLoginPassword('');
     setLoginError(loginErrorText);
+    setEditingUserId(null);
+    setUserDraft(freshUserDraft);
+    setUserDraftBaseline(serializeUserDraft(freshUserDraft));
   }, []);
 
   const refreshAll = useCallback(async (successMessage?: FlashMessage) => {
     if (!currentUser) return;
     setIsRefreshing(true);
     try {
-      const [healthData, bootstrapData, dashboardData, jobsData, documentsData, historyData, usersData] =
+      const [healthData, bootstrapData, dashboardData, jobsData, documentsData, historyData, usersData, auditLogData] =
         await Promise.all([
           requestJson<HealthPayload>('/api/health'),
           requestJson<BootstrapPayload>('/api/bootstrap'),
@@ -709,6 +740,7 @@ export default function App() {
           requestJson<GeneratedDocumentHistoryItem[]>('/api/generated-documents'),
           canAdmin(currentUser) ? requestJson<WorkerHistoryRow[]>('/api/workers/history') : Promise.resolve([]),
           canAdmin(currentUser) ? requestJson<ManagedUser[]>('/api/users') : Promise.resolve([]),
+          canAdmin(currentUser) ? requestJson<AuditLogRow[]>('/api/audit-logs?limit=80') : Promise.resolve([]),
         ]);
 
       startTransition(() => {
@@ -719,6 +751,7 @@ export default function App() {
         setGeneratedDocuments(documentsData);
         setWorkerHistory(historyData);
         setUsers(usersData);
+        setAuditLogs(auditLogData);
         if (successMessage) setMessage(successMessage);
       });
     } catch (error) {
@@ -1503,19 +1536,49 @@ export default function App() {
     });
   };
 
+  const resetUserDraftState = useCallback(() => {
+    const freshUserDraft = createUserDraft();
+    setEditingUserId(null);
+    setUserDraft(freshUserDraft);
+    setUserDraftBaseline(serializeUserDraft(freshUserDraft));
+  }, []);
+
+  const startUserEdit = useCallback((userId: string) => {
+    const user = users.find((item) => item.id === userId);
+    if (!user) return;
+
+    const nextDraft = createUserDraftFromManagedUser(user);
+    setEditingUserId(user.id);
+    setUserDraft(nextDraft);
+    setUserDraftBaseline(serializeUserDraft(nextDraft));
+  }, [users]);
+
   const submitUser = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can create users.')) return;
+    if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can manage users.')) return;
 
     setIsSavingUser(true);
     try {
-      await requestJson<ManagedUser>('/api/users', {
-        method: 'POST',
+      const isEditingUser = Boolean(editingUserId);
+      const payload = isEditingUser
+        ? {
+            displayName: userDraft.displayName,
+            password: userDraft.password,
+            role: userDraft.role,
+            workerId: userDraft.role === 'WORKER' ? userDraft.workerId : '',
+          }
+        : {
+            ...userDraft,
+            workerId: userDraft.role === 'WORKER' ? userDraft.workerId : '',
+          };
+
+      await requestJson<ManagedUser>(isEditingUser ? `/api/users/${editingUserId}` : '/api/users', {
+        method: isEditingUser ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userDraft),
+        body: JSON.stringify(payload),
       });
-      setUserDraft(createUserDraft());
-      await refreshAll({ type: 'success', text: 'User created.' });
+      resetUserDraftState();
+      await refreshAll({ type: 'success', text: isEditingUser ? 'User updated.' : 'User created.' });
     } catch (error) {
       setMessage({ type: 'error', text: messageFrom(error) });
     } finally {
@@ -1558,6 +1621,9 @@ export default function App() {
       tone: 'danger',
       onConfirm: async () => {
         try {
+          if (editingUserId === userId) {
+            resetUserDraftState();
+          }
           await requestJson<{ ok: boolean }>(`/api/users/${userId}`, {
             method: 'DELETE',
           });
@@ -1862,10 +1928,21 @@ export default function App() {
           <SettingsView
             currentUser={currentUser}
             users={users}
+            workers={availableUserWorkers}
+            auditLogs={auditLogs}
             draft={userDraft}
+            editingUserId={editingUserId}
             isSavingUser={isSavingUser}
             onSubmit={submitUser}
-            onFieldChange={(field, value) => setUserDraft((current) => ({ ...current, [field]: value }))}
+            onFieldChange={(field, value) =>
+              setUserDraft((current) => ({
+                ...current,
+                [field]: value,
+                ...(field === 'role' && value !== 'WORKER' ? { workerId: '' } : {}),
+              }))
+            }
+            onStartEdit={startUserEdit}
+            onCancelEdit={resetUserDraftState}
             onToggleUserStatus={toggleUserStatus}
             onDeleteUser={deleteUser}
             onLogout={() => void logout()}

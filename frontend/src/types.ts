@@ -51,6 +51,16 @@ export type ManagedUser = {
   updatedAt: string;
 };
 
+export type AuditLogRow = {
+  id: string;
+  date: string;
+  entityType: string;
+  entityLabel: string | null;
+  action: string;
+  summary: string;
+  performedBy: string;
+};
+
 export type HealthPayload = {
   status: string;
   database: 'up' | 'down';

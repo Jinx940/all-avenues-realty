@@ -75,6 +75,38 @@ export function DashboardView({
     () => jobs.filter((job) => matchesDashboardDateFilter(job, dateFilter)),
     [dateFilter, jobs],
   );
+  const estimatedRevenue = sumJobValues(jobs, (job) => job.totalCost);
+  const collectedRevenue = sumJobValues(jobs, jobCollectedAmount);
+  const outstandingRevenue = sumJobValues(jobs, jobOutstandingAmount);
+  const partialCashCollected = sumJobValues(
+    jobs.filter((job) => job.paymentStatus === 'PARTIAL_PAYMENT'),
+    (job) => Math.min(job.advanceCashApp, job.totalCost),
+  );
+  const uninvoicedRevenue = sumJobValues(
+    jobs.filter((job) => job.invoiceStatus !== 'YES'),
+    (job) => job.totalCost,
+  );
+  const overdueReceivable = sumJobValues(
+    jobs.filter((job) => job.timeline.isLate && job.paymentStatus !== 'PAID'),
+    jobOutstandingAmount,
+  );
+  const recoveryRate = estimatedRevenue ? ratio(collectedRevenue, estimatedRevenue) : 0;
+  const receivableByProperty = decorateChartData(
+    aggregateChartData(jobs, (job) => job.propertyName, jobOutstandingAmount)
+      .filter((item) => item.value > 0)
+      .slice(0, 8),
+    (_, index) => dashboardAccentColor(index + 5),
+  );
+  const collectionHistogramItems = decorateChartData(
+    [
+      { label: 'Collected', value: collectedRevenue },
+      { label: 'Outstanding', value: outstandingRevenue },
+      { label: 'Partial cash', value: partialCashCollected },
+      { label: 'Uninvoiced', value: uninvoicedRevenue },
+    ],
+    (_, index) => dashboardAccentColor(index + 2),
+  );
+  const topReceivableProperty = topItem(receivableByProperty);
   const missingWorkerJobs = filteredJobs.filter((job) => !job.workerIds.length).length;
   const missingInvoiceJobs = filteredJobs.filter((job) => job.invoiceStatus !== 'YES').length;
   const missingPhotoJobs = filteredJobs.filter(
@@ -143,6 +175,14 @@ export function DashboardView({
       icon="dollar"
       items={financeHistogramItems}
     />,
+    <CostBalanceCard
+      key="collections"
+      eyebrow="Collections"
+      title="Collections histogram"
+      subtitle="Collected, pending and uninvoiced balances across the workspace."
+      icon="receipt"
+      items={collectionHistogramItems}
+    />,
     <RankChartCard
       key="workers"
       eyebrow="Team"
@@ -160,6 +200,15 @@ export function DashboardView({
       icon="home"
       data={propertyTrendData}
       emptyMessage="No property volume yet."
+    />,
+    <RankChartCard
+      key="receivables"
+      eyebrow="Receivables"
+      title="Outstanding by property"
+      subtitle="Properties carrying the biggest unpaid balance."
+      icon="dollar"
+      data={receivableByProperty}
+      emptyMessage="No outstanding balances by property."
     />,
     <AreaChartCard
       key="timeline"
@@ -280,6 +329,24 @@ export function DashboardView({
             note="Current labor and material volume"
             icon="home"
           />
+          <InsightCard
+            label="Collected estimate"
+            value={formatMoney(collectedRevenue)}
+            note="Paid jobs plus advance cash already secured"
+            icon="dollar"
+          />
+          <InsightCard
+            label="Outstanding balance"
+            value={formatMoney(outstandingRevenue)}
+            note="Amount still pending across unpaid or partial jobs"
+            icon="receipt"
+          />
+          <InsightCard
+            label="Recovery rate"
+            value={`${recoveryRate}%`}
+            note={`${formatMoney(overdueReceivable)} already overdue to collect`}
+            icon="calendar"
+          />
         </div>
 
         <div className="dashboard-note-grid dashboard-alert-grid">
@@ -325,6 +392,37 @@ export function DashboardView({
               ))}
             </div>
           </article>
+        </div>
+
+        <div className="dashboard-note-grid">
+          <ActionCard
+            eyebrow="Collections"
+            title="Cashflow watch"
+            icon="dollar"
+            items={[
+              `${formatMoney(collectedRevenue)} is already secured across paid jobs and registered advance cash.`,
+              `${formatMoney(outstandingRevenue)} is still pending collection across the portfolio.`,
+              uninvoicedRevenue > 0
+                ? `${formatMoney(uninvoicedRevenue)} is tied to jobs that still need invoice issuance.`
+                : 'Every current job already has invoice coverage.',
+            ]}
+          />
+          <ActionCard
+            eyebrow="Exposure"
+            title="Receivable pressure"
+            icon="receipt"
+            items={[
+              overdueReceivable > 0
+                ? `${formatMoney(overdueReceivable)} is overdue and should be reviewed with urgency.`
+                : 'No overdue receivable balance is active right now.',
+              topReceivableProperty
+                ? `${topReceivableProperty.label} carries the heaviest open balance right now.`
+                : 'No property has outstanding receivables at the moment.',
+              partialCashCollected > 0
+                ? `${formatMoney(partialCashCollected)} has been captured as partial cash on active work.`
+                : 'No partial cash has been registered yet.',
+            ]}
+          />
         </div>
 
         <div className="dashboard-chart-carousel">
@@ -416,6 +514,44 @@ function ratio(part: number, total: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function sumJobValues(jobs: JobRow[], getter: (job: JobRow) => number) {
+  return jobs.reduce((total, job) => total + getter(job), 0);
+}
+
+function jobCollectedAmount(job: JobRow) {
+  if (job.paymentStatus === 'PAID') {
+    return job.totalCost;
+  }
+
+  if (job.paymentStatus === 'PARTIAL_PAYMENT') {
+    return Math.min(job.advanceCashApp, job.totalCost);
+  }
+
+  return 0;
+}
+
+function jobOutstandingAmount(job: JobRow) {
+  return Math.max(job.totalCost - jobCollectedAmount(job), 0);
+}
+
+function aggregateChartData(
+  jobs: JobRow[],
+  getLabel: (job: JobRow) => string,
+  getValue: (job: JobRow) => number,
+) {
+  const totals = new Map<string, number>();
+
+  jobs.forEach((job) => {
+    const label = getLabel(job);
+    const value = getValue(job);
+    totals.set(label, (totals.get(label) ?? 0) + value);
+  });
+
+  return Array.from(totals.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((left, right) => right.value - left.value);
 }
 
 function matchesDashboardDateFilter(job: JobRow, filter: 'ALL' | 'TODAY' | '7' | '30') {

@@ -117,6 +117,7 @@ model User {
   updatedAt    DateTime     @updatedAt
   worker       Worker?      @relation(fields: [workerId], references: [id], onDelete: SetNull)
   sessions     UserSession[]
+  auditLogs    AuditLog[]
 
   @@index([role, status])
 }
@@ -224,4 +225,22 @@ model WorkerHistory {
 
   @@index([workerId])
   @@index([createdAt])
+}
+
+model AuditLog {
+  id                String   @id @default(cuid())
+  entityType        String
+  entityId          String?
+  entityLabel       String?
+  action            String
+  summary           String
+  metadata          Json?
+  performedByUserId String?
+  performedByName   String
+  createdAt         DateTime @default(now())
+  performedByUser   User?    @relation(fields: [performedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([performedByUserId])
 }
