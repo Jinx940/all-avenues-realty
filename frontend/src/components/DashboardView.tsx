@@ -143,6 +143,10 @@ export function DashboardView({
     lateJobs > 0 ? 'Urgent attention needed' : inProgressJobs > 0 ? 'Active production' : 'Stable flow';
   const workloadStateTone = lateJobs > 0 ? 'danger' : inProgressJobs > 0 ? 'warning' : 'success';
   const exportDate = new Date().toISOString().slice(0, 10);
+  const exportTimestamp = new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date());
 
   const exportJobsReport = () => {
     downloadCsv(`jobs-report-${exportDate}.csv`, [
@@ -185,25 +189,80 @@ export function DashboardView({
 
   const exportFinanceReport = () => {
     downloadCsv(`finance-summary-${exportDate}.csv`, [
-      ['Metric', 'Value'],
-      ['Total jobs', totalJobs],
-      ['Completed jobs', doneJobs],
-      ['In progress jobs', inProgressJobs],
-      ['Pending jobs', pendingJobs],
-      ['Late jobs', lateJobs],
-      ['Completion rate', `${completionRate}%`],
-      ['Payment exposure', `${paymentRiskRate}%`],
-      ['Overdue rate', `${overdueRate}%`],
-      ['Material total', materialTotal],
-      ['Labor total', laborTotal],
-      ['Portfolio value', overallInvestment],
-      ['Estimated revenue', estimatedRevenue],
-      ['Collected revenue', collectedRevenue],
-      ['Outstanding revenue', outstandingRevenue],
-      ['Partial cash collected', partialCashCollected],
-      ['Uninvoiced revenue', uninvoicedRevenue],
-      ['Overdue receivable', overdueReceivable],
-      ['Recovery rate', `${recoveryRate}%`],
+      ['Report', 'Finance summary', '', ''],
+      ['Generated at', exportTimestamp, '', ''],
+      ['Date scope', dashboardDateFilterLabel(dateFilter), '', ''],
+      ['Health score', `${healthScore}%`, '', ''],
+      [],
+      ['Section', 'Metric', 'Value', 'Notes'],
+      ['Operations', 'Total jobs', totalJobs, 'Jobs included in the current dashboard scope.'],
+      ['Operations', 'Completed jobs', doneJobs, 'Jobs already marked as done.'],
+      ['Operations', 'In progress jobs', inProgressJobs, 'Jobs currently active in production.'],
+      ['Operations', 'Pending jobs', pendingJobs, 'Jobs waiting to start or to be scheduled.'],
+      ['Operations', 'Late jobs', lateJobs, 'Jobs that are already overdue.'],
+      [
+        'Performance',
+        'Completion rate',
+        `${completionRate}%`,
+        'Completed jobs as a percentage of total jobs.',
+      ],
+      [
+        'Performance',
+        'Payment exposure',
+        `${paymentRiskRate}%`,
+        'Share of jobs that are unpaid or partially paid.',
+      ],
+      [
+        'Performance',
+        'Overdue rate',
+        `${overdueRate}%`,
+        'Share of jobs that are overdue.',
+      ],
+      ['Costs', 'Material total', formatMoney(materialTotal), 'Accumulated material spend.'],
+      ['Costs', 'Labor total', formatMoney(laborTotal), 'Accumulated labor spend.'],
+      ['Costs', 'Portfolio value', formatMoney(overallInvestment), 'Material plus labor investment.'],
+      [
+        'Revenue',
+        'Estimated revenue',
+        formatMoney(estimatedRevenue),
+        'Projected billing across the current portfolio.',
+      ],
+      [
+        'Revenue',
+        'Collected revenue',
+        formatMoney(collectedRevenue),
+        'Revenue already secured through paid jobs and partial cash.',
+      ],
+      [
+        'Revenue',
+        'Outstanding revenue',
+        formatMoney(outstandingRevenue),
+        'Revenue still pending collection.',
+      ],
+      [
+        'Collections',
+        'Partial cash collected',
+        formatMoney(partialCashCollected),
+        'Advance cash already captured on partial-payment jobs.',
+      ],
+      [
+        'Collections',
+        'Uninvoiced revenue',
+        formatMoney(uninvoicedRevenue),
+        'Revenue tied to jobs that still need an invoice.',
+      ],
+      [
+        'Collections',
+        'Overdue receivable',
+        formatMoney(overdueReceivable),
+        'Pending balance that is already overdue.',
+      ],
+      [
+        'Collections',
+        'Recovery rate',
+        `${recoveryRate}%`,
+        'Collected revenue as a percentage of estimated revenue.',
+      ],
     ]);
   };
 
@@ -653,6 +712,13 @@ function matchesDashboardDateFilter(job: JobRow, filter: 'ALL' | 'TODAY' | '7' |
 
   const limit = Number.parseInt(filter, 10);
   return diffDays >= 0 && diffDays < limit;
+}
+
+function dashboardDateFilterLabel(filter: 'ALL' | 'TODAY' | '7' | '30') {
+  if (filter === 'ALL') return 'All jobs';
+  if (filter === 'TODAY') return 'Today only';
+  if (filter === '7') return 'Last 7 days';
+  return 'Last 30 days';
 }
 
 function topItem(items: ChartDatum[]) {
