@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react';
 import type { AuthUser, ManagedUser } from '../types';
+import { PasswordField } from './PasswordField';
 import { UiIcon } from './UiIcon';
 
 type UserDraft = {
@@ -90,15 +91,12 @@ export function SettingsView({
                   />
                 </label>
 
-                <label>
-                  Password
-                  <input
-                    type="password"
-                    value={draft.password}
-                    onChange={(event) => onFieldChange('password', event.target.value)}
-                    placeholder="At least 6 characters"
-                  />
-                </label>
+                <PasswordField
+                  label="Password"
+                  value={draft.password}
+                  onChange={(value) => onFieldChange('password', value)}
+                  placeholder="At least 6 characters"
+                />
 
                 <label>
                   Role

@@ -35,6 +35,7 @@ import {
   workerStatusLabels,
 } from './data/defaults.js';
 import { env } from './env.js';
+import { buildInfo, buildSummary } from './lib/buildInfo.js';
 import {
   authUserSelect,
   createSessionToken,
@@ -1083,6 +1084,7 @@ app.get(
       status: 'ok',
       database,
       timestamp: new Date().toISOString(),
+      build: buildInfo,
     });
   }),
 );
@@ -2711,6 +2713,7 @@ const listenHost = '0.0.0.0';
 const start = async () => {
   server = app.listen(env.API_PORT, listenHost, () => {
     console.log(`API listening on http://${listenHost}:${env.API_PORT}`);
+    console.log(`Build ${buildSummary()}`);
   });
 
   void prisma.user

@@ -47,9 +47,16 @@ import { InvoiceQuoteView } from './components/InvoiceQuoteView';
 import { DocumentCenterView } from './components/DocumentCenterView';
 import { WorkersView } from './components/WorkersView';
 import { SettingsView } from './components/SettingsView';
+import { BuildInfoBadge } from './components/BuildInfoBadge';
 import { UiIcon, type UiIconName } from './components/UiIcon';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { LoginView } from './components/LoginView';
+import {
+  createEditableJobFormState,
+  serializeJobFormDraft,
+  serializePropertyFormDraft,
+  serializeUserDraft,
+} from './lib/formDrafts';
 import {
   buildPropertySpecificationSnapshotFromStories,
   createEmptyPropertyStoryForm,
@@ -284,13 +291,13 @@ const createJobFilters = () => ({
   timelineState: '',
 });
 
-  const createUserDraft = (): UserDraftState => ({
-    username: '',
-    displayName: '',
-    password: '',
-    role: 'WORKER',
-    workerId: '',
-  });
+const createUserDraft = (): UserDraftState => ({
+  username: '',
+  displayName: '',
+  password: '',
+  role: 'WORKER',
+  workerId: '',
+});
 
 const timelineStateFor = (job: JobRow) => {
   if (job.status === 'DONE') return 'DONE';
@@ -635,6 +642,47 @@ export default function App() {
   const propertyJobs = selectedPropertyId ? jobs.filter((job) => job.propertyId === selectedPropertyId) : [];
   const advanceCashAlerts = useMemo(() => buildAdvanceCashAlerts(jobs), [jobs]);
   const showAdvanceCashAlerts = canManageJobs(currentUser);
+  const currentJobDraftSignature = useMemo(() => serializeJobFormDraft(jobForm), [jobForm]);
+  const cleanJobDraftSignature = useMemo(() => {
+    if (jobForm.id) {
+      const savedJob = jobs.find((job) => job.id === jobForm.id);
+      return savedJob
+        ? serializeJobFormDraft(createEditableJobFormState(savedJob, bootstrap?.properties ?? []))
+        : serializeJobFormDraft(jobForm);
+    }
+
+    return serializeJobFormDraft(createJobForm(bootstrap));
+  }, [bootstrap, jobForm, jobs]);
+  const currentPropertyDraftSignature = useMemo(
+    () => serializePropertyFormDraft(propertyForm),
+    [propertyForm],
+  );
+  const cleanPropertyDraftSignature = useMemo(
+    () =>
+      serializePropertyFormDraft(
+        propertyEditorMode === 'edit'
+          ? createPropertyFormFromSummary(selectedProperty)
+          : createPropertyForm(),
+      ),
+    [propertyEditorMode, selectedProperty],
+  );
+  const emptyUserDraftSignature = useMemo(() => serializeUserDraft(createUserDraft()), []);
+  const currentUserDraftSignature = useMemo(() => serializeUserDraft(userDraft), [userDraft]);
+  const hasUnsavedJobChanges =
+    activeTab === 'new-job' && currentJobDraftSignature !== cleanJobDraftSignature;
+  const hasUnsavedPropertyChanges =
+    (activeTab === 'property-info' || activeTab === 'property-register') &&
+    currentPropertyDraftSignature !== cleanPropertyDraftSignature;
+  const hasUnsavedUserChanges =
+    activeTab === 'settings' && currentUserDraftSignature !== emptyUserDraftSignature;
+  const unsavedChangesContext = hasUnsavedJobChanges
+    ? 'job form'
+    : hasUnsavedPropertyChanges
+      ? 'property form'
+      : hasUnsavedUserChanges
+        ? 'user form'
+        : '';
+  const hasUnsavedChanges = Boolean(unsavedChangesContext);
 
   const resetWorkspaceState = useCallback((loginErrorText = '') => {
     setCurrentUser(null);
@@ -789,6 +837,18 @@ export default function App() {
     return () => window.clearTimeout(timeoutId);
   }, [message]);
 
+  useEffect(() => {
+    if (!hasUnsavedChanges) return undefined;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   const requireRole = (predicate: (user: AuthUser) => boolean, text: string) => {
     if (currentUser && predicate(currentUser)) {
       return true;
@@ -797,6 +857,19 @@ export default function App() {
     setMessage({ type: 'error', text });
     return false;
   };
+
+  const confirmDiscardUnsavedChanges = useCallback(
+    (destinationLabel: string) => {
+      if (!hasUnsavedChanges) {
+        return true;
+      }
+
+      return window.confirm(
+        `You have unsaved changes in the ${unsavedChangesContext}. Continue to ${destinationLabel} and lose those changes?`,
+      );
+    },
+    [hasUnsavedChanges, unsavedChangesContext],
+  );
 
   const submitLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -843,6 +916,10 @@ export default function App() {
   };
 
   const handleTabSelection = (tabId: TabId) => {
+    if (tabId !== activeTab && !confirmDiscardUnsavedChanges(pageMeta[tabId].title)) {
+      return;
+    }
+
     setActiveTab(tabId);
     if (isCompactViewport) {
       setIsMobileSidebarOpen(false);
@@ -850,6 +927,10 @@ export default function App() {
   };
 
   const logout = async () => {
+    if (!confirmDiscardUnsavedChanges('sign out')) {
+      return;
+    }
+
     try {
       await requestJson<{ ok: boolean }>('/api/auth/logout', {
         method: 'POST',
@@ -884,7 +965,13 @@ export default function App() {
     }
   };
 
-  const resetJobForm = () => setJobForm(createJobForm(bootstrap));
+  const resetJobForm = () => {
+    if (!confirmDiscardUnsavedChanges('reset the job form')) {
+      return;
+    }
+
+    setJobForm(createJobForm(bootstrap));
+  };
 
   const syncOpenJobForm = (job: JobRow, overrides?: Partial<JobRow>) => {
     const property =
@@ -1002,33 +1089,12 @@ export default function App() {
 
   const handleEditJob = (job: JobRow) => {
     if (!requireRole(canManageJobs, 'Only admins and office users can edit jobs.')) return;
-    const property = bootstrap?.properties.find((propertyItem) => propertyItem.id === job.propertyId) ?? null;
-    const location =
-      job.story || job.unit
-        ? { story: job.story || parseJobLocationValue(job.unit, property).story, unit: job.unit }
-        : parseJobLocationValue(job.unit, property);
+    if (!confirmDiscardUnsavedChanges('open another job')) {
+      return;
+    }
+
     setActiveTab('new-job');
-    setJobForm({
-      id: job.id,
-      propertyId: job.propertyId,
-      story: location.story,
-      unit: location.unit,
-      section: job.section,
-      area: job.area,
-      service: job.service,
-      description: job.description,
-      materialCost: String(job.materialCost),
-      laborCost: String(job.laborCost),
-      status: job.status,
-      invoiceStatus: job.invoiceStatus,
-      paymentStatus: job.paymentStatus,
-      advanceCashApp: String(job.advanceCashApp),
-      startDate: job.startDate ? job.startDate.slice(0, 10) : '',
-      dueDate: job.dueDate ? job.dueDate.slice(0, 10) : '',
-      workerIds: job.workerIds,
-      files: emptyLocalFiles(),
-      currentFiles: job.files,
-    });
+    setJobForm(createEditableJobFormState(job, bootstrap?.properties ?? []));
   };
 
   const openAdvanceCashAlertJob = (jobId: string) => {
@@ -1243,14 +1309,34 @@ export default function App() {
 
   const startCreateProperty = () => {
     if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can register properties.')) return;
+    if (!confirmDiscardUnsavedChanges('start a new property')) {
+      return;
+    }
+
     setPropertyEditorMode('create');
     setPropertyForm(createPropertyForm());
   };
 
   const startEditSelectedProperty = () => {
     if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can edit property details.')) return;
+    if (!confirmDiscardUnsavedChanges('reload the saved property details')) {
+      return;
+    }
+
     setPropertyEditorMode('edit');
     setPropertyForm(createPropertyFormFromSummary(selectedProperty));
+  };
+
+  const handlePropertySelection = (propertyId: string) => {
+    if (propertyId === selectedPropertyId) {
+      return;
+    }
+
+    if (hasUnsavedPropertyChanges && !confirmDiscardUnsavedChanges('open another property')) {
+      return;
+    }
+
+    setSelectedPropertyId(propertyId);
   };
 
   const uploadPropertyCover = async (file: File) => {
@@ -1562,6 +1648,7 @@ export default function App() {
         </nav>
 
         <div className="sidebar-footer">
+          <BuildInfoBadge className="build-info-badge--sidebar" />
           <button type="button" className="sidebar-signout-button" onClick={() => void logout()}>
             <UiIcon name="logout" size={16} />
             <span>Sign out</span>
@@ -1613,8 +1700,8 @@ export default function App() {
           <DashboardView
             dashboard={dashboard}
             jobs={jobs}
-            onCreateJob={() => setActiveTab('new-job')}
-            onOpenSettings={() => setActiveTab('settings')}
+            onCreateJob={() => handleTabSelection('new-job')}
+            onOpenSettings={() => handleTabSelection('settings')}
             canCreateJob={canManageJobs(currentUser)}
             canOpenSettings={canAdmin(currentUser)}
           />
@@ -1677,7 +1764,7 @@ export default function App() {
             onUploadCover={(file) => void uploadPropertyCover(file)}
             onClearCover={() => void clearPropertyCover()}
             onDelete={(propertyId) => void deleteProperty(propertyId)}
-            onSelect={setSelectedPropertyId}
+            onSelect={handlePropertySelection}
             onFieldChange={(field, value) => setPropertyForm((current) => ({ ...current, [field]: value }))}
             onAddStory={addPropertyStory}
             onStoryChange={updatePropertyStory}
@@ -1706,7 +1793,7 @@ export default function App() {
             onUploadCover={(file) => void uploadPropertyCover(file)}
             onClearCover={() => void clearPropertyCover()}
             onDelete={(propertyId) => void deleteProperty(propertyId)}
-            onSelect={setSelectedPropertyId}
+            onSelect={handlePropertySelection}
             onFieldChange={(field, value) => setPropertyForm((current) => ({ ...current, [field]: value }))}
             onAddStory={addPropertyStory}
             onStoryChange={updatePropertyStory}

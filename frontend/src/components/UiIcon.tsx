@@ -39,7 +39,9 @@ export type UiIconName =
   | 'sofa'
   | 'utensils'
   | 'car'
-  | 'logout';
+  | 'logout'
+  | 'eye'
+  | 'eyeOff';
 
 type UiIconProps = {
   name: UiIconName;
@@ -373,6 +375,22 @@ export function UiIcon({
           <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" />
           <path d="M14 16l4-4-4-4" />
           <path d="M9 12h9" />
+        </svg>
+      );
+    case 'eye':
+      return (
+        <svg {...props}>
+          <path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6Z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      );
+    case 'eyeOff':
+      return (
+        <svg {...props}>
+          <path d="m3 3 18 18" />
+          <path d="M10.6 6.3A11.7 11.7 0 0 1 12 6c6.2 0 10 6 10 6a18 18 0 0 1-4.2 4.6" />
+          <path d="M6.6 6.6A18.4 18.4 0 0 0 2 12s3.8 6 10 6c1.7 0 3.2-.4 4.5-1" />
+          <path d="M9.9 9.9A3 3 0 0 0 14.1 14.1" />
         </svg>
       );
     default:

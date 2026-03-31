@@ -1,4 +1,6 @@
 import type { FormEvent } from 'react';
+import { BuildInfoBadge } from './BuildInfoBadge';
+import { PasswordField } from './PasswordField';
 import { UiIcon } from './UiIcon';
 import logoMark from '../assets/all-avenues-realty-logo.png';
 
@@ -94,16 +96,13 @@ export function LoginView({
               />
             </label>
 
-            <label>
-              Password
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => onPasswordChange(event.target.value)}
-                placeholder="Enter your password"
-              />
-            </label>
+            <PasswordField
+              label="Password"
+              autoComplete="current-password"
+              value={password}
+              onChange={onPasswordChange}
+              placeholder="Enter your password"
+            />
 
             {error ? <div className="flash error">{error}</div> : null}
 
@@ -117,6 +116,8 @@ export function LoginView({
             <UiIcon name="shield" size={16} />
             <span>Accounts are managed by the administrator and protected by role permissions.</span>
           </div>
+
+          <BuildInfoBadge className="build-info-badge--login" />
         </div>
       </section>
     </main>
