@@ -102,7 +102,7 @@ export function JobsView({
       title: 'Location',
       description: 'Property, floor, unit, area and service.',
       icon: 'home',
-      complete: Boolean(form.propertyId && form.service.trim()),
+      complete: Boolean(form.propertyId && form.area.trim() && form.service.trim()),
     },
     {
       number: '02',
@@ -188,8 +188,12 @@ export function JobsView({
                   <p>Start by choosing where the job happens, the area, and what service will be performed.</p>
                 </div>
               </div>
-              <span className={`pill ${form.propertyId && form.service.trim() ? 'tone-success' : 'tone-neutral'}`}>
-                {form.propertyId && form.service.trim() ? 'Ready' : 'Pending'}
+              <span
+                className={`pill ${
+                  form.propertyId && form.area.trim() && form.service.trim() ? 'tone-success' : 'tone-neutral'
+                }`}
+              >
+                {form.propertyId && form.area.trim() && form.service.trim() ? 'Ready' : 'Pending'}
               </span>
             </div>
 
@@ -246,11 +250,12 @@ export function JobsView({
 
               <div className="job-form-secondary-grid span-3">
                 <label>
-                  Area
+                  Area *
                   <input
                     value={form.area}
                     onChange={(event) => onFieldChange('area', event.target.value)}
                     placeholder="Kitchen, Bathroom, Hallway..."
+                    required
                   />
                 </label>
 
