@@ -197,10 +197,10 @@ const messageFrom = (error: unknown) => (error instanceof Error ? error.message 
 const createJobFilters = () => ({
   search: '',
   propertyId: '',
-  workerId: '',
-  status: '',
-  paymentStatus: '',
-  timelineState: '',
+  story: '',
+  unit: '',
+  area: '',
+  service: '',
 });
 
 const createUserDraft = (): UserDraftState => ({
@@ -231,13 +231,6 @@ const serializePasswordChangeDraft = (draft: PasswordChangeState) =>
     newPassword: draft.newPassword,
     confirmPassword: draft.confirmPassword,
   });
-
-const timelineStateFor = (job: JobRow) => {
-  if (job.status === 'DONE') return 'DONE';
-  if (job.timeline.isLate || job.timeline.tone === 'danger') return 'OVERDUE';
-  if (job.timeline.tone === 'warning') return 'NEAR_DUE';
-  return 'IN_PROGRESS';
-};
 
 const canAdmin = (user: AuthUser | null) => user?.role === 'ADMIN';
 const canManageJobs = (user: AuthUser | null) =>
@@ -331,10 +324,10 @@ export default function App() {
     bootstrap?.properties.find((property) => property.id === selectedPropertyId) ?? null;
   const filteredJobs = jobs.filter((job) => {
     if (jobFilters.propertyId && job.propertyId !== jobFilters.propertyId) return false;
-    if (jobFilters.workerId && !job.workers.some((worker) => worker.id === jobFilters.workerId)) return false;
-    if (jobFilters.status && job.status !== jobFilters.status) return false;
-    if (jobFilters.paymentStatus && job.paymentStatus !== jobFilters.paymentStatus) return false;
-    if (jobFilters.timelineState && timelineStateFor(job) !== jobFilters.timelineState) return false;
+    if (jobFilters.story && job.story !== jobFilters.story) return false;
+    if (jobFilters.unit && job.unit !== jobFilters.unit) return false;
+    if (jobFilters.area && job.area !== jobFilters.area) return false;
+    if (jobFilters.service && job.service !== jobFilters.service) return false;
     if (!deferredSearch.trim()) return true;
     const haystack = [
       job.propertyName,
@@ -764,6 +757,27 @@ export default function App() {
     }
 
     setJobForm(createJobForm(bootstrap));
+  };
+
+  const updateJobTrackerFilter = (
+    field: 'search' | 'propertyId' | 'story' | 'unit' | 'area' | 'service',
+    value: string,
+  ) => {
+    setJobFilters((current) =>
+      field === 'propertyId'
+        ? {
+            ...current,
+            propertyId: value,
+            story: '',
+            unit: '',
+            area: '',
+            service: '',
+          }
+        : {
+            ...current,
+            [field]: value,
+          },
+    );
   };
 
   const syncOpenJobForm = (job: JobRow, overrides?: Partial<JobRow>) => {
@@ -1663,7 +1677,7 @@ export default function App() {
             filters={jobFilters}
             onRefresh={() => void refreshAll()}
             onResetFilters={() => setJobFilters(createJobFilters())}
-            onFilterChange={(field, value) => setJobFilters((current) => ({ ...current, [field]: value }))}
+            onFilterChange={updateJobTrackerFilter}
             canManage={canManageJobs(currentUser)}
             onEdit={handleEditJob}
             onDelete={(jobId) => void deleteJob(jobId)}

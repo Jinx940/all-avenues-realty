@@ -13,14 +13,6 @@ import {
 } from './protectedAssetState';
 import { UiIcon } from './UiIcon';
 
-const timelineOptions = [
-  { value: '', label: 'All' },
-  { value: 'OVERDUE', label: 'Overdue' },
-  { value: 'NEAR_DUE', label: 'Near Due' },
-  { value: 'IN_PROGRESS', label: 'In Progress' },
-  { value: 'DONE', label: 'Done' },
-] as const;
-
 const timelineStateFor = (job: JobRow) => {
   if (job.status === 'DONE') return 'DONE';
   if (job.timeline.isLate || job.timeline.tone === 'danger') return 'OVERDUE';
@@ -103,6 +95,31 @@ const dateRangeFor = (job: JobRow) => {
   return `${start} -> ${due}`;
 };
 
+type TrackerFilterField = 'search' | 'propertyId' | 'story' | 'unit' | 'area' | 'service';
+
+type TrackerFilters = {
+  search: string;
+  propertyId: string;
+  story: string;
+  unit: string;
+  area: string;
+  service: string;
+};
+
+const trackerValueSort = (left: string, right: string) =>
+  left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
+
+const buildTrackerSelectOptions = (
+  values: string[],
+  labelFormatter?: (value: string) => string,
+) =>
+  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+    .sort(trackerValueSort)
+    .map((value) => ({
+      value,
+      label: labelFormatter ? labelFormatter(value) : value,
+    }));
+
 const triggerDownload = (url: string, fileName: string) => {
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -175,18 +192,8 @@ export function JobTrackerView({
   bootstrap: BootstrapPayload | null;
   allJobs: JobRow[];
   jobs: JobRow[];
-  filters: {
-    search: string;
-    propertyId: string;
-    workerId: string;
-    status: string;
-    paymentStatus: string;
-    timelineState: string;
-  };
-  onFilterChange: (
-    field: 'search' | 'propertyId' | 'workerId' | 'status' | 'paymentStatus' | 'timelineState',
-    value: string,
-  ) => void;
+  filters: TrackerFilters;
+  onFilterChange: (field: TrackerFilterField, value: string) => void;
   onRefresh: () => void;
   onResetFilters: () => void;
   canManage: boolean;
@@ -198,13 +205,13 @@ export function JobTrackerView({
   const [mediaDialog, setMediaDialog] = useState<TrackerMediaDialogState>(null);
   const [receiptPreview, setReceiptPreview] = useState<TrackerReceiptPreviewState>(null);
   const [descriptionJob, setDescriptionJob] = useState<JobRow | null>(null);
-  const workerOptions = Array.from(
-    new Map(
-      allJobs
-        .flatMap((job) => job.workers)
-        .map((worker) => [worker.id, worker]),
-    ).values(),
-  ).sort((left, right) => left.name.localeCompare(right.name));
+  const propertyScopedJobs = filters.propertyId
+    ? allJobs.filter((job) => job.propertyId === filters.propertyId)
+    : allJobs;
+  const storyOptions = buildTrackerSelectOptions(propertyScopedJobs.map((job) => job.story), formatStoryDisplayLabel);
+  const unitOptions = buildTrackerSelectOptions(propertyScopedJobs.map((job) => job.unit));
+  const areaOptions = buildTrackerSelectOptions(propertyScopedJobs.map((job) => job.area));
+  const serviceOptions = buildTrackerSelectOptions(propertyScopedJobs.map((job) => job.service));
 
   return (
     <section className="tab-panel">
@@ -223,7 +230,7 @@ export function JobTrackerView({
             <input
               value={filters.search}
               onChange={(event) => onFilterChange('search', event.target.value)}
-              placeholder="Search property, floor, unit, area, service..."
+              placeholder="Search property, floor, unit, area, services..."
             />
           </label>
 
@@ -240,47 +247,48 @@ export function JobTrackerView({
           </label>
 
           <label>
-            Worker
-            <select value={filters.workerId} onChange={(event) => onFilterChange('workerId', event.target.value)}>
+            Floor
+            <select value={filters.story} onChange={(event) => onFilterChange('story', event.target.value)}>
               <option value="">All</option>
-              {workerOptions.map((worker) => (
-                <option key={worker.id} value={worker.id}>
-                  {worker.name}
+              {storyOptions.map((story) => (
+                <option key={story.value} value={story.value}>
+                  {story.label}
                 </option>
               ))}
             </select>
           </label>
 
           <label>
-            Work Status
-            <select value={filters.status} onChange={(event) => onFilterChange('status', event.target.value)}>
+            Unit
+            <select value={filters.unit} onChange={(event) => onFilterChange('unit', event.target.value)}>
               <option value="">All</option>
-              {bootstrap?.statuses.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
+              {unitOptions.map((unit) => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
                 </option>
               ))}
             </select>
           </label>
 
           <label>
-            Payment
-            <select value={filters.paymentStatus} onChange={(event) => onFilterChange('paymentStatus', event.target.value)}>
+            Area
+            <select value={filters.area} onChange={(event) => onFilterChange('area', event.target.value)}>
               <option value="">All</option>
-              {bootstrap?.paymentStatuses.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
+              {areaOptions.map((area) => (
+                <option key={area.value} value={area.value}>
+                  {area.label}
                 </option>
               ))}
             </select>
           </label>
 
           <label>
-            Timeline State
-            <select value={filters.timelineState} onChange={(event) => onFilterChange('timelineState', event.target.value)}>
-              {timelineOptions.map((option) => (
-                <option key={option.value || 'all'} value={option.value}>
-                  {option.label}
+            Services
+            <select value={filters.service} onChange={(event) => onFilterChange('service', event.target.value)}>
+              <option value="">All</option>
+              {serviceOptions.map((service) => (
+                <option key={service.value} value={service.value}>
+                  {service.label}
                 </option>
               ))}
             </select>
