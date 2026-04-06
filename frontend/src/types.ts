@@ -97,6 +97,24 @@ export type PhotoStorageAuditPayload = {
   recoveredItems: PhotoStorageAuditItem[];
 };
 
+export type StorageBackupSyncPayload = {
+  syncedAt: string;
+  summary: {
+    totalCandidates: number;
+    createdBackups: number;
+    alreadyBackedUp: number;
+    missingSources: number;
+    totalBytesStored: number;
+  };
+  missingItems: Array<{
+    kind: 'JOB_FILE' | 'PROPERTY_COVER';
+    id: string;
+    storedRef: string;
+    originalName: string;
+    message: string | null;
+  }>;
+};
+
 export type HealthPayload = {
   status: string;
   database: 'up' | 'down';

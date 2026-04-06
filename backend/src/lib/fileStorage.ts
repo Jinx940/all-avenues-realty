@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import type { Express } from 'express';
 import { env } from '../env.js';
+import { prisma } from './prisma.js';
 import {
   createStoredUploadName,
   ensureUploadsDir,
@@ -94,6 +95,149 @@ export const localStoredFileSearchPaths = (
   return localUploadsSearchDirs(cwd, uploadsDir).map((directory) =>
     path.resolve(directory, safeStoredName),
   );
+};
+
+const upsertManagedFileBackup = async ({
+  storedRef,
+  originalName,
+  mimeType,
+  buffer,
+}: {
+  storedRef: string;
+  originalName: string;
+  mimeType: string;
+  buffer: Buffer;
+}) => {
+  const binaryData = Uint8Array.from(buffer);
+
+  await prisma.managedFileBackup.upsert({
+    where: { storedRef },
+    create: {
+      storedRef,
+      originalName,
+      mimeType,
+      size: buffer.length,
+      data: binaryData,
+    },
+    update: {
+      originalName,
+      mimeType,
+      size: buffer.length,
+      data: binaryData,
+    },
+  });
+};
+
+const readManagedFileBackup = async (storedRef: string) =>
+  prisma.managedFileBackup.findUnique({
+    where: { storedRef },
+    select: {
+      storedRef: true,
+      data: true,
+      mimeType: true,
+    },
+  });
+
+export const hasManagedFileBackup = async (storedRef: string) => {
+  const item = await prisma.managedFileBackup.findUnique({
+    where: { storedRef },
+    select: { id: true },
+  });
+  return Boolean(item);
+};
+
+const deleteManagedFileBackup = async (storedRef: string) => {
+  await prisma.managedFileBackup.delete({ where: { storedRef } }).catch(() => undefined);
+};
+
+export const syncManagedFileBackupFromSource = async ({
+  storedRef,
+  originalName,
+  mimeType,
+}: {
+  storedRef: string;
+  originalName: string;
+  mimeType: string;
+}) => {
+  if (await hasManagedFileBackup(storedRef)) {
+    return {
+      status: 'already_backed_up' as const,
+    };
+  }
+
+  const managedFile = await readManagedFile(storedRef);
+  if (managedFile.kind === 'missing') {
+    return {
+      status: 'missing' as const,
+      message: managedFile.message,
+    };
+  }
+
+  const buffer =
+    managedFile.kind === 'buffer'
+      ? managedFile.buffer
+      : await fs.promises.readFile(managedFile.filePath);
+
+  await upsertManagedFileBackup({
+    storedRef,
+    originalName,
+    mimeType: managedFile.kind === 'buffer' ? managedFile.mimeType || mimeType : mimeType,
+    buffer,
+  });
+
+  return {
+    status: 'backed_up' as const,
+    size: buffer.length,
+  };
+};
+
+const restoreLocalManagedFileFromBackup = async (storedRef: string, buffer: Buffer) => {
+  const filePath = resolveStoredFilePath(storedRef);
+  ensureUploadsDir();
+  await fs.promises.writeFile(filePath, buffer);
+  return filePath;
+};
+
+const uploadPrimaryManagedBuffer = async (
+  file: ManagedUploadInput,
+  pathSegments: string[],
+) => {
+  const fileName = createStoredUploadName(file.originalName);
+
+  if (supabase && env.supabase) {
+    const storagePath = normalizeStoragePath(
+      [...pathSegments.map(sanitizePathSegment).filter(Boolean), fileName].join('/'),
+    );
+    const { error } = await supabase.storage.from(env.supabase.bucket).upload(storagePath, file.buffer, {
+      contentType: file.mimeType,
+      upsert: false,
+    });
+
+    if (error) {
+      throw new Error(`Could not upload file to Supabase Storage. ${error.message}`);
+    }
+
+    return createSupabaseStorageRef(storagePath);
+  }
+
+  ensureUploadsDir();
+  await fs.promises.writeFile(resolveStoredFilePath(fileName), file.buffer);
+  return fileName;
+};
+
+const restorePrimaryManagedBuffer = async (storedRef: string, buffer: Buffer, mimeType: string) => {
+  if (isSupabaseStorageRef(storedRef)) {
+    const storagePath = storagePathFromRef(storedRef);
+    if (storagePath && supabase && env.supabase) {
+      await supabase.storage.from(env.supabase.bucket).upload(storagePath, buffer, {
+        contentType: mimeType,
+        upsert: true,
+      });
+    }
+    return null;
+  }
+
+  return restoreLocalManagedFileFromBackup(storedRef, buffer);
 };
 
 type LocalManagedFileInspection = {
@@ -224,27 +368,28 @@ export const uploadManagedBuffer = async (
   file: ManagedUploadInput,
   pathSegments: string[],
 ) => {
-  const fileName = createStoredUploadName(file.originalName);
+  const storedRef = await uploadPrimaryManagedBuffer(file, pathSegments);
 
-  if (supabase && env.supabase) {
-    const storagePath = normalizeStoragePath(
-      [...pathSegments.map(sanitizePathSegment).filter(Boolean), fileName].join('/'),
-    );
-    const { error } = await supabase.storage.from(env.supabase.bucket).upload(storagePath, file.buffer, {
-      contentType: file.mimeType,
-      upsert: false,
+  try {
+    await upsertManagedFileBackup({
+      storedRef,
+      originalName: file.originalName,
+      mimeType: file.mimeType,
+      buffer: file.buffer,
     });
-
-    if (error) {
-      throw new Error(`Could not upload file to Supabase Storage. ${error.message}`);
+    return storedRef;
+  } catch (error) {
+    if (isSupabaseStorageRef(storedRef)) {
+      const storagePath = storagePathFromRef(storedRef);
+      if (storagePath && supabase && env.supabase) {
+        await supabase.storage.from(env.supabase.bucket).remove([storagePath]).catch(() => undefined);
+      }
+    } else {
+      await fs.promises.unlink(resolveStoredFilePath(storedRef)).catch(() => undefined);
     }
 
-    return createSupabaseStorageRef(storagePath);
+    throw error;
   }
-
-  ensureUploadsDir();
-  await fs.promises.writeFile(resolveStoredFilePath(fileName), file.buffer);
-  return fileName;
 };
 
 export const uploadManagedFile = async (
@@ -264,6 +409,15 @@ export const readManagedFile = async (storedRef: string) => {
   if (isSupabaseStorageRef(storedRef)) {
     const storagePath = storagePathFromRef(storedRef);
     if (!storagePath || !supabase || !env.supabase) {
+      const backup = await readManagedFileBackup(storedRef);
+      if (backup) {
+        return {
+          kind: 'buffer' as const,
+          buffer: Buffer.from(backup.data),
+          mimeType: backup.mimeType || null,
+        };
+      }
+
       return {
         kind: 'missing' as const,
         message: 'Supabase Storage is not configured correctly.',
@@ -272,6 +426,16 @@ export const readManagedFile = async (storedRef: string) => {
 
     const { data, error } = await supabase.storage.from(env.supabase.bucket).download(storagePath);
     if (error || !data) {
+      const backup = await readManagedFileBackup(storedRef);
+      if (backup) {
+        await restorePrimaryManagedBuffer(storedRef, Buffer.from(backup.data), backup.mimeType).catch(() => undefined);
+        return {
+          kind: 'buffer' as const,
+          buffer: Buffer.from(backup.data),
+          mimeType: backup.mimeType || null,
+        };
+      }
+
       return {
         kind: 'missing' as const,
         message: 'Stored file is missing from Supabase Storage.',
@@ -287,6 +451,27 @@ export const readManagedFile = async (storedRef: string) => {
 
   const filePath = await resolveReadableLocalManagedFile(storedRef);
   if (!filePath) {
+    const backup = await readManagedFileBackup(storedRef);
+    if (backup) {
+      const restoredFilePath = await restorePrimaryManagedBuffer(
+        storedRef,
+        Buffer.from(backup.data),
+        backup.mimeType,
+      ).catch(() => null);
+      if (restoredFilePath) {
+        return {
+          kind: 'path' as const,
+          filePath: restoredFilePath,
+        };
+      }
+
+      return {
+        kind: 'buffer' as const,
+        buffer: Buffer.from(backup.data),
+        mimeType: backup.mimeType || null,
+      };
+    }
+
     return {
       kind: 'missing' as const,
       message: 'Stored file is missing from the server disk.',
@@ -303,12 +488,15 @@ export const deleteManagedFile = async (storedRef: string) => {
   if (isSupabaseStorageRef(storedRef)) {
     const storagePath = storagePathFromRef(storedRef);
     if (!storagePath || !supabase || !env.supabase) {
+      await deleteManagedFileBackup(storedRef);
       return;
     }
 
     await supabase.storage.from(env.supabase.bucket).remove([storagePath]).catch(() => undefined);
+    await deleteManagedFileBackup(storedRef);
     return;
   }
 
   await fs.promises.unlink(resolveStoredFilePath(storedRef)).catch(() => undefined);
+  await deleteManagedFileBackup(storedRef);
 };

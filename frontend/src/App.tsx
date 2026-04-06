@@ -35,6 +35,7 @@ import type {
   ManagedUser,
   PhotoStorageAuditPayload,
   PropertySummary,
+  StorageBackupSyncPayload,
   TabId,
   WorkerHistoryRow,
   WorkerSummary,
@@ -263,6 +264,7 @@ export default function App() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
   const [photoAudit, setPhotoAudit] = useState<PhotoStorageAuditPayload | null>(null);
+  const [storageBackupResult, setStorageBackupResult] = useState<StorageBackupSyncPayload | null>(null);
   const [adminDataLoaded, setAdminDataLoaded] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [jobForm, setJobForm] = useState<JobFormState>(createJobForm());
@@ -285,6 +287,7 @@ export default function App() {
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isRunningPhotoAudit, setIsRunningPhotoAudit] = useState(false);
+  const [isSyncingStorageBackups, setIsSyncingStorageBackups] = useState(false);
   const [jobFilters, setJobFilters] = useState(createJobFilters());
   const activeTabRef = useRef(activeTab);
   const documentsLoadedRef = useRef(documentsLoaded);
@@ -413,6 +416,7 @@ export default function App() {
     setUsers([]);
     setAuditLogs([]);
     setPhotoAudit(null);
+    setStorageBackupResult(null);
     setAdminDataLoaded(false);
     setLoginUsername('');
     setLoginPassword('');
@@ -1458,6 +1462,28 @@ export default function App() {
     }
   };
 
+  const syncStorageBackups = async () => {
+    if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can create storage backups.')) return;
+
+    setIsSyncingStorageBackups(true);
+    try {
+      const payload = await requestJson<StorageBackupSyncPayload>('/api/admin/storage-backups/sync', {
+        method: 'POST',
+      });
+      setStorageBackupResult(payload);
+      setMessage({
+        type: payload.summary.createdBackups || payload.summary.alreadyBackedUp ? 'success' : 'info',
+        text: payload.summary.createdBackups
+          ? `Storage backup finished. ${payload.summary.createdBackups} new backup copy(s) were created.`
+          : 'Storage backup finished. No new copies were created.',
+      });
+    } catch (error) {
+      setMessage({ type: 'error', text: messageFrom(error) });
+    } finally {
+      setIsSyncingStorageBackups(false);
+    }
+  };
+
   if (!authReady) {
     return <main className="login-shell login-shell--loading">Loading workspace...</main>;
   }
@@ -1754,15 +1780,18 @@ export default function App() {
             workers={availableUserWorkers}
             auditLogs={auditLogs}
             photoAudit={photoAudit}
+            storageBackupResult={storageBackupResult}
             draft={userDraft}
             editingUserId={editingUserId}
             isSavingUser={isSavingUser}
             passwordDraft={passwordChangeDraft}
             isChangingPassword={isChangingPassword}
             isRunningPhotoAudit={isRunningPhotoAudit}
+            isSyncingStorageBackups={isSyncingStorageBackups}
             onSubmit={submitUser}
             onPasswordSubmit={submitPasswordChange}
             onRunPhotoAudit={() => void runPhotoAudit()}
+            onSyncStorageBackups={() => void syncStorageBackups()}
             onFieldChange={(field, value) =>
               setUserDraft((current) => ({
                 ...current,

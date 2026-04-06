@@ -80,6 +80,7 @@ import {
   inspectManagedFile,
   managedStoredRefFromValue,
   readManagedFile,
+  syncManagedFileBackupFromSource,
   uploadManagedFile,
 } from './lib/fileStorage.js';
 import { registerAuthRoutes } from './routes/auth.js';
@@ -269,6 +270,14 @@ type PhotoAuditSummary = {
   localRefs: number;
   supabaseRefs: number;
   externalCoverUrls: number;
+};
+
+type StorageBackupSummary = {
+  totalCandidates: number;
+  createdBackups: number;
+  alreadyBackedUp: number;
+  missingSources: number;
+  totalBytesStored: number;
 };
 
 const normalizeOrigin = (value: string | undefined) => String(value ?? '').trim().replace(/\/$/, '');
@@ -1160,6 +1169,150 @@ app.get(
       summary,
       missingItems,
       recoveredItems,
+    });
+  }),
+);
+
+app.post(
+  '/api/admin/storage-backups/sync',
+  asyncRoute(async (request, response) => {
+    if (!requireAdmin(request, response)) {
+      return;
+    }
+
+    const [jobFiles, propertyCovers] = await Promise.all([
+      prisma.jobFile.findMany({
+        where: {
+          storedName: {
+            not: null,
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          id: true,
+          originalName: true,
+          mimeType: true,
+          storedName: true,
+        },
+      }),
+      prisma.property.findMany({
+        where: {
+          coverImageUrl: {
+            not: null,
+          },
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        select: {
+          id: true,
+          name: true,
+          coverImageUrl: true,
+        },
+      }),
+    ]);
+
+    const candidates = [
+      ...jobFiles.flatMap((file) =>
+        file.storedName
+          ? [
+              {
+                kind: 'JOB_FILE' as const,
+                id: file.id,
+                storedRef: file.storedName,
+                originalName: file.originalName,
+                mimeType: file.mimeType,
+              },
+            ]
+          : [],
+      ),
+      ...propertyCovers.flatMap((property) => {
+        const storedRef = managedStoredRefFromValue(property.coverImageUrl);
+        if (!storedRef) {
+          return [];
+        }
+
+        return [
+          {
+            kind: 'PROPERTY_COVER' as const,
+            id: property.id,
+            storedRef,
+            originalName: property.name,
+            mimeType: 'image/*',
+          },
+        ];
+      }),
+    ];
+
+    const summary: StorageBackupSummary = {
+      totalCandidates: candidates.length,
+      createdBackups: 0,
+      alreadyBackedUp: 0,
+      missingSources: 0,
+      totalBytesStored: 0,
+    };
+
+    const missingItems: Array<{
+      kind: 'JOB_FILE' | 'PROPERTY_COVER';
+      id: string;
+      storedRef: string;
+      originalName: string;
+      message: string | null;
+    }> = [];
+
+    for (let index = 0; index < candidates.length; index += 10) {
+      const batch = candidates.slice(index, index + 10);
+      const results = await Promise.all(
+        batch.map(async (candidate) => ({
+          candidate,
+          result: await syncManagedFileBackupFromSource({
+            storedRef: candidate.storedRef,
+            originalName: candidate.originalName,
+            mimeType: candidate.mimeType,
+          }),
+        })),
+      );
+
+      results.forEach(({ candidate, result }) => {
+        if (result.status === 'backed_up') {
+          summary.createdBackups += 1;
+          summary.totalBytesStored += result.size;
+          return;
+        }
+
+        if (result.status === 'already_backed_up') {
+          summary.alreadyBackedUp += 1;
+          return;
+        }
+
+        summary.missingSources += 1;
+        if (missingItems.length < 25) {
+          missingItems.push({
+            kind: candidate.kind,
+            id: candidate.id,
+            storedRef: candidate.storedRef,
+            originalName: candidate.originalName,
+            message: result.message ?? null,
+          });
+        }
+      });
+    }
+
+    await recordAuditLog(prisma, request, {
+      entityType: 'Storage',
+      entityId: null,
+      entityLabel: 'Managed file backups',
+      action: 'Backed up files',
+      summary: `Created ${summary.createdBackups} backup copies for managed files.`,
+      metadata: summary,
+    });
+
+    response.json({
+      syncedAt: new Date().toISOString(),
+      summary,
+      missingItems,
     });
   }),
 );

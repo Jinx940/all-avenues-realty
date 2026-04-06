@@ -4,6 +4,7 @@ import type {
   AuthUser,
   ManagedUser,
   PhotoStorageAuditPayload,
+  StorageBackupSyncPayload,
   WorkerSummary,
 } from '../types';
 import { downloadCsv } from '../lib/csv';
@@ -30,15 +31,18 @@ export function SettingsView({
   workers,
   auditLogs,
   photoAudit,
+  storageBackupResult,
   draft,
   editingUserId,
   isSavingUser,
   passwordDraft,
   isChangingPassword,
   isRunningPhotoAudit,
+  isSyncingStorageBackups,
   onSubmit,
   onPasswordSubmit,
   onRunPhotoAudit,
+  onSyncStorageBackups,
   onFieldChange,
   onPasswordFieldChange,
   onStartEdit,
@@ -53,15 +57,18 @@ export function SettingsView({
   workers: WorkerSummary[];
   auditLogs: AuditLogRow[];
   photoAudit: PhotoStorageAuditPayload | null;
+  storageBackupResult: StorageBackupSyncPayload | null;
   draft: UserDraft;
   editingUserId: string | null;
   isSavingUser: boolean;
   passwordDraft: PasswordChangeDraft;
   isChangingPassword: boolean;
   isRunningPhotoAudit: boolean;
+  isSyncingStorageBackups: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onPasswordSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRunPhotoAudit: () => void;
+  onSyncStorageBackups: () => void;
   onFieldChange: (field: keyof UserDraft, value: string) => void;
   onPasswordFieldChange: (field: keyof PasswordChangeDraft, value: string) => void;
   onStartEdit: (userId: string) => void;
@@ -145,6 +152,21 @@ export function SettingsView({
         item.fileName,
         item.storedRef,
         item.createdAt ? new Date(item.createdAt).toISOString() : '',
+        item.message ?? '',
+      ]),
+    ]);
+  };
+
+  const exportStorageBackupResult = () => {
+    if (!storageBackupResult) return;
+
+    downloadCsv(`storage-backup-sync-${exportDate}.csv`, [
+      ['Kind', 'Item id', 'Original name', 'Stored ref', 'Message'],
+      ...storageBackupResult.missingItems.map((item) => [
+        item.kind,
+        item.id,
+        item.originalName,
+        item.storedRef,
         item.message ?? '',
       ]),
     ]);
@@ -481,6 +503,15 @@ export function SettingsView({
                       </p>
                     </div>
                     <div className="page-actions">
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={onSyncStorageBackups}
+                        disabled={isSyncingStorageBackups}
+                      >
+                        <UiIcon name="shield" />
+                        {isSyncingStorageBackups ? 'Creating copies...' : 'Create backup copies'}
+                      </button>
                       <button type="button" onClick={onRunPhotoAudit} disabled={isRunningPhotoAudit}>
                         <UiIcon name="refresh" />
                         {isRunningPhotoAudit ? 'Checking...' : 'Run audit'}
@@ -494,8 +525,38 @@ export function SettingsView({
                         <UiIcon name="download" />
                         Export CSV
                       </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={exportStorageBackupResult}
+                        disabled={!storageBackupResult}
+                      >
+                        <UiIcon name="download" />
+                        Export backup CSV
+                      </button>
                     </div>
                   </div>
+
+                  {storageBackupResult ? (
+                    <div className="settings-helper-grid">
+                      <article className="settings-helper-item">
+                        <strong>{storageBackupResult.summary.createdBackups}</strong>
+                        <p>New backup copies created in the latest sync.</p>
+                      </article>
+                      <article className="settings-helper-item">
+                        <strong>{storageBackupResult.summary.alreadyBackedUp}</strong>
+                        <p>Files already protected by a database copy.</p>
+                      </article>
+                      <article className="settings-helper-item">
+                        <strong>{storageBackupResult.summary.missingSources}</strong>
+                        <p>Files that could not be copied because the source is already missing.</p>
+                      </article>
+                      <article className="settings-helper-item">
+                        <strong>{Math.round(storageBackupResult.summary.totalBytesStored / 1024)}</strong>
+                        <p>KB written into backup storage in the latest sync.</p>
+                      </article>
+                    </div>
+                  ) : null}
 
                   {photoAudit ? (
                     <>
