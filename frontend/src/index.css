@@ -4840,6 +4840,31 @@ textarea {
   color: var(--ink-strong);
 }
 
+.invoice-description-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  max-width: 58ch;
+}
+
+.invoice-description-editor {
+  width: 100%;
+  min-height: 74px;
+  padding: 10px 12px;
+  border: 1px solid rgba(191, 216, 237, 0.96);
+  border-radius: 16px;
+  background: rgba(251, 253, 255, 0.96);
+  color: var(--ink-strong);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.invoice-description-editor:focus {
+  border-color: rgba(132, 187, 229, 0.98);
+  box-shadow: 0 0 0 4px rgba(168, 211, 243, 0.18);
+  outline: none;
+}
+
 .invoice-preview-note {
   margin: 0;
   color: var(--muted);

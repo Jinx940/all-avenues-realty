@@ -179,6 +179,30 @@ const splitDescriptionIntoSentences = (value: string) => {
   return matches.map(cleanSentenceForPdf).filter(isMeaningfulPdfSentence);
 };
 
+const normalizeInvoiceDescriptionLine = (value: string) => {
+  const cleaned = value
+    .replace(/^\s*[-*\u2013\u2014\u2022]+\s*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) return '';
+  if (/[.!?]$/.test(cleaned)) return cleaned;
+  return `${cleaned}.`;
+};
+
+const normalizeInvoiceDescription = (value: string) => {
+  const lines = value
+    .split(/\r?\n+/)
+    .map(normalizeInvoiceDescriptionLine)
+    .filter(Boolean);
+
+  if (lines.length) {
+    return lines.join('\n');
+  }
+
+  return normalizeInvoiceDescriptionLine(value.replace(/\r?\n/g, ' '));
+};
+
 const buildLegacyServiceGroups = (items: PdfServiceItem[]): LegacyServiceGroup[] => {
   const groups = new Map<string, LegacyServiceGroup>();
 
@@ -1067,6 +1091,7 @@ export function InvoiceQuoteView({
   const [juanLabor, setJuanLabor] = useState('0');
   const [advancePayment, setAdvancePayment] = useState('0');
   const [materialExpense, setMaterialExpense] = useState('0');
+  const [descriptionEdits, setDescriptionEdits] = useState<Record<string, string>>({});
   const [jobSelection, setJobSelection] = useState<JobSelectionState>({
     propertyId: '',
     ids: [],
@@ -1098,6 +1123,7 @@ export function InvoiceQuoteView({
   const ownerKey = ownerKeyFor(headerOwner);
   const usesAutoDocumentNumber = !documentNumber.trim();
   const effectiveDocumentNumber = documentNumber.trim() || suggestedNumber;
+  const descriptionValueFor = (job: JobRow) => descriptionEdits[job.id] ?? normalizeInvoiceDescription(job.description);
 
   useEffect(() => {
     let cancelled = false;
@@ -1141,7 +1167,7 @@ export function InvoiceQuoteView({
 
   const selectedItems: PdfServiceItem[] = selectedJobs.map((job) => ({
     service: formatAreaServiceLabel(job.area, job.service),
-    description: job.description || '',
+    description: normalizeInvoiceDescription(descriptionValueFor(job)),
     unitPrice: job.totalCost,
   }));
 
@@ -1223,6 +1249,28 @@ export function InvoiceQuoteView({
     });
   };
 
+  const updateDescriptionEdit = (jobId: string, value: string) => {
+    setDescriptionEdits((current) => ({
+      ...current,
+      [jobId]: value,
+    }));
+  };
+
+  const commitDescriptionEdit = (job: JobRow) => {
+    const nextValue = normalizeInvoiceDescription(descriptionValueFor(job));
+
+    setDescriptionEdits((current) => {
+      if (current[job.id] === nextValue) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [job.id]: nextValue,
+      };
+    });
+  };
+
   const resetPreview = () => {
     setRyanLabor('0');
     setJuanLabor('0');
@@ -1232,6 +1280,13 @@ export function InvoiceQuoteView({
       propertyId: normalizedPropertyId,
       ids: propertyJobs.map((job) => job.id),
       mode: 'auto',
+    });
+    setDescriptionEdits((current) => {
+      const next = { ...current };
+      propertyJobs.forEach((job) => {
+        delete next[job.id];
+      });
+      return next;
     });
   };
 
@@ -1531,6 +1586,9 @@ export function InvoiceQuoteView({
                 <UiIcon name="briefcase" />
                 <span>{propertyJobs.length} loaded</span>
               </h3>
+              <p className="invoice-description-note">
+                You can edit only the description here. We automatically remove list dashes and add a final period.
+              </p>
             </div>
             <label className="invoice-select-all">
               <input
@@ -1564,7 +1622,16 @@ export function InvoiceQuoteView({
                       />
                     </span>
                     <span className="invoice-service-name">{formatAreaServiceLabel(job.area, job.service)}</span>
-                    <span>{job.description || '-'}</span>
+                    <span>
+                      <textarea
+                        className="invoice-description-editor"
+                        rows={2}
+                        value={descriptionValueFor(job)}
+                        onChange={(event) => updateDescriptionEdit(job.id, event.target.value)}
+                        onBlur={() => commitDescriptionEdit(job)}
+                        placeholder="Edit the description used for this invoice or quote"
+                      />
+                    </span>
                     <span>{formatUsd(job.totalCost)}</span>
                   </div>
                 ))
