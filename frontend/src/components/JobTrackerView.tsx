@@ -35,11 +35,13 @@ const getTrackerCompareImageStyle = (
   dimensions: ProtectedAssetDimensions | null,
 ): CSSProperties | undefined => {
   if (!dimensions) return undefined;
+  const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
+  const scale = aspectRatio < 0.9 ? 82 : aspectRatio < 1.15 ? 78 : 74;
   return {
-    width: '74%',
-    height: '74%',
-    maxWidth: '74%',
-    maxHeight: '74%',
+    width: `${scale}%`,
+    height: `${scale}%`,
+    maxWidth: `${scale}%`,
+    maxHeight: `${scale}%`,
     padding: 0,
     display: 'block',
     objectPosition: 'center center',
