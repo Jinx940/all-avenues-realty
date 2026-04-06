@@ -1582,6 +1582,33 @@ export default function App() {
     });
   };
 
+  const clearAuditLogs = () => {
+    if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can delete audit history.')) return;
+
+    openConfirmDialog({
+      title: 'Delete Audit History',
+      text: 'Delete the entire audit history permanently?',
+      confirmLabel: 'Delete history',
+      tone: 'danger',
+      onConfirm: async () => {
+        try {
+          const payload = await requestJson<{ message: string; deletedCount: number }>('/api/audit-logs', {
+            method: 'DELETE',
+          });
+          setAuditLogs([]);
+          await refreshAll({
+            type: 'success',
+            text: payload.deletedCount
+              ? `Audit history deleted. ${payload.deletedCount} entr${payload.deletedCount === 1 ? 'y' : 'ies'} removed.`
+              : 'Audit history was already empty.',
+          });
+        } catch (error) {
+          setMessage({ type: 'error', text: messageFrom(error) });
+        }
+      },
+    });
+  };
+
   const runPhotoAudit = async () => {
     if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can run the photo audit.')) return;
 
@@ -1977,6 +2004,7 @@ export default function App() {
             onCancelPasswordEdit={resetPasswordChangeState}
             onToggleUserStatus={toggleUserStatus}
             onDeleteUser={deleteUser}
+            onClearAuditLogs={clearAuditLogs}
             onLogout={() => void logout()}
           />
         ) : null}

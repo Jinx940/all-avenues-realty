@@ -52,6 +52,7 @@ export function SettingsView({
   onCancelPasswordEdit,
   onToggleUserStatus,
   onDeleteUser,
+  onClearAuditLogs,
   onLogout,
 }: {
   currentUser: AuthUser;
@@ -79,9 +80,11 @@ export function SettingsView({
   onCancelPasswordEdit: () => void;
   onToggleUserStatus: (userId: string, status: 'ACTIVE' | 'INACTIVE') => void;
   onDeleteUser: (userId: string) => void;
+  onClearAuditLogs: () => void;
   onLogout: () => void;
 }) {
   const [isAuditHistoryOpen, setIsAuditHistoryOpen] = useState(false);
+  const [isPhotoAuditOpen, setIsPhotoAuditOpen] = useState(false);
   const isEditing = Boolean(editingUserId);
   const isAdmin = currentUser.role === 'ADMIN';
   const activeUsers = users.filter((user) => user.status === 'ACTIVE').length;
@@ -506,7 +509,15 @@ export function SettingsView({
                         recovered from legacy upload paths.
                       </p>
                     </div>
-                    <div className="page-actions">
+                    <div className="settings-admin-actions">
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => setIsPhotoAuditOpen((current) => !current)}
+                      >
+                        <UiIcon name="image" />
+                        {isPhotoAuditOpen ? 'Hide audit' : 'Show audit'}
+                      </button>
                       <button
                         type="button"
                         className="ghost-button"
@@ -541,149 +552,174 @@ export function SettingsView({
                     </div>
                   </div>
 
-                  {storageBackupResult ? (
-                    <div className="settings-helper-grid">
-                      <article className="settings-helper-item">
-                        <strong>{storageBackupResult.summary.createdBackups}</strong>
-                        <p>New backup copies created in the latest sync.</p>
-                      </article>
-                      <article className="settings-helper-item">
-                        <strong>{storageBackupResult.summary.alreadyBackedUp}</strong>
-                        <p>Files already protected by a database copy.</p>
-                      </article>
-                      <article className="settings-helper-item">
-                        <strong>{storageBackupResult.summary.missingSources}</strong>
-                        <p>Files that could not be copied because the source is already missing.</p>
-                      </article>
-                      <article className="settings-helper-item">
-                        <strong>{Math.round(storageBackupResult.summary.totalBytesStored / 1024)}</strong>
-                        <p>KB written into backup storage in the latest sync.</p>
-                      </article>
-                    </div>
-                  ) : null}
-
-                  {storageBackupOverview ? (
-                    <div className="settings-helper-grid">
-                      <article className="settings-helper-item">
-                        <strong>{storageBackupOverview.summary.managedRefs}</strong>
-                        <p>Managed file refs currently tracked across jobs and property covers.</p>
-                      </article>
-                      <article className="settings-helper-item">
-                        <strong>{storageBackupOverview.summary.backupRows}</strong>
-                        <p>Backup rows stored inside the database.</p>
-                      </article>
-                      <article className="settings-helper-item">
-                        <strong>{storageBackupOverview.summary.unbackedManagedRefs}</strong>
-                        <p>Managed refs still missing a backup copy.</p>
-                      </article>
-                      <article className="settings-helper-item">
-                        <strong>{storageBackupOverview.summary.compressionRatio}%</strong>
-                        <p>Average space saved by compression across backed-up files.</p>
-                      </article>
-                    </div>
-                  ) : null}
-
-                  {storageBackupOverview ? (
-                    <p className="settings-field-note">
-                      Backup footprint: {Math.round(storageBackupOverview.summary.totalStoredBytes / 1024)} KB stored
-                      from {Math.round(storageBackupOverview.summary.totalOriginalBytes / 1024)} KB original. Saved{' '}
-                      {Math.round(storageBackupOverview.summary.spaceSavedBytes / 1024)} KB. Last summary:{' '}
-                      {new Date(storageBackupOverview.checkedAt).toLocaleString('en-US')}.
-                    </p>
-                  ) : null}
-
-                  {photoAudit ? (
-                    <>
-                      <div className="settings-helper-grid">
-                        <article className="settings-helper-item">
-                          <strong>{photoAudit.summary.totalPhotos}</strong>
-                          <p>Managed photos checked.</p>
-                        </article>
-                        <article className="settings-helper-item">
-                          <strong>{photoAudit.summary.missingPhotos}</strong>
-                          <p>Missing files still referenced by the database.</p>
-                        </article>
-                        <article className="settings-helper-item">
-                          <strong>{photoAudit.summary.recoveredFromLegacyPath}</strong>
-                          <p>Files found in a legacy uploads path.</p>
-                        </article>
-                        <article className="settings-helper-item">
-                          <strong>{photoAudit.summary.externalCoverUrls}</strong>
-                          <p>External cover URLs excluded from the audit.</p>
-                        </article>
-                      </div>
-
-                      <div className="settings-helper-grid">
-                        <article className="settings-helper-item">
-                          <strong>{photoAudit.summary.totalJobPhotos}</strong>
-                          <p>Job photos reviewed.</p>
-                        </article>
-                        <article className="settings-helper-item">
-                          <strong>{photoAudit.summary.missingJobPhotos}</strong>
-                          <p>Missing job photos.</p>
-                        </article>
-                        <article className="settings-helper-item">
-                          <strong>{photoAudit.summary.totalPropertyCovers}</strong>
-                          <p>Managed property covers reviewed.</p>
-                        </article>
-                        <article className="settings-helper-item">
-                          <strong>{photoAudit.summary.missingPropertyCovers}</strong>
-                          <p>Missing managed covers.</p>
-                        </article>
-                      </div>
-
-                      <p className="settings-field-note">
-                        Last check: {new Date(photoAudit.checkedAt).toLocaleString('en-US')}. Local
-                        refs: {photoAudit.summary.localRefs}. Supabase refs:{' '}
-                        {photoAudit.summary.supabaseRefs}.
+                  <div className="settings-history-summary">
+                    {photoAudit ? (
+                      <p>
+                        {photoAudit.summary.missingPhotos} missing photo file(s) and{' '}
+                        {photoAudit.summary.recoveredFromLegacyPath} recovered item(s){' '}
+                        {isPhotoAuditOpen ? 'visible below.' : 'hidden to keep this section compact.'}
                       </p>
+                    ) : storageBackupOverview ? (
+                      <p>
+                        {storageBackupOverview.summary.managedRefs} managed ref(s) tracked and{' '}
+                        {storageBackupOverview.summary.unbackedManagedRefs} still missing a backup copy.
+                      </p>
+                    ) : (
+                      <p>Run the audit or create backup copies to inspect managed file coverage.</p>
+                    )}
+                  </div>
 
-                      {photoAudit.missingItems.length ? (
-                        <div className="settings-audit-list">
-                          {photoAudit.missingItems.map((item) => (
-                            <article key={`missing-${item.kind}-${item.fileId ?? item.propertyId}`} className="settings-audit-item">
-                              <div className="settings-audit-main">
-                                <div className="settings-audit-topline">
-                                  <span className="pill tone-danger">Missing</span>
-                                  <span className="pill tone-neutral">{item.category}</span>
-                                  <span className="pill tone-sky">{item.storage}</span>
-                                </div>
-                                <strong>{item.locationLabel}</strong>
-                                <p>
-                                  {item.fileName} {item.message ? `- ${item.message}` : ''}
-                                </p>
-                              </div>
-                            </article>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="empty-box">No missing managed photos were detected in the latest audit.</div>
-                      )}
-
-                      {photoAudit.recoveredItems.length ? (
-                        <div className="settings-audit-list">
-                          {photoAudit.recoveredItems.map((item) => (
-                            <article key={`recovered-${item.kind}-${item.fileId ?? item.propertyId}`} className="settings-audit-item">
-                              <div className="settings-audit-main">
-                                <div className="settings-audit-topline">
-                                  <span className="pill tone-success">Recovered</span>
-                                  <span className="pill tone-neutral">{item.category}</span>
-                                  <span className="pill tone-sky">{item.storage}</span>
-                                </div>
-                                <strong>{item.locationLabel}</strong>
-                                <p>
-                                  {item.fileName} {item.message ? `- ${item.message}` : ''}
-                                </p>
-                              </div>
-                            </article>
-                          ))}
+                  {isPhotoAuditOpen ? (
+                    <>
+                      {storageBackupResult ? (
+                        <div className="settings-helper-grid">
+                          <article className="settings-helper-item">
+                            <strong>{storageBackupResult.summary.createdBackups}</strong>
+                            <p>New backup copies created in the latest sync.</p>
+                          </article>
+                          <article className="settings-helper-item">
+                            <strong>{storageBackupResult.summary.alreadyBackedUp}</strong>
+                            <p>Files already protected by a database copy.</p>
+                          </article>
+                          <article className="settings-helper-item">
+                            <strong>{storageBackupResult.summary.missingSources}</strong>
+                            <p>Files that could not be copied because the source is already missing.</p>
+                          </article>
+                          <article className="settings-helper-item">
+                            <strong>{Math.round(storageBackupResult.summary.totalBytesStored / 1024)}</strong>
+                            <p>KB written into backup storage in the latest sync.</p>
+                          </article>
                         </div>
                       ) : null}
+
+                      {storageBackupOverview ? (
+                        <div className="settings-helper-grid">
+                          <article className="settings-helper-item">
+                            <strong>{storageBackupOverview.summary.managedRefs}</strong>
+                            <p>Managed file refs currently tracked across jobs and property covers.</p>
+                          </article>
+                          <article className="settings-helper-item">
+                            <strong>{storageBackupOverview.summary.backupRows}</strong>
+                            <p>Backup rows stored inside the database.</p>
+                          </article>
+                          <article className="settings-helper-item">
+                            <strong>{storageBackupOverview.summary.unbackedManagedRefs}</strong>
+                            <p>Managed refs still missing a backup copy.</p>
+                          </article>
+                          <article className="settings-helper-item">
+                            <strong>{storageBackupOverview.summary.compressionRatio}%</strong>
+                            <p>Average space saved by compression across backed-up files.</p>
+                          </article>
+                        </div>
+                      ) : null}
+
+                      {storageBackupOverview ? (
+                        <p className="settings-field-note">
+                          Backup footprint: {Math.round(storageBackupOverview.summary.totalStoredBytes / 1024)} KB stored
+                          from {Math.round(storageBackupOverview.summary.totalOriginalBytes / 1024)} KB original. Saved{' '}
+                          {Math.round(storageBackupOverview.summary.spaceSavedBytes / 1024)} KB. Last summary:{' '}
+                          {new Date(storageBackupOverview.checkedAt).toLocaleString('en-US')}.
+                        </p>
+                      ) : null}
+
+                      {photoAudit ? (
+                        <>
+                          <div className="settings-helper-grid">
+                            <article className="settings-helper-item">
+                              <strong>{photoAudit.summary.totalPhotos}</strong>
+                              <p>Managed photos checked.</p>
+                            </article>
+                            <article className="settings-helper-item">
+                              <strong>{photoAudit.summary.missingPhotos}</strong>
+                              <p>Missing files still referenced by the database.</p>
+                            </article>
+                            <article className="settings-helper-item">
+                              <strong>{photoAudit.summary.recoveredFromLegacyPath}</strong>
+                              <p>Files found in a legacy uploads path.</p>
+                            </article>
+                            <article className="settings-helper-item">
+                              <strong>{photoAudit.summary.externalCoverUrls}</strong>
+                              <p>External cover URLs excluded from the audit.</p>
+                            </article>
+                          </div>
+
+                          <div className="settings-helper-grid">
+                            <article className="settings-helper-item">
+                              <strong>{photoAudit.summary.totalJobPhotos}</strong>
+                              <p>Job photos reviewed.</p>
+                            </article>
+                            <article className="settings-helper-item">
+                              <strong>{photoAudit.summary.missingJobPhotos}</strong>
+                              <p>Missing job photos.</p>
+                            </article>
+                            <article className="settings-helper-item">
+                              <strong>{photoAudit.summary.totalPropertyCovers}</strong>
+                              <p>Managed property covers reviewed.</p>
+                            </article>
+                            <article className="settings-helper-item">
+                              <strong>{photoAudit.summary.missingPropertyCovers}</strong>
+                              <p>Missing managed covers.</p>
+                            </article>
+                          </div>
+
+                          <p className="settings-field-note">
+                            Last check: {new Date(photoAudit.checkedAt).toLocaleString('en-US')}. Local
+                            refs: {photoAudit.summary.localRefs}. Supabase refs:{' '}
+                            {photoAudit.summary.supabaseRefs}.
+                          </p>
+
+                          {photoAudit.missingItems.length ? (
+                            <div className="settings-audit-list">
+                              {photoAudit.missingItems.map((item) => (
+                                <article key={`missing-${item.kind}-${item.fileId ?? item.propertyId}`} className="settings-audit-item">
+                                  <div className="settings-audit-main">
+                                    <div className="settings-audit-topline">
+                                      <span className="pill tone-danger">Missing</span>
+                                      <span className="pill tone-neutral">{item.category}</span>
+                                      <span className="pill tone-sky">{item.storage}</span>
+                                    </div>
+                                    <strong>{item.locationLabel}</strong>
+                                    <p>
+                                      {item.fileName} {item.message ? `- ${item.message}` : ''}
+                                    </p>
+                                  </div>
+                                </article>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="empty-box">No missing managed photos were detected in the latest audit.</div>
+                          )}
+
+                          {photoAudit.recoveredItems.length ? (
+                            <div className="settings-audit-list">
+                              {photoAudit.recoveredItems.map((item) => (
+                                <article key={`recovered-${item.kind}-${item.fileId ?? item.propertyId}`} className="settings-audit-item">
+                                  <div className="settings-audit-main">
+                                    <div className="settings-audit-topline">
+                                      <span className="pill tone-success">Recovered</span>
+                                      <span className="pill tone-neutral">{item.category}</span>
+                                      <span className="pill tone-sky">{item.storage}</span>
+                                    </div>
+                                    <strong>{item.locationLabel}</strong>
+                                    <p>
+                                      {item.fileName} {item.message ? `- ${item.message}` : ''}
+                                    </p>
+                                  </div>
+                                </article>
+                              ))}
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <div className="empty-box">
+                          Run the audit to see which managed photos are missing and which ones were
+                          recovered from legacy upload paths.
+                        </div>
+                      )}
                     </>
                   ) : (
-                    <div className="empty-box">
-                      Run the audit to see which managed photos are missing and which ones were
-                      recovered from legacy upload paths.
+                    <div className="settings-history-collapsed">
+                      <span className="pill tone-neutral">Collapsed</span>
                     </div>
                   )}
                 </article>
@@ -714,6 +750,15 @@ export function SettingsView({
                       >
                         <UiIcon name="download" />
                         Export CSV
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button danger"
+                        onClick={onClearAuditLogs}
+                        disabled={!auditLogs.length}
+                      >
+                        <UiIcon name="trash" />
+                        Delete history
                       </button>
                     </div>
                   </div>

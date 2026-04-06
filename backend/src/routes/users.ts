@@ -67,6 +67,21 @@ export const registerUserRoutes = (app: Express) => {
     }),
   );
 
+  app.delete(
+    '/api/audit-logs',
+    asyncRoute(async (request, response) => {
+      if (!requireAdmin(request, response)) {
+        return;
+      }
+
+      const result = await prisma.auditLog.deleteMany({});
+      response.json({
+        message: 'Audit history deleted successfully.',
+        deletedCount: result.count,
+      });
+    }),
+  );
+
   app.post(
     '/api/users',
     asyncRoute(async (request, response) => {
