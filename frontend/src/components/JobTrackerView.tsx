@@ -784,11 +784,9 @@ function TrackerMediaDialog({
   const compareSessionKey = `${state?.job.id ?? 'none'}:${state?.mode ?? 'none'}`;
   const [compareUiState, setCompareUiState] = useState<{
     sessionKey: string;
-    position: number;
     viewMode: 'compare' | 'before' | 'after';
   }>(() => ({
     sessionKey: compareSessionKey,
-    position: 50,
     viewMode: 'compare',
   }));
 
@@ -810,8 +808,6 @@ function TrackerMediaDialog({
   const compareAfterId = compareAfter?.id ?? '';
   const beforePhoto = useProtectedAssetRenderState(compareBeforeId, Boolean(compareBefore));
   const afterPhoto = useProtectedAssetRenderState(compareAfterId, Boolean(compareAfter));
-  const comparePosition =
-    compareUiState.sessionKey === compareSessionKey ? compareUiState.position : 50;
   const compareViewMode =
     compareUiState.sessionKey === compareSessionKey ? compareUiState.viewMode : 'compare';
   const hasBeforePhoto = Boolean(compareBefore) && beforePhoto.loadState !== 'error';
@@ -836,17 +832,9 @@ function TrackerMediaDialog({
   const beforeCompareImageStyle = getTrackerCompareImageStyle(beforePhoto.dimensions);
   const afterCompareImageStyle = getTrackerCompareImageStyle(afterPhoto.dimensions);
   const setCompareView = (viewMode: 'compare' | 'before' | 'after') => {
-    setCompareUiState((current) => ({
+    setCompareUiState(() => ({
       sessionKey: compareSessionKey,
-      position: current.sessionKey === compareSessionKey ? current.position : 50,
       viewMode,
-    }));
-  };
-  const setCompareSliderPosition = (position: number) => {
-    setCompareUiState((current) => ({
-      sessionKey: compareSessionKey,
-      position,
-      viewMode: current.sessionKey === compareSessionKey ? current.viewMode : 'compare',
     }));
   };
   const activeCompareView =
@@ -933,6 +921,9 @@ function TrackerMediaDialog({
               >
                 {activeCompareView === 'after' ? (
                   <div className="tracker-compare-panel tracker-compare-panel--single">
+                    <span className="tracker-compare-chip tracker-compare-chip--floating tracker-compare-chip--after">
+                      After
+                    </span>
                     <ProtectedAssetImage
                       className="tracker-compare-image"
                       src={compareAfter?.url ?? null}
@@ -963,6 +954,7 @@ function TrackerMediaDialog({
                   </div>
                 ) : activeCompareView === 'before' ? (
                   <div className="tracker-compare-panel tracker-compare-panel--single">
+                    <span className="tracker-compare-chip tracker-compare-chip--floating">Before</span>
                     <ProtectedAssetImage
                       className="tracker-compare-image"
                       src={compareBefore?.url ?? null}
@@ -992,45 +984,9 @@ function TrackerMediaDialog({
                     ) : null}
                   </div>
                 ) : (
-                  <>
-                    <div
-                      className="tracker-compare-panel tracker-compare-panel--after"
-                      style={{ clipPath: `inset(0 0 0 ${comparePosition}%)` }}
-                    >
-                      {compareAfter ? (
-                        <ProtectedAssetImage
-                          className="tracker-compare-image"
-                          src={compareAfter.url}
-                          alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
-                          mimeType={compareAfter.mimeType}
-                          style={afterCompareImageStyle}
-                          onStateChange={afterPhoto.handleStateChange}
-                          onDimensionsChange={afterPhoto.handleDimensionsChange}
-                          loadingFallback={
-                            <div className="tracker-compare-empty">
-                              <strong>Loading after photo...</strong>
-                              <span>Please wait while the file opens.</span>
-                            </div>
-                          }
-                          errorFallback={(message) => (
-                            <div className="tracker-compare-empty">
-                              <strong>Could not load the after photo</strong>
-                              <span>{message}</span>
-                            </div>
-                          )}
-                        />
-                      ) : (
-                        <div className="tracker-compare-empty">
-                          <strong>No after photo</strong>
-                          <span>Upload an after image in the job form to complete the comparison.</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div
-                      className="tracker-compare-panel tracker-compare-panel--before"
-                      style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
-                    >
+                  <div className="tracker-compare-split-grid">
+                    <div className="tracker-compare-split-panel tracker-compare-split-panel--before">
+                      <span className="tracker-compare-chip tracker-compare-chip--floating">Before</span>
                       {compareBefore ? (
                         <ProtectedAssetImage
                           className="tracker-compare-image"
@@ -1061,27 +1017,40 @@ function TrackerMediaDialog({
                       )}
                     </div>
 
-                    <div className="tracker-compare-overlay">
-                      <div className="tracker-compare-badges">
-                        <span className="tracker-compare-chip">Before</span>
-                        <span className="tracker-compare-chip tracker-compare-chip--after">After</span>
-                      </div>
-
-                      <div className="tracker-compare-divider" style={{ left: `${comparePosition}%` }}>
-                        <span className="tracker-compare-handle" />
-                      </div>
-
-                      <input
-                        className="tracker-compare-range"
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={comparePosition}
-                        onChange={(event) => setCompareSliderPosition(Number(event.target.value))}
-                        aria-label={`Compare before and after photos for ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
-                      />
+                    <div className="tracker-compare-split-panel tracker-compare-split-panel--after">
+                      <span className="tracker-compare-chip tracker-compare-chip--floating tracker-compare-chip--after">
+                        After
+                      </span>
+                      {compareAfter ? (
+                        <ProtectedAssetImage
+                          className="tracker-compare-image"
+                          src={compareAfter.url}
+                          alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                          mimeType={compareAfter.mimeType}
+                          style={afterCompareImageStyle}
+                          onStateChange={afterPhoto.handleStateChange}
+                          onDimensionsChange={afterPhoto.handleDimensionsChange}
+                          loadingFallback={
+                            <div className="tracker-compare-empty">
+                              <strong>Loading after photo...</strong>
+                              <span>Please wait while the file opens.</span>
+                            </div>
+                          }
+                          errorFallback={(message) => (
+                            <div className="tracker-compare-empty">
+                              <strong>Could not load the after photo</strong>
+                              <span>{message}</span>
+                            </div>
+                          )}
+                        />
+                      ) : (
+                        <div className="tracker-compare-empty">
+                          <strong>No after photo</strong>
+                          <span>Upload an after image in the job form to complete the comparison.</span>
+                        </div>
+                      )}
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
 

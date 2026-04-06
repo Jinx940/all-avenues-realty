@@ -6041,8 +6041,7 @@ textarea {
     linear-gradient(180deg, #111821 0%, #131b24 58%, #0f151d 100%);
 }
 
-.tracker-compare-panel,
-.tracker-compare-overlay {
+.tracker-compare-panel {
   position: absolute;
   inset: 0;
 }
@@ -6053,21 +6052,33 @@ textarea {
   overflow: hidden;
 }
 
+.tracker-compare-split-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tracker-compare-split-panel {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.tracker-compare-split-panel--before {
+  border-right: 1px solid rgba(154, 176, 194, 0.2);
+}
+
 .tracker-compare-panel--single {
   position: relative;
   inset: auto;
 }
 
-.tracker-compare-panel--before {
-  z-index: 2;
-}
-
-.tracker-compare-panel--after {
-  z-index: 1;
-}
-
 .tracker-compare-panel--before .tracker-compare-image,
-.tracker-compare-panel--after .tracker-compare-image {
+.tracker-compare-panel--after .tracker-compare-image,
+.tracker-compare-split-panel .tracker-compare-image {
   padding: 16px clamp(16px, 3.2%, 30px) 18px;
   object-position: center center;
 }
@@ -6138,18 +6149,11 @@ textarea {
   line-height: 1.45;
 }
 
-.tracker-compare-overlay {
-  z-index: 3;
-  pointer-events: none;
-}
-
-.tracker-compare-badges {
+.tracker-compare-chip--floating {
   position: absolute;
-  inset: 18px 18px auto;
-  display: grid;
-  grid-template-columns: repeat(2, max-content);
-  justify-content: space-between;
-  gap: 12px;
+  top: 18px;
+  left: 18px;
+  z-index: 2;
 }
 
 .tracker-compare-chip {
@@ -6171,44 +6175,8 @@ textarea {
 
 .tracker-compare-chip--after {
   border-color: rgba(144, 223, 105, 0.24);
-}
-
-.tracker-compare-divider {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 0;
-  border-left: 2px solid rgba(255, 255, 255, 0.86);
-  box-shadow:
-    0 0 0 1px rgba(143, 216, 103, 0.12),
-    0 0 26px rgba(143, 216, 103, 0.22);
-  transform: translateX(-1px);
-}
-
-.tracker-compare-handle {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 28px;
-  height: 28px;
-  transform: translate(-50%, -50%);
-  border-radius: 999px;
-  background: linear-gradient(180deg, #a2f26b 0%, #76db47 100%);
-  border: 2px solid rgba(255, 255, 255, 0.98);
-  box-shadow:
-    0 0 0 4px rgba(118, 219, 71, 0.18),
-    0 18px 36px rgba(8, 14, 20, 0.42);
-}
-
-.tracker-compare-range {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: ew-resize;
-  pointer-events: auto;
+  left: auto;
+  right: 18px;
 }
 
 .tracker-compare-meta-grid {
