@@ -6007,6 +6007,18 @@ textarea {
   gap: 18px;
 }
 
+.tracker-compare-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tracker-compare-mode-switch .ghost-button.is-active {
+  background: linear-gradient(180deg, rgba(214, 243, 229, 0.98), rgba(194, 232, 214, 0.94));
+  border-color: rgba(122, 196, 154, 0.42);
+  color: #2f6685;
+}
+
 .tracker-compare-stage {
   position: relative;
   height: 760px;
@@ -6056,8 +6068,13 @@ textarea {
 
 .tracker-compare-panel--before .tracker-compare-image,
 .tracker-compare-panel--after .tracker-compare-image {
-  padding: 34px clamp(36px, 8%, 92px) 52px;
-  object-position: center 46%;
+  padding: 16px clamp(16px, 3.2%, 30px) 18px;
+  object-position: center center;
+}
+
+.tracker-compare-panel--single .tracker-compare-image {
+  padding: 16px clamp(16px, 3%, 28px) 18px;
+  object-position: center center;
 }
 
 .tracker-compare-image {

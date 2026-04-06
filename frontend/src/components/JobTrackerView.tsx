@@ -35,11 +35,9 @@ const getTrackerCompareImageStyle = (
   dimensions: ProtectedAssetDimensions | null,
 ): CSSProperties | undefined => {
   if (!dimensions) return undefined;
-  const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
-  if (aspectRatio < 0.95) return undefined;
   return {
-    padding: 'clamp(70px, 13%, 92px) clamp(72px, 16%, 128px) clamp(98px, 19%, 122px)',
-    objectPosition: 'center 46%',
+    padding: 'clamp(10px, 2.2%, 22px)',
+    objectPosition: 'center center',
   };
 };
 
@@ -783,7 +781,16 @@ function TrackerMediaDialog({
   state: TrackerMediaDialogState;
   onClose: () => void;
 }) {
-  const [comparePosition, setComparePosition] = useState(50);
+  const compareSessionKey = `${state?.job.id ?? 'none'}:${state?.mode ?? 'none'}`;
+  const [compareUiState, setCompareUiState] = useState<{
+    sessionKey: string;
+    position: number;
+    viewMode: 'compare' | 'before' | 'after';
+  }>(() => ({
+    sessionKey: compareSessionKey,
+    position: 50,
+    viewMode: 'compare',
+  }));
 
   const compareBefore = state?.job.files.before[0] ?? null;
   const compareAfter = state?.job.files.after[0] ?? null;
@@ -803,6 +810,13 @@ function TrackerMediaDialog({
   const compareAfterId = compareAfter?.id ?? '';
   const beforePhoto = useProtectedAssetRenderState(compareBeforeId, Boolean(compareBefore));
   const afterPhoto = useProtectedAssetRenderState(compareAfterId, Boolean(compareAfter));
+  const comparePosition =
+    compareUiState.sessionKey === compareSessionKey ? compareUiState.position : 50;
+  const compareViewMode =
+    compareUiState.sessionKey === compareSessionKey ? compareUiState.viewMode : 'compare';
+  const hasBeforePhoto = Boolean(compareBefore) && beforePhoto.loadState !== 'error';
+  const hasAfterPhoto = Boolean(compareAfter) && afterPhoto.loadState !== 'error';
+  const canComparePhotos = hasBeforePhoto && hasAfterPhoto;
   const shouldShowAfterOnly =
     Boolean(compareAfter) && (!compareBefore || beforePhoto.loadState === 'error');
   const shouldShowBeforeOnly =
@@ -821,6 +835,38 @@ function TrackerMediaDialog({
   const compareStageMaxWidth = `${Math.round(860 * compareStageDisplayAspectRatio)}px`;
   const beforeCompareImageStyle = getTrackerCompareImageStyle(beforePhoto.dimensions);
   const afterCompareImageStyle = getTrackerCompareImageStyle(afterPhoto.dimensions);
+  const setCompareView = (viewMode: 'compare' | 'before' | 'after') => {
+    setCompareUiState((current) => ({
+      sessionKey: compareSessionKey,
+      position: current.sessionKey === compareSessionKey ? current.position : 50,
+      viewMode,
+    }));
+  };
+  const setCompareSliderPosition = (position: number) => {
+    setCompareUiState((current) => ({
+      sessionKey: compareSessionKey,
+      position,
+      viewMode: current.sessionKey === compareSessionKey ? current.viewMode : 'compare',
+    }));
+  };
+  const activeCompareView =
+    compareViewMode === 'before'
+      ? hasBeforePhoto
+        ? 'before'
+        : hasAfterPhoto
+          ? 'after'
+          : 'before'
+      : compareViewMode === 'after'
+        ? hasAfterPhoto
+          ? 'after'
+          : hasBeforePhoto
+            ? 'before'
+            : 'after'
+        : canComparePhotos
+          ? 'compare'
+          : hasAfterPhoto
+            ? 'after'
+            : 'before';
 
   if (!state) return null;
 
@@ -850,13 +896,42 @@ function TrackerMediaDialog({
         <div className="tracker-media-dialog-body">
           {state.mode === 'compare' ? (
             <div className="tracker-compare-showcase">
+              <div className="tracker-compare-mode-switch">
+                <button
+                  type="button"
+                  className={`ghost-button ${activeCompareView === 'compare' ? 'is-active' : ''}`.trim()}
+                  onClick={() => setCompareView('compare')}
+                  disabled={!canComparePhotos}
+                >
+                  Compare
+                </button>
+                <button
+                  type="button"
+                  className={`ghost-button ${activeCompareView === 'before' ? 'is-active' : ''}`.trim()}
+                  onClick={() => setCompareView('before')}
+                  disabled={!hasBeforePhoto}
+                >
+                  Before
+                </button>
+                <button
+                  type="button"
+                  className={`ghost-button ${activeCompareView === 'after' ? 'is-active' : ''}`.trim()}
+                  onClick={() => setCompareView('after')}
+                  disabled={!hasAfterPhoto}
+                >
+                  After
+                </button>
+              </div>
+
               <div
                 className={`tracker-compare-stage ${
-                  shouldShowAfterOnly || shouldShowBeforeOnly ? 'tracker-compare-stage--single' : ''
+                  activeCompareView !== 'compare' || shouldShowAfterOnly || shouldShowBeforeOnly
+                    ? 'tracker-compare-stage--single'
+                    : ''
                 }`.trim()}
                 style={{ maxWidth: compareStageMaxWidth }}
               >
-                {shouldShowAfterOnly ? (
+                {activeCompareView === 'after' ? (
                   <div className="tracker-compare-panel tracker-compare-panel--single">
                     <ProtectedAssetImage
                       className="tracker-compare-image"
@@ -879,12 +954,14 @@ function TrackerMediaDialog({
                         </div>
                       )}
                     />
-                    <div className="tracker-compare-single-note">
-                      <strong>Before photo unavailable</strong>
-                      <span>Showing the available after image while the older before file is missing.</span>
-                    </div>
+                    {shouldShowAfterOnly ? (
+                      <div className="tracker-compare-single-note">
+                        <strong>Before photo unavailable</strong>
+                        <span>Showing the available after image while the older before file is missing.</span>
+                      </div>
+                    ) : null}
                   </div>
-                ) : shouldShowBeforeOnly ? (
+                ) : activeCompareView === 'before' ? (
                   <div className="tracker-compare-panel tracker-compare-panel--single">
                     <ProtectedAssetImage
                       className="tracker-compare-image"
@@ -907,10 +984,12 @@ function TrackerMediaDialog({
                         </div>
                       )}
                     />
-                    <div className="tracker-compare-single-note">
-                      <strong>After photo unavailable</strong>
-                      <span>Showing the available before image while the older after file is missing.</span>
-                    </div>
+                    {shouldShowBeforeOnly ? (
+                      <div className="tracker-compare-single-note">
+                        <strong>After photo unavailable</strong>
+                        <span>Showing the available before image while the older after file is missing.</span>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <>
@@ -998,7 +1077,7 @@ function TrackerMediaDialog({
                         min="0"
                         max="100"
                         value={comparePosition}
-                        onChange={(event) => setComparePosition(Number(event.target.value))}
+                        onChange={(event) => setCompareSliderPosition(Number(event.target.value))}
                         aria-label={`Compare before and after photos for ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
                       />
                     </div>
