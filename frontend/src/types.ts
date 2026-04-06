@@ -115,6 +115,19 @@ export type StorageBackupSyncPayload = {
   }>;
 };
 
+export type StorageBackupOverviewPayload = {
+  checkedAt: string;
+  summary: {
+    managedRefs: number;
+    backupRows: number;
+    unbackedManagedRefs: number;
+    totalOriginalBytes: number;
+    totalStoredBytes: number;
+    spaceSavedBytes: number;
+    compressionRatio: number;
+  };
+};
+
 export type HealthPayload = {
   status: string;
   database: 'up' | 'down';

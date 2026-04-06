@@ -53,6 +53,11 @@ import {
   sanitizeGeneratedDocumentHtml,
 } from './lib/documents.js';
 import { isDocumentNumberConflictError, nextDocumentNumberFromDatabase } from './lib/documentNumbers.js';
+import {
+  buildFinanceWorkbookBuffer,
+  financeWorkbookMimeType,
+  normalizeFinanceWorkbookFileName,
+} from './lib/financeWorkbook.js';
 import { asyncRoute, HttpError, type AuthenticatedRequest } from './lib/http.js';
 import { prisma } from './lib/prisma.js';
 import { sessionMiddleware } from './lib/sessionAuth.js';
@@ -199,6 +204,37 @@ const generatedDocumentSchema = z.object({
   }
 });
 
+const financeWorkbookValueFormatSchema = z.enum(['text', 'integer', 'currency', 'percent']);
+const financeWorkbookInputSchema = z.object({
+  fileName: z.string().trim().min(1).max(180),
+  title: z.string().trim().min(1).max(180),
+  meta: z
+    .array(
+      z.object({
+        label: z.string().trim().min(1).max(80),
+        value: z.union([z.string().trim().max(200), z.number().finite()]),
+        format: financeWorkbookValueFormatSchema.optional(),
+      }),
+    )
+    .max(20),
+  sections: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(120),
+        rows: z
+          .array(
+            z.object({
+              metric: z.string().trim().min(1).max(120),
+              value: z.number().finite(),
+              format: z.enum(['integer', 'currency', 'percent']),
+            }),
+          )
+          .max(60),
+      }),
+    )
+    .max(12),
+});
+
 const today = () => new Date(new Date().toDateString());
 
 const numericValue = (value: number | Prisma.Decimal) =>
@@ -272,6 +308,16 @@ type PhotoAuditSummary = {
   localRefs: number;
   supabaseRefs: number;
   externalCoverUrls: number;
+};
+
+type StorageBackupOverviewSummary = {
+  managedRefs: number;
+  backupRows: number;
+  unbackedManagedRefs: number;
+  totalOriginalBytes: number;
+  totalStoredBytes: number;
+  spaceSavedBytes: number;
+  compressionRatio: number;
 };
 
 type StorageBackupSummary = {
@@ -895,6 +941,26 @@ app.get(
   }),
 );
 
+app.post(
+  '/api/exports/finance-workbook',
+  asyncRoute(async (request, response) => {
+    const auth = (request as AuthenticatedRequest).auth;
+    if (!auth) {
+      response.status(401).json({ message: 'Authentication required.' });
+      return;
+    }
+
+    const payload = financeWorkbookInputSchema.parse(request.body);
+    const fileName = normalizeFinanceWorkbookFileName(payload.fileName);
+    const workbookBuffer = await buildFinanceWorkbookBuffer(payload);
+
+    response.setHeader('Content-Type', financeWorkbookMimeType);
+    response.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.send(workbookBuffer);
+  }),
+);
+
 app.get(
   '/api/properties/:propertyId/cover-image',
   asyncRoute(async (request, response) => {
@@ -1288,6 +1354,82 @@ app.post(
       syncedAt: new Date().toISOString(),
       summary,
       missingItems,
+    });
+  }),
+);
+
+app.get(
+  '/api/admin/storage-backups/summary',
+  asyncRoute(async (request, response) => {
+    if (!requireAdmin(request, response)) {
+      return;
+    }
+
+    const [backupAggregate, backupRows, jobFiles, properties] = await Promise.all([
+      prisma.managedFileBackup.aggregate({
+        _count: {
+          _all: true,
+        },
+        _sum: {
+          size: true,
+          storedSize: true,
+        },
+      }),
+      prisma.managedFileBackup.findMany({
+        select: {
+          storedRef: true,
+        },
+      }),
+      prisma.jobFile.findMany({
+        where: {
+          storedName: {
+            not: null,
+          },
+        },
+        select: {
+          storedName: true,
+        },
+      }),
+      prisma.property.findMany({
+        select: {
+          coverImageUrl: true,
+        },
+      }),
+    ]);
+
+    const managedRefs = new Set<string>();
+    jobFiles.forEach((file) => {
+      if (file.storedName) {
+        managedRefs.add(file.storedName);
+      }
+    });
+    properties.forEach((property) => {
+      const storedRef = managedStoredRefFromValue(property.coverImageUrl);
+      if (storedRef) {
+        managedRefs.add(storedRef);
+      }
+    });
+
+    const backupRefs = new Set(backupRows.map((row) => row.storedRef));
+    const totalOriginalBytes = backupAggregate._sum.size ?? 0;
+    const totalStoredBytes = backupAggregate._sum.storedSize ?? 0;
+    const spaceSavedBytes = Math.max(totalOriginalBytes - totalStoredBytes, 0);
+
+    const summary: StorageBackupOverviewSummary = {
+      managedRefs: managedRefs.size,
+      backupRows: backupAggregate._count._all ?? 0,
+      unbackedManagedRefs: Array.from(managedRefs).filter((storedRef) => !backupRefs.has(storedRef)).length,
+      totalOriginalBytes,
+      totalStoredBytes,
+      spaceSavedBytes,
+      compressionRatio: totalOriginalBytes
+        ? Math.round(((totalOriginalBytes - totalStoredBytes) / totalOriginalBytes) * 100)
+        : 0,
+    };
+
+    response.json({
+      checkedAt: new Date().toISOString(),
+      summary,
     });
   }),
 );

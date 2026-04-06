@@ -87,6 +87,27 @@ export const requestJson = async <T>(path: string, init?: RequestInit): Promise<
   return (await response.json()) as T;
 };
 
+export const requestBlob = async (path: string, init?: RequestInit) => {
+  let response: Response;
+
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...init,
+      credentials: 'include',
+      headers: init?.headers ?? {},
+    });
+  } catch {
+    const target = apiBaseUrl || 'the current origin';
+    throw new Error(`Could not connect to the backend. Start the API on ${target} and try again.`);
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await readErrorMessage(response));
+  }
+
+  return response.blob();
+};
+
 export const fetchAssetBlob = async (url: string) => {
   let response: Response;
 

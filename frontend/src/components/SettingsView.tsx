@@ -4,6 +4,7 @@ import type {
   AuthUser,
   ManagedUser,
   PhotoStorageAuditPayload,
+  StorageBackupOverviewPayload,
   StorageBackupSyncPayload,
   WorkerSummary,
 } from '../types';
@@ -31,6 +32,7 @@ export function SettingsView({
   workers,
   auditLogs,
   photoAudit,
+  storageBackupOverview,
   storageBackupResult,
   draft,
   editingUserId,
@@ -57,6 +59,7 @@ export function SettingsView({
   workers: WorkerSummary[];
   auditLogs: AuditLogRow[];
   photoAudit: PhotoStorageAuditPayload | null;
+  storageBackupOverview: StorageBackupOverviewPayload | null;
   storageBackupResult: StorageBackupSyncPayload | null;
   draft: UserDraft;
   editingUserId: string | null;
@@ -556,6 +559,36 @@ export function SettingsView({
                         <p>KB written into backup storage in the latest sync.</p>
                       </article>
                     </div>
+                  ) : null}
+
+                  {storageBackupOverview ? (
+                    <div className="settings-helper-grid">
+                      <article className="settings-helper-item">
+                        <strong>{storageBackupOverview.summary.managedRefs}</strong>
+                        <p>Managed file refs currently tracked across jobs and property covers.</p>
+                      </article>
+                      <article className="settings-helper-item">
+                        <strong>{storageBackupOverview.summary.backupRows}</strong>
+                        <p>Backup rows stored inside the database.</p>
+                      </article>
+                      <article className="settings-helper-item">
+                        <strong>{storageBackupOverview.summary.unbackedManagedRefs}</strong>
+                        <p>Managed refs still missing a backup copy.</p>
+                      </article>
+                      <article className="settings-helper-item">
+                        <strong>{storageBackupOverview.summary.compressionRatio}%</strong>
+                        <p>Average space saved by compression across backed-up files.</p>
+                      </article>
+                    </div>
+                  ) : null}
+
+                  {storageBackupOverview ? (
+                    <p className="settings-field-note">
+                      Backup footprint: {Math.round(storageBackupOverview.summary.totalStoredBytes / 1024)} KB stored
+                      from {Math.round(storageBackupOverview.summary.totalOriginalBytes / 1024)} KB original. Saved{' '}
+                      {Math.round(storageBackupOverview.summary.spaceSavedBytes / 1024)} KB. Last summary:{' '}
+                      {new Date(storageBackupOverview.checkedAt).toLocaleString('en-US')}.
+                    </p>
                   ) : null}
 
                   {photoAudit ? (

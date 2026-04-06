@@ -37,6 +37,7 @@ import type {
   ManagedUser,
   PhotoStorageAuditPayload,
   PropertySummary,
+  StorageBackupOverviewPayload,
   StorageBackupSyncPayload,
   TabId,
   WorkerHistoryRow,
@@ -282,6 +283,7 @@ export default function App() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
   const [photoAudit, setPhotoAudit] = useState<PhotoStorageAuditPayload | null>(null);
+  const [storageBackupOverview, setStorageBackupOverview] = useState<StorageBackupOverviewPayload | null>(null);
   const [storageBackupResult, setStorageBackupResult] = useState<StorageBackupSyncPayload | null>(null);
   const [adminDataLoaded, setAdminDataLoaded] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
@@ -433,6 +435,7 @@ export default function App() {
     setUsers([]);
     setAuditLogs([]);
     setPhotoAudit(null);
+    setStorageBackupOverview(null);
     setStorageBackupResult(null);
     setAdminDataLoaded(false);
     setLoginUsername('');
@@ -463,7 +466,7 @@ export default function App() {
 
     setIsRefreshing(true);
     try {
-      const [healthData, bootstrapData, jobsData, documentsData, historyData, usersData, auditLogData] =
+      const [healthData, bootstrapData, jobsData, documentsData, historyData, usersData, auditLogData, storageBackupOverviewData] =
         await Promise.all([
           includeHealth ? requestJson<HealthPayload>('/api/health') : Promise.resolve(null),
           requestJson<BootstrapPayload>('/api/bootstrap'),
@@ -480,6 +483,9 @@ export default function App() {
           includeAdminData
             ? requestJson<AuditLogRow[]>('/api/audit-logs?limit=80')
             : Promise.resolve(null),
+          includeAdminData
+            ? requestJson<StorageBackupOverviewPayload>('/api/admin/storage-backups/summary')
+            : Promise.resolve(null),
         ]);
 
       startTransition(() => {
@@ -493,10 +499,11 @@ export default function App() {
           setGeneratedDocuments(documentsData);
           setDocumentsLoaded(true);
         }
-        if (historyData && usersData && auditLogData) {
+        if (historyData && usersData && auditLogData && storageBackupOverviewData) {
           setWorkerHistory(historyData);
           setUsers(usersData);
           setAuditLogs(auditLogData);
+          setStorageBackupOverview(storageBackupOverviewData);
           setAdminDataLoaded(true);
         }
         if (successMessage) setMessage(successMessage);
@@ -596,7 +603,7 @@ export default function App() {
     const loadTabData = async () => {
       setIsRefreshing(true);
       try {
-        const [documentsData, historyData, usersData, auditLogData] = await Promise.all([
+        const [documentsData, historyData, usersData, auditLogData, storageBackupOverviewData] = await Promise.all([
           shouldLoadDocuments
             ? requestJson<GeneratedDocumentHistoryItem[]>('/api/generated-documents')
             : Promise.resolve(null),
@@ -609,6 +616,9 @@ export default function App() {
           shouldLoadAdminData
             ? requestJson<AuditLogRow[]>('/api/audit-logs?limit=80')
             : Promise.resolve(null),
+          shouldLoadAdminData
+            ? requestJson<StorageBackupOverviewPayload>('/api/admin/storage-backups/summary')
+            : Promise.resolve(null),
         ]);
 
         startTransition(() => {
@@ -616,10 +626,11 @@ export default function App() {
             setGeneratedDocuments(documentsData);
             setDocumentsLoaded(true);
           }
-          if (historyData && usersData && auditLogData) {
+          if (historyData && usersData && auditLogData && storageBackupOverviewData) {
             setWorkerHistory(historyData);
             setUsers(usersData);
             setAuditLogs(auditLogData);
+            setStorageBackupOverview(storageBackupOverviewData);
             setAdminDataLoaded(true);
           }
         });
@@ -1577,7 +1588,9 @@ export default function App() {
       const payload = await requestJson<StorageBackupSyncPayload>('/api/admin/storage-backups/sync', {
         method: 'POST',
       });
+      const summaryPayload = await requestJson<StorageBackupOverviewPayload>('/api/admin/storage-backups/summary');
       setStorageBackupResult(payload);
+      setStorageBackupOverview(summaryPayload);
       setMessage({
         type: payload.summary.createdBackups || payload.summary.alreadyBackedUp ? 'success' : 'info',
         text: payload.summary.createdBackups
@@ -1888,6 +1901,7 @@ export default function App() {
             workers={availableUserWorkers}
             auditLogs={auditLogs}
             photoAudit={photoAudit}
+            storageBackupOverview={storageBackupOverview}
             storageBackupResult={storageBackupResult}
             draft={userDraft}
             editingUserId={editingUserId}
