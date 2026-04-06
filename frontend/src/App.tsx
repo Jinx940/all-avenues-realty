@@ -4,6 +4,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from 'react';
@@ -241,6 +242,11 @@ const timelineStateFor = (job: JobRow) => {
 const canAdmin = (user: AuthUser | null) => user?.role === 'ADMIN';
 const canManageJobs = (user: AuthUser | null) =>
   user?.role === 'ADMIN' || user?.role === 'OFFICE';
+const documentDataTabs = new Set<TabId>(['generate-invoice-quote', 'document-center']);
+const adminDataTabs = new Set<TabId>(['workers', 'settings']);
+
+const tabNeedsDocuments = (tab: TabId) => documentDataTabs.has(tab);
+const tabNeedsAdminData = (tab: TabId) => adminDataTabs.has(tab);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
@@ -258,9 +264,11 @@ export default function App() {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocumentHistoryItem[]>([]);
+  const [documentsLoaded, setDocumentsLoaded] = useState(false);
   const [workerHistory, setWorkerHistory] = useState<WorkerHistoryRow[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
+  const [adminDataLoaded, setAdminDataLoaded] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [jobForm, setJobForm] = useState<JobFormState>(createJobForm());
   const [propertyForm, setPropertyForm] = useState<PropertyFormState>(createPropertyForm());
@@ -282,6 +290,9 @@ export default function App() {
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [jobFilters, setJobFilters] = useState(createJobFilters());
+  const activeTabRef = useRef(activeTab);
+  const documentsLoadedRef = useRef(documentsLoaded);
+  const adminDataLoadedRef = useRef(adminDataLoaded);
   const deferredSearch = useDeferredValue(jobFilters.search);
   const availableTabs = currentUser ? tabs.filter((tab) => roleTabs[currentUser.role].includes(tab.id)) : [];
   const currentPage = pageMeta[activeTab];
@@ -401,9 +412,11 @@ export default function App() {
     setDashboard(null);
     setJobs([]);
     setGeneratedDocuments([]);
+    setDocumentsLoaded(false);
     setWorkerHistory([]);
     setUsers([]);
     setAuditLogs([]);
+    setAdminDataLoaded(false);
     setLoginUsername('');
     setLoginPassword('');
     setLoginError(loginErrorText);
@@ -413,8 +426,24 @@ export default function App() {
     setPasswordChangeDraft(freshPasswordDraft);
   }, []);
 
-  const refreshAll = useCallback(async (successMessage?: FlashMessage) => {
+  const refreshAll = useCallback(async (
+    successMessage?: FlashMessage,
+    options?: {
+      includeDocuments?: boolean;
+      includeAdminData?: boolean;
+    },
+  ) => {
     if (!currentUser) return;
+
+    const activeTabValue = activeTabRef.current;
+    const includeDocuments =
+      options?.includeDocuments ??
+      (documentsLoadedRef.current || tabNeedsDocuments(activeTabValue));
+    const includeAdminData =
+      options?.includeAdminData ??
+      (canAdmin(currentUser) &&
+        (adminDataLoadedRef.current || tabNeedsAdminData(activeTabValue)));
+
     setIsRefreshing(true);
     try {
       const [healthData, bootstrapData, dashboardData, jobsData, documentsData, historyData, usersData, auditLogData] =
@@ -423,10 +452,18 @@ export default function App() {
           requestJson<BootstrapPayload>('/api/bootstrap'),
           requestJson<DashboardPayload>('/api/dashboard'),
           requestJson<JobRow[]>('/api/jobs'),
-          requestJson<GeneratedDocumentHistoryItem[]>('/api/generated-documents'),
-          canAdmin(currentUser) ? requestJson<WorkerHistoryRow[]>('/api/workers/history') : Promise.resolve([]),
-          canAdmin(currentUser) ? requestJson<ManagedUser[]>('/api/users') : Promise.resolve([]),
-          canAdmin(currentUser) ? requestJson<AuditLogRow[]>('/api/audit-logs?limit=80') : Promise.resolve([]),
+          includeDocuments
+            ? requestJson<GeneratedDocumentHistoryItem[]>('/api/generated-documents')
+            : Promise.resolve(null),
+          includeAdminData
+            ? requestJson<WorkerHistoryRow[]>('/api/workers/history')
+            : Promise.resolve(null),
+          includeAdminData
+            ? requestJson<ManagedUser[]>('/api/users')
+            : Promise.resolve(null),
+          includeAdminData
+            ? requestJson<AuditLogRow[]>('/api/audit-logs?limit=80')
+            : Promise.resolve(null),
         ]);
 
       startTransition(() => {
@@ -434,10 +471,16 @@ export default function App() {
         setBootstrap(bootstrapData);
         setDashboard(dashboardData);
         setJobs(jobsData);
-        setGeneratedDocuments(documentsData);
-        setWorkerHistory(historyData);
-        setUsers(usersData);
-        setAuditLogs(auditLogData);
+        if (documentsData) {
+          setGeneratedDocuments(documentsData);
+          setDocumentsLoaded(true);
+        }
+        if (historyData && usersData && auditLogData) {
+          setWorkerHistory(historyData);
+          setUsers(usersData);
+          setAuditLogs(auditLogData);
+          setAdminDataLoaded(true);
+        }
         if (successMessage) setMessage(successMessage);
       });
     } catch (error) {
@@ -450,6 +493,18 @@ export default function App() {
       setIsRefreshing(false);
     }
   }, [currentUser, resetWorkspaceState]);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    documentsLoadedRef.current = documentsLoaded;
+  }, [documentsLoaded]);
+
+  useEffect(() => {
+    adminDataLoadedRef.current = adminDataLoaded;
+  }, [adminDataLoaded]);
 
   useEffect(() => {
     const hydrateSession = async () => {
@@ -506,8 +561,28 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) return;
-    void refreshAll();
+    void refreshAll(undefined, {
+      includeDocuments: false,
+      includeAdminData: false,
+    });
   }, [currentUser, refreshAll]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const shouldLoadDocuments = tabNeedsDocuments(activeTab) && !documentsLoaded;
+    const shouldLoadAdminData =
+      canAdmin(currentUser) && tabNeedsAdminData(activeTab) && !adminDataLoaded;
+
+    if (!shouldLoadDocuments && !shouldLoadAdminData) {
+      return;
+    }
+
+    void refreshAll(undefined, {
+      includeDocuments: shouldLoadDocuments,
+      includeAdminData: shouldLoadAdminData,
+    });
+  }, [activeTab, adminDataLoaded, currentUser, documentsLoaded, refreshAll]);
 
   useEffect(() => {
     if (!currentUser) return;

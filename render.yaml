@@ -3,7 +3,8 @@ services:
     name: all-avenues-realty
     runtime: node
     buildCommand: npm install && npm run build:deploy
-    startCommand: npm start
+    preDeployCommand: npm run prisma:migrate:deploy --prefix backend
+    startCommand: npm run start --prefix backend
     healthCheckPath: /api/health
     autoDeploy: true
     disk:

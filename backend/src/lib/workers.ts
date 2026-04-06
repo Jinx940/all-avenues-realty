@@ -1,8 +1,9 @@
-import { WorkerHistoryAction, WorkerStatus } from '@prisma/client';
+import { Prisma, type PrismaClient, WorkerHistoryAction, WorkerStatus } from '@prisma/client';
 import {
   workerHistoryActionLabels,
   workerStatusLabels,
 } from '../data/defaults.js';
+import { HttpError } from './http.js';
 import { prisma } from './prisma.js';
 
 type WorkerSummaryRecord = {
@@ -44,6 +45,49 @@ export const serializeWorkerHistory = (item: WorkerHistoryRecord) => ({
   performedBy: item.performedBy,
   notes: item.notes,
 });
+
+type WorkerLookupClient =
+  | Pick<PrismaClient, 'worker'>
+  | Pick<Prisma.TransactionClient, 'worker'>;
+
+export const normalizeWorkerIds = (workerIds: string[]) =>
+  Array.from(
+    new Set(
+      workerIds
+        .map((workerId) => String(workerId).trim())
+        .filter(Boolean),
+    ),
+  );
+
+export const ensureWorkerIdsExist = async (
+  workerIds: string[],
+  client: WorkerLookupClient = prisma,
+) => {
+  const normalizedWorkerIds = normalizeWorkerIds(workerIds);
+  if (!normalizedWorkerIds.length) {
+    return normalizedWorkerIds;
+  }
+
+  const existingWorkers = await client.worker.findMany({
+    where: {
+      id: {
+        in: normalizedWorkerIds,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingWorkers.length !== normalizedWorkerIds.length) {
+    throw new HttpError(
+      400,
+      'One or more selected workers no longer exist. Refresh the page and try again.',
+    );
+  }
+
+  return normalizedWorkerIds;
+};
 
 export const loadWorker = (workerId: string) =>
   prisma.worker.findUniqueOrThrow({

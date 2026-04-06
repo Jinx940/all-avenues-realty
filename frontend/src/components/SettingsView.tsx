@@ -267,10 +267,11 @@ export function SettingsView({
                           value={draft.workerId}
                           onChange={(event) => onFieldChange('workerId', event.target.value)}
                           disabled={draft.role !== 'WORKER'}
+                          required={draft.role === 'WORKER'}
                         >
                           <option value="">
                             {draft.role === 'WORKER'
-                              ? 'No linked worker'
+                              ? 'Select a linked worker'
                               : 'Available only when role is Worker'}
                           </option>
                           {workers.map((worker) => (
@@ -281,7 +282,7 @@ export function SettingsView({
                         </select>
                         <small className="settings-field-note">
                           {draft.role === 'WORKER'
-                            ? 'Linking the account keeps assignments and permissions aligned.'
+                            ? 'Worker accounts must stay linked so assignments and permissions line up correctly.'
                             : 'Switch the role to Worker if this account should be tied to a crew member.'}
                         </small>
                       </label>

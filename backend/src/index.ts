@@ -52,10 +52,11 @@ import {
   buildPropertyCoverUrl,
   sanitizeGeneratedDocumentHtml,
 } from './lib/documents.js';
-import { asyncRoute, type AuthenticatedRequest } from './lib/http.js';
+import { isDocumentNumberConflictError, nextDocumentNumberFromValues } from './lib/documentNumbers.js';
+import { asyncRoute, HttpError, type AuthenticatedRequest } from './lib/http.js';
 import { prisma } from './lib/prisma.js';
 import { sessionMiddleware } from './lib/sessionAuth.js';
-import { serializeWorkerSummary } from './lib/workers.js';
+import { ensureWorkerIdsExist, serializeWorkerSummary } from './lib/workers.js';
 import {
   normalizePropertyStories,
   propertySnapshotFromStories,
@@ -1061,15 +1062,9 @@ app.get(
       select: { documentNumber: true },
     });
 
-    const nextNumber =
-      Math.max(
-        1000,
-        ...numbers
-          .map((item) => Number.parseInt(item.documentNumber, 10))
-          .filter((value) => Number.isFinite(value)),
-      ) + 1;
-
-    response.json({ nextNumber: String(nextNumber) });
+    response.json({
+      nextNumber: nextDocumentNumberFromValues(numbers.map((item) => item.documentNumber)),
+    });
   }),
 );
 
@@ -1293,89 +1288,91 @@ app.post(
       return;
     }
 
-    const existing = await prisma.generatedDocument.findFirst({
-      where: {
-        documentType,
-        documentNumber: payload.documentNumber,
-      },
-      select: { id: true },
-    });
+    let created: {
+      id: string;
+      fileName: string;
+      documentNumber: string;
+    };
 
-    if (existing) {
-      response.status(400).json({
-        message: `This ${payload.documentType.toLowerCase()} number is already in use.`,
-      });
-      return;
-    }
-
-    const created = await prisma.$transaction(async (transaction) => {
-      const document = await transaction.generatedDocument.create({
-        data: {
-          propertyId: payload.propertyId,
-          documentType,
-          owner: documentOwnerFor(payload.ownerKey),
-          documentNumber: payload.documentNumber,
-          fileName: payload.fileName,
-          mimeType: documentMimeType,
-          html: storedDocumentContent,
-          issueDate: parseNullableDate(payload.issueDate),
-        },
-      });
-
-      await transaction.jobFile.createMany({
-        data: relatedJobs.map((job) => ({
-          jobId: job.id,
-          category: fileCategory,
-          originalName: payload.fileName,
-          storedName: null,
-          mimeType: documentMimeType,
-          size: storedDocumentSize,
-          documentNumber: payload.documentNumber,
-          generatedDocumentId: document.id,
-        })),
-      });
-
-      if (documentType === GeneratedDocumentType.INVOICE) {
-        await transaction.job.updateMany({
-          where: {
-            id: {
-              in: relatedJobs.map((job) => job.id),
-            },
-          },
+    try {
+      created = await prisma.$transaction(async (transaction) => {
+        const document = await transaction.generatedDocument.create({
           data: {
-            invoiceStatus: InvoiceStatus.YES,
+            propertyId: payload.propertyId,
+            documentType,
+            owner: documentOwnerFor(payload.ownerKey),
+            documentNumber: payload.documentNumber,
+            fileName: payload.fileName,
+            mimeType: documentMimeType,
+            html: storedDocumentContent,
+            issueDate: parseNullableDate(payload.issueDate),
           },
         });
 
-        await transaction.job.updateMany({
-          where: {
-            id: {
-              in: relatedJobs.map((job) => job.id),
+        await transaction.jobFile.createMany({
+          data: relatedJobs.map((job) => ({
+            jobId: job.id,
+            category: fileCategory,
+            originalName: payload.fileName,
+            storedName: null,
+            mimeType: documentMimeType,
+            size: storedDocumentSize,
+            documentNumber: payload.documentNumber,
+            generatedDocumentId: document.id,
+          })),
+        });
+
+        if (documentType === GeneratedDocumentType.INVOICE) {
+          await transaction.job.updateMany({
+            where: {
+              id: {
+                in: relatedJobs.map((job) => job.id),
+              },
             },
-            paymentStatus: PaymentStatus.NOT_INVOICED_YET,
-          },
-          data: {
-            paymentStatus: PaymentStatus.UNPAID,
+            data: {
+              invoiceStatus: InvoiceStatus.YES,
+            },
+          });
+
+          await transaction.job.updateMany({
+            where: {
+              id: {
+                in: relatedJobs.map((job) => job.id),
+              },
+              paymentStatus: PaymentStatus.NOT_INVOICED_YET,
+            },
+            data: {
+              paymentStatus: PaymentStatus.UNPAID,
+            },
+          });
+        }
+
+        await recordAuditLog(transaction, request, {
+          entityType: 'Document',
+          entityId: document.id,
+          entityLabel: payload.documentNumber,
+          action: 'Generated',
+          summary: `Generated ${payload.documentType.toLowerCase()} ${payload.documentNumber} for "${property?.name ?? 'property'}".`,
+          metadata: {
+            documentType: payload.documentType,
+            propertyId: payload.propertyId,
+            propertyName: property?.name ?? null,
+            linkedJobCount: relatedJobs.length,
           },
         });
+
+        return document;
+      });
+    } catch (error) {
+      if (isDocumentNumberConflictError(error)) {
+        throw new HttpError(
+          409,
+          `This ${payload.documentType.toLowerCase()} number is already in use.`,
+        );
       }
 
-      await recordAuditLog(transaction, request, {
-        entityType: 'Document',
-        entityId: document.id,
-        entityLabel: payload.documentNumber,
-        action: 'Generated',
-        summary: `Generated ${payload.documentType.toLowerCase()} ${payload.documentNumber} for "${property?.name ?? 'property'}".`,
-        metadata: {
-          documentType: payload.documentType,
-          propertyId: payload.propertyId,
-          propertyName: property?.name ?? null,
-          linkedJobCount: relatedJobs.length,
-        },
-      });
-
-      return document;
-    });
+      throw error;
+    }
 
     response.status(201).json({
       id: created.id,
@@ -1397,6 +1394,7 @@ app.post(
 
     const payload = jobInputSchema.parse(request.body);
     const filesMap = ((request as Request & { files?: UploadedFilesMap }).files ?? {}) as UploadedFilesMap;
+    const workerIds = await ensureWorkerIdsExist(payload.workerIds);
 
     const createdJob = await prisma.job.create({
       data: {
@@ -1421,7 +1419,7 @@ app.post(
         dueDate: parseNullableDate(payload.dueDate),
         completedAt: payload.status === JobStatus.DONE ? new Date() : null,
         assignments: {
-          create: payload.workerIds.map((workerId) => ({ workerId })),
+          create: workerIds.map((workerId) => ({ workerId })),
         },
       },
     });
@@ -1477,6 +1475,7 @@ app.put(
     const jobId = String(request.params.jobId);
     const payload = jobInputSchema.parse(request.body);
     const filesMap = ((request as Request & { files?: UploadedFilesMap }).files ?? {}) as UploadedFilesMap;
+    const workerIds = await ensureWorkerIdsExist(payload.workerIds);
     const existingJob = await prisma.job.findUniqueOrThrow({
       where: { id: jobId },
       select: {
@@ -1531,7 +1530,7 @@ app.put(
           completedAt,
           assignments: {
             deleteMany: {},
-            create: payload.workerIds.map((workerId) => ({ workerId })),
+            create: workerIds.map((workerId) => ({ workerId })),
           },
           ...(uploadedFiles.length
             ? {
@@ -2076,6 +2075,30 @@ app.use((error: unknown, _request: Request, response: Response, next: NextFuncti
       message: error.message,
     });
     return;
+  }
+
+  if (error instanceof HttpError) {
+    response.status(error.status).json({
+      message: error.message,
+      ...(error.details ? error.details : {}),
+    });
+    return;
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2003') {
+      response.status(400).json({
+        message: 'The request references a related record that no longer exists.',
+      });
+      return;
+    }
+
+    if (error.code === 'P2025') {
+      response.status(404).json({
+        message: 'The requested record was not found.',
+      });
+      return;
+    }
   }
 
   console.error(error);

@@ -168,7 +168,9 @@ export const registerUserRoutes = (app: Express) => {
         return;
       }
 
-      await ensureWorkerRoleLink(nextRole, workerId);
+      await ensureWorkerRoleLink(nextRole, workerId, {
+        currentUserId: existingUser.id,
+      });
       await ensureActiveAdminGuard({
         currentUserId: existingUser.id,
         existingRole: existingUser.role,

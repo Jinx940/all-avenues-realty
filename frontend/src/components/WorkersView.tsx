@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+﻿import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { formatDate } from '../lib/format';
 import { getWorkerAccentClass } from '../lib/workerVisuals';
@@ -233,7 +233,7 @@ export function WorkersView({
                         })
                       }
                     >
-                      <span aria-hidden="true">{isUsernameMenuOpen ? '−' : '▾'}</span>
+                      <span aria-hidden="true">{isUsernameMenuOpen ? '-' : 'v'}</span>
                     </button>
                   </div>
 
@@ -433,3 +433,4 @@ export function WorkersView({
     </section>
   );
 }
+
