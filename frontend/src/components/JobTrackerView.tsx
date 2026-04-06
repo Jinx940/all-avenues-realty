@@ -35,18 +35,14 @@ const getTrackerCompareImageStyle = (
   dimensions: ProtectedAssetDimensions | null,
 ): CSSProperties | undefined => {
   if (!dimensions) return undefined;
-  const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
-  const isPortrait = aspectRatio < 0.9;
-  const scale = isPortrait ? 78 : aspectRatio < 1.15 ? 76 : 74;
   return {
-    width: `${scale}%`,
-    height: `${scale}%`,
-    maxWidth: `${scale}%`,
-    maxHeight: `${scale}%`,
+    width: 'auto',
+    height: 'auto',
+    maxWidth: '88%',
+    maxHeight: '74%',
     padding: 0,
     display: 'block',
-    objectPosition: isPortrait ? 'center top' : 'center center',
-    transform: isPortrait ? 'translateY(-4%)' : undefined,
+    objectPosition: 'center center',
   };
 };
 
