@@ -35,8 +35,15 @@ const getTrackerCompareImageStyle = (
   dimensions: ProtectedAssetDimensions | null,
 ): CSSProperties | undefined => {
   if (!dimensions) return undefined;
+  const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
+  const padding =
+    aspectRatio <= 0.9
+      ? 'clamp(56px, 9%, 112px) clamp(42px, 7%, 88px)'
+      : aspectRatio >= 1.2
+        ? 'clamp(48px, 8%, 98px) clamp(52px, 8%, 104px)'
+        : 'clamp(52px, 8.5%, 104px) clamp(48px, 7.5%, 96px)';
   return {
-    padding: 'clamp(10px, 2.2%, 22px)',
+    padding,
     objectPosition: 'center center',
   };
 };
