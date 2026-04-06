@@ -90,7 +90,9 @@ const app = express();
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDir = path.dirname(currentFilePath);
 const frontendDistDir = path.resolve(currentDir, '../../frontend/dist');
+const frontendAssetsDir = path.join(frontendDistDir, 'assets');
 const frontendIndexFile = path.join(frontendDistDir, 'index.html');
+const slowApiRequestThresholdMs = 700;
 
 type FileFieldName = keyof typeof fileFieldToCategory;
 type UploadedFilesMap = Partial<Record<FileFieldName, Express.Multer.File[]>>;
@@ -771,6 +773,24 @@ app.use(
     })(request, response, next),
 );
 app.use(express.json({ limit: '4mb' }));
+app.use('/api', (request, response, next) => {
+  const startedAt = process.hrtime.bigint();
+
+  response.on('finish', () => {
+    if (request.path === '/health') {
+      return;
+    }
+
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+    if (durationMs >= slowApiRequestThresholdMs) {
+      console.warn(
+        `[slow-api] ${request.method} ${request.originalUrl} -> ${response.statusCode} in ${durationMs.toFixed(1)}ms`,
+      );
+    }
+  });
+
+  next();
+});
 
 app.get('/api', (_request, response) => {
   response.json({
@@ -2387,13 +2407,35 @@ app.post(
 );
 
 if (env.NODE_ENV === 'production') {
-  app.use(express.static(frontendDistDir, { index: false }));
+  if (fs.existsSync(frontendAssetsDir)) {
+    app.use(
+      '/assets',
+      express.static(frontendAssetsDir, {
+        index: false,
+        immutable: true,
+        maxAge: '1y',
+      }),
+    );
+  }
+
+  app.use(
+    express.static(frontendDistDir, {
+      index: false,
+      maxAge: '10m',
+      setHeaders: (response, filePath) => {
+        if (filePath === frontendIndexFile) {
+          response.setHeader('Cache-Control', 'no-cache');
+        }
+      },
+    }),
+  );
   app.get(/^\/(?!api(?:\/|$)).*/, (_request, response, next) => {
     if (!hasFrontendBuild()) {
       next();
       return;
     }
 
+    response.setHeader('Cache-Control', 'no-cache');
     response.sendFile(frontendIndexFile);
   });
 }

@@ -308,6 +308,7 @@ export default function App() {
   const [isSyncingStorageBackups, setIsSyncingStorageBackups] = useState(false);
   const [jobFilters, setJobFilters] = useState(createJobFilters());
   const activeTabRef = useRef(activeTab);
+  const healthRef = useRef(health);
   const documentsLoadedRef = useRef(documentsLoaded);
   const adminDataLoadedRef = useRef(adminDataLoaded);
   const deferredSearch = useDeferredValue(jobFilters.search);
@@ -450,6 +451,7 @@ export default function App() {
     options?: {
       includeDocuments?: boolean;
       includeAdminData?: boolean;
+      includeHealth?: boolean;
     },
   ) => {
     if (!currentUser) return;
@@ -462,12 +464,13 @@ export default function App() {
       options?.includeAdminData ??
       (canAdmin(currentUser) &&
         (adminDataLoadedRef.current || tabNeedsAdminData(activeTabValue)));
+    const includeHealth = options?.includeHealth ?? !healthRef.current;
 
     setIsRefreshing(true);
     try {
       const [healthData, bootstrapData, jobsData, documentsData, historyData, usersData, auditLogData] =
         await Promise.all([
-          requestJson<HealthPayload>('/api/health'),
+          includeHealth ? requestJson<HealthPayload>('/api/health') : Promise.resolve(null),
           requestJson<BootstrapPayload>('/api/bootstrap'),
           requestJson<JobRow[]>('/api/jobs'),
           includeDocuments
@@ -485,7 +488,9 @@ export default function App() {
         ]);
 
       startTransition(() => {
-        setHealth(healthData);
+        if (healthData) {
+          setHealth(healthData);
+        }
         setBootstrap(bootstrapData);
         setDashboard(buildDashboardFromJobs(jobsData));
         setJobs(jobsData);
@@ -515,6 +520,10 @@ export default function App() {
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
+  useEffect(() => {
+    healthRef.current = health;
+  }, [health]);
 
   useEffect(() => {
     documentsLoadedRef.current = documentsLoaded;
@@ -582,6 +591,7 @@ export default function App() {
     void refreshAll(undefined, {
       includeDocuments: false,
       includeAdminData: false,
+      includeHealth: true,
     });
   }, [currentUser, refreshAll]);
 
@@ -596,11 +606,49 @@ export default function App() {
       return;
     }
 
-    void refreshAll(undefined, {
-      includeDocuments: shouldLoadDocuments,
-      includeAdminData: shouldLoadAdminData,
-    });
-  }, [activeTab, adminDataLoaded, currentUser, documentsLoaded, refreshAll]);
+    const loadTabData = async () => {
+      setIsRefreshing(true);
+      try {
+        const [documentsData, historyData, usersData, auditLogData] = await Promise.all([
+          shouldLoadDocuments
+            ? requestJson<GeneratedDocumentHistoryItem[]>('/api/generated-documents')
+            : Promise.resolve(null),
+          shouldLoadAdminData
+            ? requestJson<WorkerHistoryRow[]>('/api/workers/history')
+            : Promise.resolve(null),
+          shouldLoadAdminData
+            ? requestJson<ManagedUser[]>('/api/users')
+            : Promise.resolve(null),
+          shouldLoadAdminData
+            ? requestJson<AuditLogRow[]>('/api/audit-logs?limit=80')
+            : Promise.resolve(null),
+        ]);
+
+        startTransition(() => {
+          if (documentsData) {
+            setGeneratedDocuments(documentsData);
+            setDocumentsLoaded(true);
+          }
+          if (historyData && usersData && auditLogData) {
+            setWorkerHistory(historyData);
+            setUsers(usersData);
+            setAuditLogs(auditLogData);
+            setAdminDataLoaded(true);
+          }
+        });
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          resetWorkspaceState('Your session expired. Sign in again.');
+          return;
+        }
+        setMessage({ type: 'error', text: messageFrom(error) });
+      } finally {
+        setIsRefreshing(false);
+      }
+    };
+
+    void loadTabData();
+  }, [activeTab, adminDataLoaded, currentUser, documentsLoaded, resetWorkspaceState]);
 
   useEffect(() => {
     if (!currentUser) return;

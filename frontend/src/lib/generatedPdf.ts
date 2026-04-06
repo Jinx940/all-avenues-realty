@@ -60,17 +60,6 @@ const waitForExportLayout = async () => {
   });
 };
 
-export async function downloadGeneratedPdf({
-  html,
-  fileName,
-}: {
-  html: string;
-  fileName: string;
-}) {
-  const pdfBlob = await buildGeneratedPdfBlob({ html });
-  downloadPdfBlob(pdfBlob, fileName);
-}
-
 export async function buildGeneratedPdfBlob({ html }: { html: string }) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import('html2canvas'),
