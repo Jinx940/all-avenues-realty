@@ -817,6 +817,12 @@ export default function App() {
             area: '',
             service: '',
           }
+        : field === 'story'
+          ? {
+              ...current,
+              story: value,
+              unit: '',
+            }
         : {
             ...current,
             [field]: value,

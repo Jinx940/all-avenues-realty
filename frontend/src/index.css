@@ -5428,7 +5428,8 @@ textarea {
   align-items: end;
 }
 
-.job-tracker-filters--central label {
+.job-tracker-filters--central label,
+.tracker-filter-dropdown-field {
   gap: 4px;
 }
 
@@ -5453,6 +5454,140 @@ textarea {
 .job-tracker-filters--central input,
 .job-tracker-filters--central select {
   min-height: 42px;
+}
+
+.tracker-filter-dropdown-field {
+  display: grid;
+}
+
+.tracker-filter-dropdown {
+  position: relative;
+}
+
+.tracker-filter-dropdown summary {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(189, 213, 236, 0.96);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(242, 248, 255, 0.92));
+  color: var(--ink);
+  font-size: 0.94rem;
+  font-weight: 800;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 10px 24px rgba(144, 175, 205, 0.08);
+  cursor: pointer;
+  list-style: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.tracker-filter-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.tracker-filter-dropdown:hover summary {
+  border-color: rgba(157, 195, 230, 0.98);
+  transform: translateY(-1px);
+}
+
+.tracker-filter-dropdown[open] summary,
+.tracker-filter-dropdown.is-active summary {
+  border-color: rgba(143, 186, 224, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 14px 28px rgba(133, 169, 204, 0.14);
+}
+
+.tracker-filter-dropdown-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tracker-filter-dropdown-arrow {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  opacity: 0.68;
+  transition: transform 180ms ease;
+}
+
+.tracker-filter-dropdown[open] .tracker-filter-dropdown-arrow {
+  transform: rotate(-135deg) translateX(-1px);
+}
+
+.tracker-filter-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(184, 209, 232, 0.96);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(243, 248, 255, 0.96));
+  box-shadow:
+    0 20px 34px rgba(135, 164, 195, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tracker-filter-dropdown-option {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.tracker-filter-dropdown-option:hover {
+  border-color: rgba(169, 203, 233, 0.98);
+  background: linear-gradient(180deg, rgba(245, 250, 255, 0.98), rgba(235, 244, 255, 0.94));
+  transform: translateY(-1px);
+}
+
+.tracker-filter-dropdown-option.is-active {
+  border-color: rgba(150, 195, 228, 0.98);
+  background: linear-gradient(180deg, rgba(215, 238, 255, 0.98), rgba(198, 228, 250, 0.94));
+  color: #2f5a85;
+  box-shadow: 0 10px 18px rgba(129, 166, 201, 0.14);
+}
+
+.tracker-filter-dropdown-empty {
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: rgba(244, 249, 255, 0.88);
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .tracker-count-chip {
