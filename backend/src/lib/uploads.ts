@@ -57,7 +57,7 @@ export const ensureUploadsDir = () => {
 
 ensureUploadsDir();
 
-const ensureStoredName = (storedName: string) => {
+export const normalizeStoredFileName = (storedName: string) => {
   const normalized = path.basename(String(storedName).trim());
   if (!normalized || normalized !== storedName) {
     throw new Error('Invalid stored file reference.');
@@ -67,7 +67,7 @@ const ensureStoredName = (storedName: string) => {
 };
 
 export const resolveStoredFilePath = (storedName: string) => {
-  const safeStoredName = ensureStoredName(storedName);
+  const safeStoredName = normalizeStoredFileName(storedName);
   return path.resolve(env.uploadsDir, safeStoredName);
 };
 

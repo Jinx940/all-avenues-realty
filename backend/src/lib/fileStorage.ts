@@ -3,7 +3,12 @@ import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import type { Express } from 'express';
 import { env } from '../env.js';
-import { createStoredUploadName, ensureUploadsDir, resolveStoredFilePath } from './uploads.js';
+import {
+  createStoredUploadName,
+  ensureUploadsDir,
+  normalizeStoredFileName,
+  resolveStoredFilePath,
+} from './uploads.js';
 
 const supabaseStorageRefPrefix = 'supabase:';
 
@@ -66,6 +71,51 @@ export const managedStoredRefFromValue = (value: string | null | undefined) => {
   }
 
   return null;
+};
+
+export const localUploadsSearchDirs = (cwd = process.cwd(), uploadsDir = env.uploadsDir) =>
+  Array.from(
+    new Set(
+      [
+        uploadsDir,
+        path.resolve(cwd, 'uploads'),
+        path.resolve(cwd, 'backend', 'uploads'),
+        path.resolve(cwd, '..', 'uploads'),
+      ].map((value) => path.resolve(value)),
+    ),
+  );
+
+export const localStoredFileSearchPaths = (
+  storedRef: string,
+  cwd = process.cwd(),
+  uploadsDir = env.uploadsDir,
+) => {
+  const safeStoredName = normalizeStoredFileName(storedRef);
+  return localUploadsSearchDirs(cwd, uploadsDir).map((directory) =>
+    path.resolve(directory, safeStoredName),
+  );
+};
+
+const resolveReadableLocalManagedFile = async (storedRef: string) => {
+  const searchPaths = localStoredFileSearchPaths(storedRef);
+  const primaryPath = searchPaths[0];
+
+  if (!primaryPath) {
+    return null;
+  }
+
+  if (fs.existsSync(primaryPath)) {
+    return primaryPath;
+  }
+
+  const fallbackPath = searchPaths.find((candidatePath) => candidatePath !== primaryPath && fs.existsSync(candidatePath));
+  if (!fallbackPath) {
+    return null;
+  }
+
+  ensureUploadsDir();
+  await fs.promises.copyFile(fallbackPath, primaryPath).catch(() => undefined);
+  return fs.existsSync(primaryPath) ? primaryPath : fallbackPath;
 };
 
 type ManagedUploadInput = {
@@ -139,8 +189,8 @@ export const readManagedFile = async (storedRef: string) => {
     };
   }
 
-  const filePath = resolveStoredFilePath(storedRef);
-  if (!fs.existsSync(filePath)) {
+  const filePath = await resolveReadableLocalManagedFile(storedRef);
+  if (!filePath) {
     return {
       kind: 'missing' as const,
       message: 'Stored file is missing from the server disk.',
