@@ -977,7 +977,6 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           <div class="invoice-body invoice-body--continue">
             <div class="legacy-table-shell">
               <table>
-                ${legacyTableHeadHtml}
                 ${rowsHtml}
                 ${isLastPage ? summaryRowsHtml : ''}
               </table>
