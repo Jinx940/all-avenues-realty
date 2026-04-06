@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import compression from 'compression';
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
@@ -773,6 +774,11 @@ app.use(
     })(request, response, next),
 );
 app.use(express.json({ limit: '4mb' }));
+app.use(
+  compression({
+    threshold: 1024,
+  }),
+);
 app.use('/api', (request, response, next) => {
   const startedAt = process.hrtime.bigint();
 

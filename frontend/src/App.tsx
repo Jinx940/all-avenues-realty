@@ -309,8 +309,6 @@ export default function App() {
   const [jobFilters, setJobFilters] = useState(createJobFilters());
   const activeTabRef = useRef(activeTab);
   const healthRef = useRef(health);
-  const documentsLoadedRef = useRef(documentsLoaded);
-  const adminDataLoadedRef = useRef(adminDataLoaded);
   const deferredSearch = useDeferredValue(jobFilters.search);
   const availableTabs = currentUser ? tabs.filter((tab) => roleTabs[currentUser.role].includes(tab.id)) : [];
   const currentPage = pageMeta[activeTab];
@@ -457,13 +455,10 @@ export default function App() {
     if (!currentUser) return;
 
     const activeTabValue = activeTabRef.current;
-    const includeDocuments =
-      options?.includeDocuments ??
-      (documentsLoadedRef.current || tabNeedsDocuments(activeTabValue));
+    const includeDocuments = options?.includeDocuments ?? tabNeedsDocuments(activeTabValue);
     const includeAdminData =
       options?.includeAdminData ??
-      (canAdmin(currentUser) &&
-        (adminDataLoadedRef.current || tabNeedsAdminData(activeTabValue)));
+      (canAdmin(currentUser) && tabNeedsAdminData(activeTabValue));
     const includeHealth = options?.includeHealth ?? !healthRef.current;
 
     setIsRefreshing(true);
@@ -524,14 +519,6 @@ export default function App() {
   useEffect(() => {
     healthRef.current = health;
   }, [health]);
-
-  useEffect(() => {
-    documentsLoadedRef.current = documentsLoaded;
-  }, [documentsLoaded]);
-
-  useEffect(() => {
-    adminDataLoadedRef.current = adminDataLoaded;
-  }, [adminDataLoaded]);
 
   useEffect(() => {
     const hydrateSession = async () => {
