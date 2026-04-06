@@ -33,13 +33,19 @@ const paymentToneFor = (job: JobRow): Tone => {
 
 const getTrackerCompareImageStyle = (
   dimensions: ProtectedAssetDimensions | null,
+  options?: {
+    framePercent?: number;
+    sharedHeightPercent?: number;
+  },
 ): CSSProperties | undefined => {
   if (!dimensions) return undefined;
+  const framePercent = options?.framePercent ?? 84;
+  const sharedHeightPercent = options?.sharedHeightPercent ?? framePercent;
   return {
-    width: '100%',
-    height: '100%',
-    maxWidth: '100%',
-    maxHeight: '100%',
+    width: 'auto',
+    height: `${sharedHeightPercent}%`,
+    maxWidth: `${framePercent}%`,
+    maxHeight: `${framePercent}%`,
     padding: 0,
     display: 'block',
     objectPosition: 'center center',
@@ -829,6 +835,14 @@ function TrackerMediaDialog({
   const availableAspectRatios = [beforePhoto.dimensions, afterPhoto.dimensions]
     .filter((dimensions): dimensions is ProtectedAssetDimensions => Boolean(dimensions))
     .map((dimensions) => dimensions.width / Math.max(dimensions.height, 1));
+  const compareFramePercent = 84;
+  const compareWidestAspectRatio = availableAspectRatios.length
+    ? Math.max(...availableAspectRatios, 1)
+    : 1;
+  const compareSharedHeightPercent = Math.max(
+    58,
+    Math.min(compareFramePercent, compareFramePercent / compareWidestAspectRatio),
+  );
   const compareAspectRatio = Math.min(
     Math.max(
       availableAspectRatios.length ? Math.min(...availableAspectRatios) : 1,
@@ -838,8 +852,14 @@ function TrackerMediaDialog({
   );
   const compareStageDisplayAspectRatio = Math.max(compareAspectRatio, 1.25);
   const compareStageMaxWidth = `${Math.round(860 * compareStageDisplayAspectRatio)}px`;
-  const beforeCompareImageStyle = getTrackerCompareImageStyle(beforePhoto.dimensions);
-  const afterCompareImageStyle = getTrackerCompareImageStyle(afterPhoto.dimensions);
+  const beforeCompareImageStyle = getTrackerCompareImageStyle(beforePhoto.dimensions, {
+    framePercent: compareFramePercent,
+    sharedHeightPercent: compareSharedHeightPercent,
+  });
+  const afterCompareImageStyle = getTrackerCompareImageStyle(afterPhoto.dimensions, {
+    framePercent: compareFramePercent,
+    sharedHeightPercent: compareSharedHeightPercent,
+  });
   const setCompareView = (viewMode: 'compare' | 'before' | 'after') => {
     setCompareUiState(() => ({
       sessionKey: compareSessionKey,
