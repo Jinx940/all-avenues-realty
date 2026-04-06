@@ -36,10 +36,10 @@ const getTrackerCompareImageStyle = (
 ): CSSProperties | undefined => {
   if (!dimensions) return undefined;
   return {
-    width: 'auto',
-    height: 'auto',
-    maxWidth: '88%',
-    maxHeight: '74%',
+    width: '100%',
+    height: '100%',
+    maxWidth: '100%',
+    maxHeight: '100%',
     padding: 0,
     display: 'block',
     objectPosition: 'center center',
@@ -941,27 +941,29 @@ function TrackerMediaDialog({
                     <span className="tracker-compare-chip tracker-compare-chip--floating tracker-compare-chip--after">
                       After
                     </span>
-                    <ProtectedAssetImage
-                      className="tracker-compare-image"
-                      src={compareAfter?.url ?? null}
-                      alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
-                      mimeType={compareAfter?.mimeType}
-                      style={afterCompareImageStyle}
-                      onStateChange={afterPhoto.handleStateChange}
-                      onDimensionsChange={afterPhoto.handleDimensionsChange}
-                      loadingFallback={
-                        <div className="tracker-compare-empty">
-                          <strong>Loading after photo...</strong>
-                          <span>Please wait while the file opens.</span>
-                        </div>
-                      }
-                      errorFallback={(message) => (
-                        <div className="tracker-compare-empty">
-                          <strong>Could not load the after photo</strong>
-                          <span>{message}</span>
-                        </div>
-                      )}
-                    />
+                    <div className="tracker-compare-media-shell">
+                      <ProtectedAssetImage
+                        className="tracker-compare-image"
+                        src={compareAfter?.url ?? null}
+                        alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                        mimeType={compareAfter?.mimeType}
+                        style={afterCompareImageStyle}
+                        onStateChange={afterPhoto.handleStateChange}
+                        onDimensionsChange={afterPhoto.handleDimensionsChange}
+                        loadingFallback={
+                          <div className="tracker-compare-empty">
+                            <strong>Loading after photo...</strong>
+                            <span>Please wait while the file opens.</span>
+                          </div>
+                        }
+                        errorFallback={(message) => (
+                          <div className="tracker-compare-empty">
+                            <strong>Could not load the after photo</strong>
+                            <span>{message}</span>
+                          </div>
+                        )}
+                      />
+                    </div>
                     {shouldShowAfterOnly ? (
                       <div className="tracker-compare-single-note">
                         <strong>Before photo unavailable</strong>
@@ -972,27 +974,29 @@ function TrackerMediaDialog({
                 ) : activeCompareView === 'before' ? (
                   <div className="tracker-compare-panel tracker-compare-panel--single">
                     <span className="tracker-compare-chip tracker-compare-chip--floating">Before</span>
-                    <ProtectedAssetImage
-                      className="tracker-compare-image"
-                      src={compareBefore?.url ?? null}
-                      alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
-                      mimeType={compareBefore?.mimeType}
-                      style={beforeCompareImageStyle}
-                      onStateChange={beforePhoto.handleStateChange}
-                      onDimensionsChange={beforePhoto.handleDimensionsChange}
-                      loadingFallback={
-                        <div className="tracker-compare-empty">
-                          <strong>Loading before photo...</strong>
-                          <span>Please wait while the file opens.</span>
-                        </div>
-                      }
-                      errorFallback={(message) => (
-                        <div className="tracker-compare-empty">
-                          <strong>Could not load the before photo</strong>
-                          <span>{message}</span>
-                        </div>
-                      )}
-                    />
+                    <div className="tracker-compare-media-shell">
+                      <ProtectedAssetImage
+                        className="tracker-compare-image"
+                        src={compareBefore?.url ?? null}
+                        alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                        mimeType={compareBefore?.mimeType}
+                        style={beforeCompareImageStyle}
+                        onStateChange={beforePhoto.handleStateChange}
+                        onDimensionsChange={beforePhoto.handleDimensionsChange}
+                        loadingFallback={
+                          <div className="tracker-compare-empty">
+                            <strong>Loading before photo...</strong>
+                            <span>Please wait while the file opens.</span>
+                          </div>
+                        }
+                        errorFallback={(message) => (
+                          <div className="tracker-compare-empty">
+                            <strong>Could not load the before photo</strong>
+                            <span>{message}</span>
+                          </div>
+                        )}
+                      />
+                    </div>
                     {shouldShowBeforeOnly ? (
                       <div className="tracker-compare-single-note">
                         <strong>After photo unavailable</strong>
@@ -1007,27 +1011,29 @@ function TrackerMediaDialog({
                       style={{ clipPath: `inset(0 0 0 ${comparePosition}%)` }}
                     >
                       {compareAfter ? (
-                        <ProtectedAssetImage
-                          className="tracker-compare-image tracker-compare-image--reveal"
-                          src={compareAfter.url}
-                          alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
-                          mimeType={compareAfter.mimeType}
-                          style={afterCompareImageStyle}
-                          onStateChange={afterPhoto.handleStateChange}
-                          onDimensionsChange={afterPhoto.handleDimensionsChange}
-                          loadingFallback={
-                            <div className="tracker-compare-empty">
-                              <strong>Loading after photo...</strong>
-                              <span>Please wait while the file opens.</span>
-                            </div>
-                          }
-                          errorFallback={(message) => (
-                            <div className="tracker-compare-empty">
-                              <strong>Could not load the after photo</strong>
-                              <span>{message}</span>
-                            </div>
-                          )}
-                        />
+                        <div className="tracker-compare-media-shell">
+                          <ProtectedAssetImage
+                            className="tracker-compare-image tracker-compare-image--reveal"
+                            src={compareAfter.url}
+                            alt={`After - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                            mimeType={compareAfter.mimeType}
+                            style={afterCompareImageStyle}
+                            onStateChange={afterPhoto.handleStateChange}
+                            onDimensionsChange={afterPhoto.handleDimensionsChange}
+                            loadingFallback={
+                              <div className="tracker-compare-empty">
+                                <strong>Loading after photo...</strong>
+                                <span>Please wait while the file opens.</span>
+                              </div>
+                            }
+                            errorFallback={(message) => (
+                              <div className="tracker-compare-empty">
+                                <strong>Could not load the after photo</strong>
+                                <span>{message}</span>
+                              </div>
+                            )}
+                          />
+                        </div>
                       ) : (
                         <div className="tracker-compare-empty">
                           <strong>No after photo</strong>
@@ -1041,27 +1047,29 @@ function TrackerMediaDialog({
                       style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
                     >
                       {compareBefore ? (
-                        <ProtectedAssetImage
-                          className="tracker-compare-image tracker-compare-image--reveal"
-                          src={compareBefore.url}
-                          alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
-                          mimeType={compareBefore.mimeType}
-                          style={beforeCompareImageStyle}
-                          onStateChange={beforePhoto.handleStateChange}
-                          onDimensionsChange={beforePhoto.handleDimensionsChange}
-                          loadingFallback={
-                            <div className="tracker-compare-empty">
-                              <strong>Loading before photo...</strong>
-                              <span>Please wait while the file opens.</span>
-                            </div>
-                          }
-                          errorFallback={(message) => (
-                            <div className="tracker-compare-empty">
-                              <strong>Could not load the before photo</strong>
-                              <span>{message}</span>
-                            </div>
-                          )}
-                        />
+                        <div className="tracker-compare-media-shell">
+                          <ProtectedAssetImage
+                            className="tracker-compare-image tracker-compare-image--reveal"
+                            src={compareBefore.url}
+                            alt={`Before - ${formatAreaServiceLabel(state.job.area, state.job.service)}`}
+                            mimeType={compareBefore.mimeType}
+                            style={beforeCompareImageStyle}
+                            onStateChange={beforePhoto.handleStateChange}
+                            onDimensionsChange={beforePhoto.handleDimensionsChange}
+                            loadingFallback={
+                              <div className="tracker-compare-empty">
+                                <strong>Loading before photo...</strong>
+                                <span>Please wait while the file opens.</span>
+                              </div>
+                            }
+                            errorFallback={(message) => (
+                              <div className="tracker-compare-empty">
+                                <strong>Could not load the before photo</strong>
+                                <span>{message}</span>
+                              </div>
+                            )}
+                          />
+                        </div>
                       ) : (
                         <div className="tracker-compare-empty">
                           <strong>No before photo</strong>

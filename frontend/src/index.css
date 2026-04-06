@@ -6052,6 +6052,13 @@ textarea {
   overflow: hidden;
 }
 
+.tracker-compare-media-shell {
+  width: min(78%, 620px);
+  height: min(78%, 620px);
+  display: grid;
+  place-items: center;
+}
+
 .tracker-compare-panel--single {
   position: relative;
   inset: auto;
@@ -6077,9 +6084,9 @@ textarea {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  padding: 20px;
+  padding: 0;
   box-sizing: border-box;
-  background: rgba(10, 14, 20, 0.98);
+  background: transparent;
 }
 
 .tracker-compare-empty {
