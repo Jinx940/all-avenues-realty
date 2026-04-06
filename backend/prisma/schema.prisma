@@ -172,6 +172,7 @@ model JobAssignment {
   worker     Worker   @relation(fields: [workerId], references: [id], onDelete: Restrict)
 
   @@id([jobId, workerId])
+  @@index([workerId])
 }
 
 model JobFile {

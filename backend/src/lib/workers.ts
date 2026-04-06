@@ -10,7 +10,10 @@ type WorkerSummaryRecord = {
   id: string;
   name: string;
   status: WorkerStatus;
-  assignments: Array<{ jobId: string }>;
+  assignments?: Array<{ jobId: string }>;
+  _count?: {
+    assignments: number;
+  };
   user: { id: string } | null;
 };
 
@@ -25,15 +28,19 @@ type WorkerHistoryRecord = {
   notes: string | null;
 };
 
-export const serializeWorkerSummary = (worker: WorkerSummaryRecord) => ({
-  id: worker.id,
-  name: worker.name,
-  status: worker.status,
-  statusLabel: workerStatusLabels[worker.status],
-  totalJobCount: worker.assignments.length,
-  linkedUserCount: worker.user ? 1 : 0,
-  canDelete: worker.assignments.length === 0,
-});
+export const serializeWorkerSummary = (worker: WorkerSummaryRecord) => {
+  const assignmentCount = worker._count?.assignments ?? worker.assignments?.length ?? 0;
+
+  return {
+    id: worker.id,
+    name: worker.name,
+    status: worker.status,
+    statusLabel: workerStatusLabels[worker.status],
+    totalJobCount: assignmentCount,
+    linkedUserCount: worker.user ? 1 : 0,
+    canDelete: assignmentCount === 0,
+  };
+};
 
 export const serializeWorkerHistory = (item: WorkerHistoryRecord) => ({
   id: item.id,

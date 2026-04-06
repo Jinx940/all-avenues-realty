@@ -58,6 +58,7 @@ import {
   serializePropertyFormDraft,
   serializeUserDraft,
 } from './lib/formDrafts';
+import { buildDashboardFromJobs } from './lib/dashboard';
 import {
   buildPropertySpecificationSnapshotFromStories,
   createEmptyPropertyStoryForm,
@@ -449,11 +450,10 @@ export default function App() {
 
     setIsRefreshing(true);
     try {
-      const [healthData, bootstrapData, dashboardData, jobsData, documentsData, historyData, usersData, auditLogData] =
+      const [healthData, bootstrapData, jobsData, documentsData, historyData, usersData, auditLogData] =
         await Promise.all([
           requestJson<HealthPayload>('/api/health'),
           requestJson<BootstrapPayload>('/api/bootstrap'),
-          requestJson<DashboardPayload>('/api/dashboard'),
           requestJson<JobRow[]>('/api/jobs'),
           includeDocuments
             ? requestJson<GeneratedDocumentHistoryItem[]>('/api/generated-documents')
@@ -472,7 +472,7 @@ export default function App() {
       startTransition(() => {
         setHealth(healthData);
         setBootstrap(bootstrapData);
-        setDashboard(dashboardData);
+        setDashboard(buildDashboardFromJobs(jobsData));
         setJobs(jobsData);
         if (documentsData) {
           setGeneratedDocuments(documentsData);

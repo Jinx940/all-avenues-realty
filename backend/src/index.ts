@@ -314,6 +314,29 @@ const parseNullableDate = (value: string | undefined) => {
 const sumBy = <T>(items: T[], getter: (item: T) => number) =>
   items.reduce((total, item) => total + getter(item), 0);
 
+const summarizePropertyJobs = (
+  jobs: Array<{ propertyId: string; status: JobStatus; dueDate: Date | null }>,
+) => {
+  const totals = new Map<string, { totalJobs: number; openJobs: number; lateJobs: number }>();
+  const currentDay = today();
+
+  jobs.forEach((job) => {
+    const existing = totals.get(job.propertyId) ?? { totalJobs: 0, openJobs: 0, lateJobs: 0 };
+    existing.totalJobs += 1;
+
+    if (job.status !== JobStatus.DONE) {
+      existing.openJobs += 1;
+      if (job.dueDate && job.dueDate < currentDay) {
+        existing.lateJobs += 1;
+      }
+    }
+
+    totals.set(job.propertyId, existing);
+  });
+
+  return totals;
+};
+
 const generatedDocumentTypeFor = (value: 'Invoice' | 'Quote') =>
   value === 'Invoice' ? GeneratedDocumentType.INVOICE : GeneratedDocumentType.QUOTE;
 
@@ -568,10 +591,26 @@ const serializePropertySummary = (property: {
   frontPorch?: number | null;
   backPorch?: number | null;
   floorGroups?: Prisma.JsonValue | null;
-  jobs: Array<{ status: JobStatus; dueDate: Date | null }>;
+  jobs?: Array<{ status: JobStatus; dueDate: Date | null }>;
+  totalJobs?: number;
+  openJobs?: number;
+  lateJobs?: number;
 }) => {
   const stories = propertyStoriesFromSummary(property);
   const derivedSpecs = stories.length ? propertySnapshotFromStories(stories) : propertySpecsFrom(property);
+  const propertyTotals = property.jobs
+    ? {
+        totalJobs: property.jobs.length,
+        openJobs: property.jobs.filter((job) => job.status !== JobStatus.DONE).length,
+        lateJobs: property.jobs.filter(
+          (job) => job.status !== JobStatus.DONE && job.dueDate && job.dueDate < today(),
+        ).length,
+      }
+    : {
+        totalJobs: property.totalJobs ?? 0,
+        openJobs: property.openJobs ?? 0,
+        lateJobs: property.lateJobs ?? 0,
+      };
 
   return {
     id: property.id,
@@ -586,11 +625,9 @@ const serializePropertySummary = (property: {
       : null,
     ...propertySpecsFrom(derivedSpecs),
     stories,
-    totalJobs: property.jobs.length,
-    openJobs: property.jobs.filter((job) => job.status !== JobStatus.DONE).length,
-    lateJobs: property.jobs.filter(
-      (job) => job.status !== JobStatus.DONE && job.dueDate && job.dueDate < today(),
-    ).length,
+    totalJobs: propertyTotals.totalJobs,
+    openJobs: propertyTotals.openJobs,
+    lateJobs: propertyTotals.lateJobs,
   };
 };
 
@@ -1326,43 +1363,52 @@ app.get(
       return;
     }
 
-    const [properties, workers] = await Promise.all([
+    const [properties, propertyJobs, workers] = await Promise.all([
       prisma.property.findMany({
         where: roleScopeForProperties(auth),
         orderBy: { name: 'asc' },
-        include: {
-          jobs: {
-            select: {
-              status: true,
-              dueDate: true,
-            },
-          },
+      }),
+      prisma.job.findMany({
+        where: roleScopeForJobs(auth),
+        select: {
+          propertyId: true,
+          status: true,
+          dueDate: true,
         },
       }),
       prisma.worker.findMany({
         orderBy: { name: 'asc' },
-        include: {
-          assignments: {
-            select: {
-              jobId: true,
-            },
-          },
+        select: {
+          id: true,
+          name: true,
+          status: true,
           user: {
             select: {
               id: true,
+            },
+          },
+          _count: {
+            select: {
+              assignments: true,
             },
           },
         },
       }),
     ]);
 
+    const propertyJobStats = summarizePropertyJobs(propertyJobs);
     const workerSummaries = workers.map(serializeWorkerSummary);
 
     response.json({
       statuses: jobStatusOptions,
       invoiceStatuses: invoiceStatusOptions,
       paymentStatuses: visiblePaymentStatusOptions,
-      properties: properties.map(serializePropertySummary),
+      properties: properties.map((property) =>
+        serializePropertySummary({
+          ...property,
+          ...(propertyJobStats.get(property.id) ?? {}),
+        }),
+      ),
       workers:
         auth.role === UserRole.ADMIN || auth.role === UserRole.OFFICE
           ? workerSummaries.filter((worker) => worker.status === WorkerStatus.ACTIVE)
