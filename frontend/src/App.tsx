@@ -723,9 +723,26 @@ export default function App() {
     setIsDesktopSidebarExpanded(false);
   };
 
+  const syncPropertyTabMode = (tabId: TabId) => {
+    if (tabId === 'property-register') {
+      setPropertyEditorMode('create');
+      setPropertyForm(createPropertyForm());
+      return;
+    }
+
+    if (tabId === 'property-info') {
+      setPropertyEditorMode('edit');
+      setPropertyForm(createPropertyFormFromSummary(selectedProperty));
+    }
+  };
+
   const handleTabSelection = async (tabId: TabId) => {
     if (tabId !== activeTab && !(await confirmDiscardUnsavedChanges(pageMeta[tabId].title))) {
       return;
+    }
+
+    if (tabId !== activeTab) {
+      syncPropertyTabMode(tabId);
     }
 
     setActiveTab(tabId);
