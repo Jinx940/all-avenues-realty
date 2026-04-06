@@ -6052,6 +6052,22 @@ textarea {
   overflow: hidden;
 }
 
+.tracker-compare-reveal-frame {
+  width: 50%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.tracker-compare-reveal-frame--before {
+  justify-self: start;
+}
+
+.tracker-compare-reveal-frame--after {
+  justify-self: end;
+}
+
 .tracker-compare-panel--single {
   position: relative;
   inset: auto;
@@ -6066,6 +6082,11 @@ textarea {
 .tracker-compare-panel--single .tracker-compare-image {
   padding: 16px clamp(16px, 3%, 28px) 18px;
   object-position: center center;
+}
+
+.tracker-compare-image--reveal {
+  width: 100%;
+  height: 100%;
 }
 
 .tracker-compare-image {
