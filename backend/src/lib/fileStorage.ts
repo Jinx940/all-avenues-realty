@@ -96,26 +96,122 @@ export const localStoredFileSearchPaths = (
   );
 };
 
-const resolveReadableLocalManagedFile = async (storedRef: string) => {
+type LocalManagedFileInspection = {
+  exists: boolean;
+  location: 'primary' | 'fallback' | 'missing';
+  primaryPath: string | null;
+  resolvedPath: string | null;
+  message: string | null;
+};
+
+const inspectLocalManagedFile = (storedRef: string): LocalManagedFileInspection => {
   const searchPaths = localStoredFileSearchPaths(storedRef);
-  const primaryPath = searchPaths[0];
+  const primaryPath = searchPaths[0] ?? null;
 
   if (!primaryPath) {
-    return null;
+    return {
+      exists: false,
+      location: 'missing',
+      primaryPath: null,
+      resolvedPath: null,
+      message: 'Stored file is missing from the server disk.',
+    };
   }
 
   if (fs.existsSync(primaryPath)) {
-    return primaryPath;
+    return {
+      exists: true,
+      location: 'primary',
+      primaryPath,
+      resolvedPath: primaryPath,
+      message: null,
+    };
   }
 
   const fallbackPath = searchPaths.find((candidatePath) => candidatePath !== primaryPath && fs.existsSync(candidatePath));
   if (!fallbackPath) {
+    return {
+      exists: false,
+      location: 'missing',
+      primaryPath,
+      resolvedPath: null,
+      message: 'Stored file is missing from the server disk.',
+    };
+  }
+
+  return {
+    exists: true,
+    location: 'fallback',
+    primaryPath,
+    resolvedPath: fallbackPath,
+    message: 'Stored file is available in a legacy uploads directory.',
+  };
+};
+
+const resolveReadableLocalManagedFile = async (storedRef: string) => {
+  const inspection = inspectLocalManagedFile(storedRef);
+  if (!inspection.exists || !inspection.resolvedPath) {
     return null;
   }
 
+  if (inspection.location === 'primary' || !inspection.primaryPath) {
+    return inspection.resolvedPath;
+  }
+
   ensureUploadsDir();
-  await fs.promises.copyFile(fallbackPath, primaryPath).catch(() => undefined);
-  return fs.existsSync(primaryPath) ? primaryPath : fallbackPath;
+  await fs.promises.copyFile(inspection.resolvedPath, inspection.primaryPath).catch(() => undefined);
+  return fs.existsSync(inspection.primaryPath) ? inspection.primaryPath : inspection.resolvedPath;
+};
+
+export type ManagedFileInspection = {
+  storage: 'local' | 'supabase';
+  exists: boolean;
+  location: 'primary' | 'fallback' | 'supabase' | 'missing';
+  resolvedPath: string | null;
+  message: string | null;
+};
+
+export const inspectManagedFile = async (storedRef: string): Promise<ManagedFileInspection> => {
+  if (isSupabaseStorageRef(storedRef)) {
+    const storagePath = storagePathFromRef(storedRef);
+    if (!storagePath || !supabase || !env.supabase) {
+      return {
+        storage: 'supabase',
+        exists: false,
+        location: 'missing',
+        resolvedPath: storagePath,
+        message: 'Supabase Storage is not configured correctly.',
+      };
+    }
+
+    const { data, error } = await supabase.storage.from(env.supabase.bucket).exists(storagePath);
+    if (error || !data) {
+      return {
+        storage: 'supabase',
+        exists: false,
+        location: 'missing',
+        resolvedPath: storagePath,
+        message: error?.message || 'Stored file is missing from Supabase Storage.',
+      };
+    }
+
+    return {
+      storage: 'supabase',
+      exists: true,
+      location: 'supabase',
+      resolvedPath: storagePath,
+      message: null,
+    };
+  }
+
+  const inspection = inspectLocalManagedFile(storedRef);
+  return {
+    storage: 'local',
+    exists: inspection.exists,
+    location: inspection.exists ? inspection.location : 'missing',
+    resolvedPath: inspection.resolvedPath,
+    message: inspection.message,
+  };
 };
 
 type ManagedUploadInput = {

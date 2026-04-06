@@ -1,5 +1,11 @@
 import type { FormEvent } from 'react';
-import type { AuditLogRow, AuthUser, ManagedUser, WorkerSummary } from '../types';
+import type {
+  AuditLogRow,
+  AuthUser,
+  ManagedUser,
+  PhotoStorageAuditPayload,
+  WorkerSummary,
+} from '../types';
 import { downloadCsv } from '../lib/csv';
 import { PasswordField } from './PasswordField';
 import { UiIcon } from './UiIcon';
@@ -23,13 +29,16 @@ export function SettingsView({
   users,
   workers,
   auditLogs,
+  photoAudit,
   draft,
   editingUserId,
   isSavingUser,
   passwordDraft,
   isChangingPassword,
+  isRunningPhotoAudit,
   onSubmit,
   onPasswordSubmit,
+  onRunPhotoAudit,
   onFieldChange,
   onPasswordFieldChange,
   onStartEdit,
@@ -43,13 +52,16 @@ export function SettingsView({
   users: ManagedUser[];
   workers: WorkerSummary[];
   auditLogs: AuditLogRow[];
+  photoAudit: PhotoStorageAuditPayload | null;
   draft: UserDraft;
   editingUserId: string | null;
   isSavingUser: boolean;
   passwordDraft: PasswordChangeDraft;
   isChangingPassword: boolean;
+  isRunningPhotoAudit: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onPasswordSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onRunPhotoAudit: () => void;
   onFieldChange: (field: keyof UserDraft, value: string) => void;
   onPasswordFieldChange: (field: keyof PasswordChangeDraft, value: string) => void;
   onStartEdit: (userId: string) => void;
@@ -91,6 +103,49 @@ export function SettingsView({
         item.entityLabel ?? '',
         item.summary,
         item.performedBy,
+      ]),
+    ]);
+  };
+
+  const exportPhotoAudit = () => {
+    if (!photoAudit) return;
+
+    downloadCsv(`photo-storage-audit-${exportDate}.csv`, [
+      [
+        'Status',
+        'Kind',
+        'Category',
+        'Storage',
+        'Property',
+        'Location',
+        'File name',
+        'Stored ref',
+        'Created',
+        'Message',
+      ],
+      ...photoAudit.missingItems.map((item) => [
+        item.status,
+        item.kind,
+        item.category,
+        item.storage,
+        item.propertyName,
+        item.locationLabel,
+        item.fileName,
+        item.storedRef,
+        item.createdAt ? new Date(item.createdAt).toISOString() : '',
+        item.message ?? '',
+      ]),
+      ...photoAudit.recoveredItems.map((item) => [
+        item.status,
+        item.kind,
+        item.category,
+        item.storage,
+        item.propertyName,
+        item.locationLabel,
+        item.fileName,
+        item.storedRef,
+        item.createdAt ? new Date(item.createdAt).toISOString() : '',
+        item.message ?? '',
       ]),
     ]);
   };
@@ -412,6 +467,131 @@ export function SettingsView({
                     </div>
                   </div>
                 </div>
+
+                <article className="settings-admin-card settings-admin-card--full">
+                  <div className="panel-head">
+                    <div>
+                      <h3 className="title-with-icon title-with-icon--sm">
+                        <UiIcon name="image" />
+                        <span>Photo storage audit</span>
+                      </h3>
+                      <p>
+                        Check managed photos and covers, detect missing files and flag images
+                        recovered from legacy upload paths.
+                      </p>
+                    </div>
+                    <div className="page-actions">
+                      <button type="button" onClick={onRunPhotoAudit} disabled={isRunningPhotoAudit}>
+                        <UiIcon name="refresh" />
+                        {isRunningPhotoAudit ? 'Checking...' : 'Run audit'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={exportPhotoAudit}
+                        disabled={!photoAudit}
+                      >
+                        <UiIcon name="download" />
+                        Export CSV
+                      </button>
+                    </div>
+                  </div>
+
+                  {photoAudit ? (
+                    <>
+                      <div className="settings-helper-grid">
+                        <article className="settings-helper-item">
+                          <strong>{photoAudit.summary.totalPhotos}</strong>
+                          <p>Managed photos checked.</p>
+                        </article>
+                        <article className="settings-helper-item">
+                          <strong>{photoAudit.summary.missingPhotos}</strong>
+                          <p>Missing files still referenced by the database.</p>
+                        </article>
+                        <article className="settings-helper-item">
+                          <strong>{photoAudit.summary.recoveredFromLegacyPath}</strong>
+                          <p>Files found in a legacy uploads path.</p>
+                        </article>
+                        <article className="settings-helper-item">
+                          <strong>{photoAudit.summary.externalCoverUrls}</strong>
+                          <p>External cover URLs excluded from the audit.</p>
+                        </article>
+                      </div>
+
+                      <div className="settings-helper-grid">
+                        <article className="settings-helper-item">
+                          <strong>{photoAudit.summary.totalJobPhotos}</strong>
+                          <p>Job photos reviewed.</p>
+                        </article>
+                        <article className="settings-helper-item">
+                          <strong>{photoAudit.summary.missingJobPhotos}</strong>
+                          <p>Missing job photos.</p>
+                        </article>
+                        <article className="settings-helper-item">
+                          <strong>{photoAudit.summary.totalPropertyCovers}</strong>
+                          <p>Managed property covers reviewed.</p>
+                        </article>
+                        <article className="settings-helper-item">
+                          <strong>{photoAudit.summary.missingPropertyCovers}</strong>
+                          <p>Missing managed covers.</p>
+                        </article>
+                      </div>
+
+                      <p className="settings-field-note">
+                        Last check: {new Date(photoAudit.checkedAt).toLocaleString('en-US')}. Local
+                        refs: {photoAudit.summary.localRefs}. Supabase refs:{' '}
+                        {photoAudit.summary.supabaseRefs}.
+                      </p>
+
+                      {photoAudit.missingItems.length ? (
+                        <div className="settings-audit-list">
+                          {photoAudit.missingItems.map((item) => (
+                            <article key={`missing-${item.kind}-${item.fileId ?? item.propertyId}`} className="settings-audit-item">
+                              <div className="settings-audit-main">
+                                <div className="settings-audit-topline">
+                                  <span className="pill tone-danger">Missing</span>
+                                  <span className="pill tone-neutral">{item.category}</span>
+                                  <span className="pill tone-sky">{item.storage}</span>
+                                </div>
+                                <strong>{item.locationLabel}</strong>
+                                <p>
+                                  {item.fileName} {item.message ? `- ${item.message}` : ''}
+                                </p>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="empty-box">No missing managed photos were detected in the latest audit.</div>
+                      )}
+
+                      {photoAudit.recoveredItems.length ? (
+                        <div className="settings-audit-list">
+                          {photoAudit.recoveredItems.map((item) => (
+                            <article key={`recovered-${item.kind}-${item.fileId ?? item.propertyId}`} className="settings-audit-item">
+                              <div className="settings-audit-main">
+                                <div className="settings-audit-topline">
+                                  <span className="pill tone-success">Recovered</span>
+                                  <span className="pill tone-neutral">{item.category}</span>
+                                  <span className="pill tone-sky">{item.storage}</span>
+                                </div>
+                                <strong>{item.locationLabel}</strong>
+                                <p>
+                                  {item.fileName} {item.message ? `- ${item.message}` : ''}
+                                </p>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="empty-box">
+                      Run the audit to see which managed photos are missing and which ones were
+                      recovered from legacy upload paths.
+                    </div>
+                  )}
+                </article>
 
                 <article className="settings-admin-card settings-admin-card--full">
                   <div className="panel-head">

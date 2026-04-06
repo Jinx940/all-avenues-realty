@@ -33,6 +33,7 @@ import type {
   JobRow,
   LoginPayload,
   ManagedUser,
+  PhotoStorageAuditPayload,
   PropertySummary,
   TabId,
   WorkerHistoryRow,
@@ -261,6 +262,7 @@ export default function App() {
   const [workerHistory, setWorkerHistory] = useState<WorkerHistoryRow[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
+  const [photoAudit, setPhotoAudit] = useState<PhotoStorageAuditPayload | null>(null);
   const [adminDataLoaded, setAdminDataLoaded] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [jobForm, setJobForm] = useState<JobFormState>(createJobForm());
@@ -282,6 +284,7 @@ export default function App() {
   const [isSavingWorker, setIsSavingWorker] = useState(false);
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isRunningPhotoAudit, setIsRunningPhotoAudit] = useState(false);
   const [jobFilters, setJobFilters] = useState(createJobFilters());
   const activeTabRef = useRef(activeTab);
   const documentsLoadedRef = useRef(documentsLoaded);
@@ -409,6 +412,7 @@ export default function App() {
     setWorkerHistory([]);
     setUsers([]);
     setAuditLogs([]);
+    setPhotoAudit(null);
     setAdminDataLoaded(false);
     setLoginUsername('');
     setLoginPassword('');
@@ -1434,6 +1438,26 @@ export default function App() {
     });
   };
 
+  const runPhotoAudit = async () => {
+    if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can run the photo audit.')) return;
+
+    setIsRunningPhotoAudit(true);
+    try {
+      const payload = await requestJson<PhotoStorageAuditPayload>('/api/admin/storage-audit/photos');
+      setPhotoAudit(payload);
+      setMessage({
+        type: payload.summary.missingPhotos ? 'info' : 'success',
+        text: payload.summary.missingPhotos
+          ? `Photo audit finished. ${payload.summary.missingPhotos} missing file(s) detected.`
+          : 'Photo audit finished. No missing managed photos were detected.',
+      });
+    } catch (error) {
+      setMessage({ type: 'error', text: messageFrom(error) });
+    } finally {
+      setIsRunningPhotoAudit(false);
+    }
+  };
+
   if (!authReady) {
     return <main className="login-shell login-shell--loading">Loading workspace...</main>;
   }
@@ -1729,13 +1753,16 @@ export default function App() {
             users={users}
             workers={availableUserWorkers}
             auditLogs={auditLogs}
+            photoAudit={photoAudit}
             draft={userDraft}
             editingUserId={editingUserId}
             isSavingUser={isSavingUser}
             passwordDraft={passwordChangeDraft}
             isChangingPassword={isChangingPassword}
+            isRunningPhotoAudit={isRunningPhotoAudit}
             onSubmit={submitUser}
             onPasswordSubmit={submitPasswordChange}
+            onRunPhotoAudit={() => void runPhotoAudit()}
             onFieldChange={(field, value) =>
               setUserDraft((current) => ({
                 ...current,

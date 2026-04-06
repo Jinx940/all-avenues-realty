@@ -77,6 +77,7 @@ import {
 } from './lib/jobLocation.js';
 import {
   deleteManagedFile,
+  inspectManagedFile,
   managedStoredRefFromValue,
   readManagedFile,
   uploadManagedFile,
@@ -238,6 +239,37 @@ const normalizedPropertyCoverInput = (
 };
 
 const isExternalUrl = (value: string | null | undefined) => /^https?:\/\//i.test(String(value ?? '').trim());
+
+type PhotoAuditItem = {
+  kind: 'JOB_PHOTO' | 'PROPERTY_COVER';
+  status: 'MISSING' | 'RECOVERED' | 'AVAILABLE';
+  storage: 'local' | 'supabase';
+  category: string;
+  propertyId: string;
+  propertyName: string;
+  jobId: string | null;
+  fileId: string | null;
+  locationLabel: string;
+  fileName: string;
+  mimeType: string;
+  storedRef: string;
+  createdAt: string | null;
+  message: string | null;
+};
+
+type PhotoAuditSummary = {
+  totalPhotos: number;
+  availablePhotos: number;
+  missingPhotos: number;
+  recoveredFromLegacyPath: number;
+  totalJobPhotos: number;
+  missingJobPhotos: number;
+  totalPropertyCovers: number;
+  missingPropertyCovers: number;
+  localRefs: number;
+  supabaseRefs: number;
+  externalCoverUrls: number;
+};
 
 const normalizeOrigin = (value: string | undefined) => String(value ?? '').trim().replace(/\/$/, '');
 
@@ -927,6 +959,208 @@ app.get(
     }
 
     response.sendFile(managedFile.filePath);
+  }),
+);
+
+app.get(
+  '/api/admin/storage-audit/photos',
+  asyncRoute(async (request, response) => {
+    if (!requireAdmin(request, response)) {
+      return;
+    }
+
+    const requestedLimit = Number.parseInt(String(request.query.limit ?? '25'), 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 100)
+      : 25;
+
+    const [jobPhotos, propertyCovers] = await Promise.all([
+      prisma.jobFile.findMany({
+        where: {
+          storedName: {
+            not: null,
+          },
+          mimeType: {
+            startsWith: 'image/',
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          id: true,
+          category: true,
+          originalName: true,
+          storedName: true,
+          mimeType: true,
+          createdAt: true,
+          job: {
+            select: {
+              id: true,
+              story: true,
+              unit: true,
+              area: true,
+              service: true,
+              property: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.property.findMany({
+        where: {
+          coverImageUrl: {
+            not: null,
+          },
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        select: {
+          id: true,
+          name: true,
+          coverImageUrl: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    let externalCoverUrls = 0;
+
+    const candidates = [
+      ...jobPhotos.flatMap((file) =>
+        file.storedName
+          ? [
+              {
+                kind: 'JOB_PHOTO' as const,
+                fileId: file.id,
+                propertyId: file.job.property.id,
+                propertyName: file.job.property.name,
+                jobId: file.job.id,
+                category: fileCategoryLabels[file.category],
+                locationLabel: [
+                  file.job.property.name,
+                  normalizeStoryInput(file.job.story),
+                  file.job.unit,
+                  file.job.area,
+                  file.job.service,
+                ]
+                  .filter(Boolean)
+                  .join(' | '),
+                fileName: file.originalName,
+                mimeType: file.mimeType,
+                storedRef: file.storedName,
+                createdAt: file.createdAt.toISOString(),
+              },
+            ]
+          : [],
+      ),
+      ...propertyCovers.flatMap((property) => {
+        const rawCoverValue = String(property.coverImageUrl ?? '').trim();
+        const storedRef = managedStoredRefFromValue(rawCoverValue);
+
+        if (!storedRef) {
+          if (isExternalUrl(rawCoverValue)) {
+            externalCoverUrls += 1;
+          }
+          return [];
+        }
+
+        return [
+          {
+            kind: 'PROPERTY_COVER' as const,
+            fileId: null,
+            propertyId: property.id,
+            propertyName: property.name,
+            jobId: null,
+            category: 'Cover image',
+            locationLabel: property.name,
+            fileName: rawCoverValue.split('/').pop() || 'cover-image',
+            mimeType: 'image/*',
+            storedRef,
+            createdAt: property.updatedAt.toISOString(),
+          },
+        ];
+      }),
+    ];
+
+    const summary: PhotoAuditSummary = {
+      totalPhotos: candidates.length,
+      availablePhotos: 0,
+      missingPhotos: 0,
+      recoveredFromLegacyPath: 0,
+      totalJobPhotos: jobPhotos.length,
+      missingJobPhotos: 0,
+      totalPropertyCovers: candidates.filter((item) => item.kind === 'PROPERTY_COVER').length,
+      missingPropertyCovers: 0,
+      localRefs: 0,
+      supabaseRefs: 0,
+      externalCoverUrls,
+    };
+
+    const missingItems: PhotoAuditItem[] = [];
+    const recoveredItems: PhotoAuditItem[] = [];
+
+    for (let index = 0; index < candidates.length; index += 12) {
+      const batch = candidates.slice(index, index + 12);
+      const batchResults = await Promise.all(
+        batch.map(async (candidate) => ({
+          candidate,
+          inspection: await inspectManagedFile(candidate.storedRef),
+        })),
+      );
+
+      batchResults.forEach(({ candidate, inspection }) => {
+        if (inspection.storage === 'local') {
+          summary.localRefs += 1;
+        } else {
+          summary.supabaseRefs += 1;
+        }
+
+        if (!inspection.exists) {
+          summary.missingPhotos += 1;
+          if (candidate.kind === 'JOB_PHOTO') {
+            summary.missingJobPhotos += 1;
+          } else {
+            summary.missingPropertyCovers += 1;
+          }
+
+          if (missingItems.length < limit) {
+            missingItems.push({
+              ...candidate,
+              status: 'MISSING',
+              storage: inspection.storage,
+              message: inspection.message,
+            });
+          }
+          return;
+        }
+
+        summary.availablePhotos += 1;
+        if (inspection.location === 'fallback' && recoveredItems.length < limit) {
+          recoveredItems.push({
+            ...candidate,
+            status: 'RECOVERED',
+            storage: inspection.storage,
+            message: inspection.message,
+          });
+        }
+        if (inspection.location === 'fallback') {
+          summary.recoveredFromLegacyPath += 1;
+        }
+      });
+    }
+
+    response.json({
+      checkedAt: new Date().toISOString(),
+      summary,
+      missingItems,
+      recoveredItems,
+    });
   }),
 );
 

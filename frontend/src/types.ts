@@ -61,6 +61,42 @@ export type AuditLogRow = {
   performedBy: string;
 };
 
+export type PhotoStorageAuditItem = {
+  kind: 'JOB_PHOTO' | 'PROPERTY_COVER';
+  status: 'MISSING' | 'RECOVERED' | 'AVAILABLE';
+  storage: 'local' | 'supabase';
+  category: string;
+  propertyId: string;
+  propertyName: string;
+  jobId: string | null;
+  fileId: string | null;
+  locationLabel: string;
+  fileName: string;
+  mimeType: string;
+  storedRef: string;
+  createdAt: string | null;
+  message: string | null;
+};
+
+export type PhotoStorageAuditPayload = {
+  checkedAt: string;
+  summary: {
+    totalPhotos: number;
+    availablePhotos: number;
+    missingPhotos: number;
+    recoveredFromLegacyPath: number;
+    totalJobPhotos: number;
+    missingJobPhotos: number;
+    totalPropertyCovers: number;
+    missingPropertyCovers: number;
+    localRefs: number;
+    supabaseRefs: number;
+    externalCoverUrls: number;
+  };
+  missingItems: PhotoStorageAuditItem[];
+  recoveredItems: PhotoStorageAuditItem[];
+};
+
 export type HealthPayload = {
   status: string;
   database: 'up' | 'down';
