@@ -21,6 +21,14 @@ type LegacyServiceGroup = {
   sentences: string[];
 };
 
+type LegacyServiceChunk = {
+  service: string;
+  totalPrice: number;
+  sentences: string[];
+  continuation: boolean;
+  showPrice: boolean;
+};
+
 type AzeInvoiceRow = {
   service: string;
   totalPrice: number;
@@ -200,6 +208,188 @@ const buildLegacyServiceGroups = (items: PdfServiceItem[]): LegacyServiceGroup[]
     sentences: group.sentences.length ? group.sentences : [''],
   }));
 };
+
+const estimateLegacySentenceUnits = (sentence: string) => {
+  const normalized = sentence.trim();
+  if (!normalized) return 1.1;
+
+  return 0.82 + Math.max(1, Math.ceil(normalized.length / 66)) * 0.58;
+};
+
+const estimateLegacyChunkUnits = (chunk: LegacyServiceChunk) =>
+  chunk.sentences.reduce((sum, sentence) => sum + estimateLegacySentenceUnits(sentence), 0) +
+  Math.max(0, Math.ceil(chunk.service.length / 18) - 1) * 0.12;
+
+const buildLegacyPageCapacities = (pageCount: number) => {
+  const firstOnlyPageLimit = 12.8;
+  const firstPageLimit = 18.2;
+  const middlePageLimit = 27.8;
+  const lastContinuePageLimit = 22.4;
+
+  if (pageCount <= 1) {
+    return [firstOnlyPageLimit];
+  }
+
+  const capacities = [firstPageLimit];
+
+  for (let index = 0; index < pageCount - 2; index += 1) {
+    capacities.push(middlePageLimit);
+  }
+
+  capacities.push(lastContinuePageLimit);
+  return capacities;
+};
+
+const fitLegacyChunk = (
+  group: LegacyServiceGroup,
+  startIndex: number,
+  availableUnits: number,
+  continuation: boolean,
+): LegacyServiceChunk | null => {
+  if (availableUnits <= 0.4) {
+    return null;
+  }
+
+  const sentences: string[] = [];
+  let usedUnits = Math.max(0, Math.ceil(group.service.length / 18) - 1) * 0.12;
+
+  for (let index = startIndex; index < group.sentences.length; index += 1) {
+    const sentence = group.sentences[index];
+    const rowUnits = estimateLegacySentenceUnits(sentence);
+
+    if (sentences.length && usedUnits + rowUnits > availableUnits) {
+      break;
+    }
+
+    sentences.push(sentence);
+    usedUnits += rowUnits;
+
+    if (usedUnits >= availableUnits) {
+      break;
+    }
+  }
+
+  if (!sentences.length) {
+    return null;
+  }
+
+  return {
+    service: group.service,
+    totalPrice: group.totalPrice,
+    sentences,
+    continuation,
+    showPrice: !continuation,
+  };
+};
+
+const paginateLegacyServiceGroups = (groups: LegacyServiceGroup[]) => {
+  if (!groups.length) return [[]];
+
+  const maxPageCount = groups.reduce((total, group) => total + group.sentences.length, 0) + 1;
+
+  for (let pageCount = 1; pageCount <= maxPageCount; pageCount += 1) {
+    const capacities = buildLegacyPageCapacities(pageCount);
+    const pages = capacities.map(() => [] as LegacyServiceChunk[]);
+    let pageIndex = 0;
+    let usedUnits = 0;
+    let fitsAll = true;
+
+    for (const group of groups) {
+      let sentenceIndex = 0;
+      let continuation = false;
+
+      while (sentenceIndex < group.sentences.length) {
+        if (pageIndex >= capacities.length) {
+          fitsAll = false;
+          break;
+        }
+
+        const availableUnits = capacities[pageIndex] - usedUnits;
+        const chunk = fitLegacyChunk(group, sentenceIndex, availableUnits, continuation);
+
+        if (!chunk) {
+          pageIndex += 1;
+          usedUnits = 0;
+          continue;
+        }
+
+        const chunkUnits = estimateLegacyChunkUnits(chunk);
+
+        if (chunkUnits > capacities[pageIndex] && usedUnits === 0) {
+          fitsAll = false;
+          break;
+        }
+
+        pages[pageIndex].push(chunk);
+        usedUnits += chunkUnits;
+        sentenceIndex += chunk.sentences.length;
+        continuation = true;
+
+        if (sentenceIndex < group.sentences.length) {
+          pageIndex += 1;
+          usedUnits = 0;
+        }
+      }
+
+      if (!fitsAll) {
+        break;
+      }
+    }
+
+    if (fitsAll) {
+      while (pages.length > 1 && pages[pages.length - 1].length === 0) {
+        pages.pop();
+      }
+
+      return pages.length ? pages : [[]];
+    }
+  }
+
+  return [groups.map((group) => ({
+    service: group.service,
+    totalPrice: group.totalPrice,
+    sentences: group.sentences,
+    continuation: false,
+    showPrice: true,
+  }))];
+};
+
+const legacyTableHeadHtml = `
+  <tr>
+    <th>Service</th>
+    <th>Description</th>
+    <th>Unit Price (USD)</th>
+  </tr>
+`;
+
+const buildLegacyRowsHtml = (chunks: LegacyServiceChunk[]) =>
+  chunks
+    .map((chunk) =>
+      chunk.sentences
+        .map(
+          (sentence, index) => `
+            <tr class="${chunk.continuation ? 'legacy-group-row legacy-group-row--continuation' : 'legacy-group-row'}">
+              ${
+                index === 0
+                  ? `<td class="service-cell${chunk.continuation ? ' service-cell--continuation' : ''}" rowspan="${chunk.sentences.length}">${escapeHtml(
+                      chunk.continuation ? `${chunk.service} (cont.)` : chunk.service,
+                    )}</td>`
+                  : ''
+              }
+              <td class="desc-cell">${escapeHtml(sentence)}</td>
+              ${
+                index === 0
+                  ? `<td class="price-cell${chunk.showPrice ? '' : ' is-empty'}" rowspan="${chunk.sentences.length}">${
+                      chunk.showPrice ? formatPdfMoney(chunk.totalPrice) : '&nbsp;'
+                    }</td>`
+                  : ''
+              }
+            </tr>
+          `,
+        )
+        .join(''),
+    )
+    .join('');
 
 const buildAzeInvoiceTableRows = (items: PdfServiceItem[]): AzeInvoiceRow[] =>
   items
@@ -695,30 +885,11 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         ].join('<br>');
 
   const groupedItems = buildLegacyServiceGroups(data.selectedItems);
+  const renderedPages = paginateLegacyServiceGroups(groupedItems);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const docDateHtml = escapeHtml(data.docDate);
   const headerClass = data.ownerKey === 'ryan' ? 'invoice-header ryan' : 'invoice-header aze';
   const materialLabel = data.documentType === 'Quote' ? 'Material Expense Estimate' : 'Material Expense';
-
-  const groupedRowsHtml = groupedItems
-    .map((group) =>
-      group.sentences
-        .map(
-          (sentence, index) => `
-            <tr>
-              <td class="service-cell${index === 0 ? '' : ' is-empty'}">${
-                index === 0 ? escapeHtml(group.service) : '&nbsp;'
-              }</td>
-              <td class="desc-cell">${escapeHtml(sentence)}</td>
-              <td class="price-cell${index === 0 ? '' : ' is-empty'}">${
-                index === 0 ? formatPdfMoney(group.totalPrice) : '&nbsp;'
-              }</td>
-            </tr>
-          `,
-        )
-        .join(''),
-    )
-    .join('');
 
   const rightDetailsHtml =
     data.documentType === 'Quote'
@@ -732,6 +903,100 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           <div><span class="label-blue">Date:</span> <span class="value-black">${docDateHtml}</span></div>
         `;
 
+  const summaryRowsHtml = `
+    <tr>
+      <td colspan="2" class="summary-label-blue">Ryan Labor</td>
+      <td class="amount-blue">${formatPdfMoney(data.ryanLabor)}</td>
+    </tr>
+    <tr>
+      <td colspan="2" class="summary-label-blue">Juan Labor</td>
+      <td class="amount-blue">${formatPdfMoney(data.juanLabor)}</td>
+    </tr>
+    <tr>
+      <td colspan="2" class="summary-label-blue">Job Total</td>
+      <td class="amount-blue">${formatPdfMoney(data.jobTotal)}</td>
+    </tr>
+    <tr>
+      <td colspan="2" class="summary-label-blue" style="color:red;">${escapeHtml(materialLabel)}</td>
+      <td class="amount-blue" style="color:red;">${formatPdfMoney(data.materialExpense)}</td>
+    </tr>
+    <tr>
+      <td colspan="2" class="summary-label-blue" style="font-size:16px;">Total Due</td>
+      <td class="amount-blue" style="font-size:16px;">${formatPdfMoney(data.totalDue)}</td>
+    </tr>
+  `;
+
+  const pagesHtml = renderedPages
+    .map((pageChunks, pageIndex) => {
+      const rowsHtml = buildLegacyRowsHtml(pageChunks);
+      const isFirstPage = pageIndex === 0;
+      const isLastPage = pageIndex === renderedPages.length - 1;
+      const pageLabel = `Page ${pageIndex + 1} of ${renderedPages.length}`;
+
+      if (isFirstPage) {
+        return `
+          <div class="page legacy-page ${isLastPage ? 'legacy-page--last' : ''}">
+            <div class="${headerClass}">
+              <div class="header-inner">
+                <div class="header-left">
+                  <span class="invoice-title">${escapeHtml(data.documentType)}</span>
+                  <span class="invoice-number">No. ${escapeHtml(data.invoiceNumber)}</span>
+                </div>
+                <div class="header-right">
+                  <span class="company-name">Sterling<br>Mechanical</span>
+                  <div class="company-info">${companyInfoHtml}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="invoice-body">
+              <div class="top-details-wrap">
+                <div class="payment-grid">
+                  <div class="payment-title-row"><span class="payment-title">Payment Details:</span></div>
+                  <div class="p-left">
+                    <div><span class="label-blue">Ship to:</span> <span class="value-black">All Avenues Realty LLC.</span></div>
+                    <div class="value-black">crystalsarich@allavenuesrealty.com</div>
+                  </div>
+                  <div class="p-right">${rightDetailsHtml}</div>
+                </div>
+              </div>
+
+              <div class="legacy-table-shell">
+                <table>
+                  ${legacyTableHeadHtml}
+                  ${rowsHtml}
+                  ${isLastPage ? summaryRowsHtml : ''}
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="page legacy-page legacy-page--continue ${isLastPage ? 'legacy-page--last' : ''}">
+          <div class="legacy-continue-head">
+            <div>
+              <strong>${escapeHtml(data.documentType)} No. ${escapeHtml(data.invoiceNumber)}</strong>
+              <span>${escapeHtml(data.propertyAddress)}</span>
+            </div>
+            <span>${pageLabel}</span>
+          </div>
+
+          <div class="invoice-body invoice-body--continue">
+            <div class="legacy-table-shell">
+              <table>
+                ${legacyTableHeadHtml}
+                ${rowsHtml}
+                ${isLastPage ? summaryRowsHtml : ''}
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+
   return `
     <!doctype html>
     <html lang="en">
@@ -741,8 +1006,12 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         <style>
           @page { size: A4; margin: 0; }
           html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #ffffff; font-family: Montserrat, Arial, sans-serif; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          body { overflow: hidden; }
-          .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 18mm 16mm; background: #ffffff; overflow: hidden; box-sizing: border-box; }
+          body { overflow: auto; }
+          .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 18mm 16mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
+          .page:last-child { page-break-after: auto; break-after: auto; }
+          .legacy-page { display: flex; flex-direction: column; }
+          .legacy-page--continue { padding-top: 12mm; }
+          .legacy-page--last { padding-bottom: 16mm; }
           .invoice-header { width: 100%; padding: 24px 0; margin: 0; color: #ffffff; }
           .invoice-header.aze { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
           .invoice-header.ryan { background-color: #24c6dc; background-image: linear-gradient(to bottom, #24c6dc, #c471ed); }
@@ -754,12 +1023,20 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           .company-name { display: block; font-size: 30px; font-weight: 700; margin-bottom: 12px; }
           .company-info { font-size: 13px; }
           .company-info strong { font-weight: 800; }
-          .invoice-body { padding: 14px 30px 0 30px; }
+          .invoice-body { padding: 14px 30px 0 30px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+          .invoice-body--continue { padding-top: 0; }
+          .legacy-continue-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0 30px 12px; padding: 10px 16px; border: 1px solid rgba(31, 77, 187, 0.18); border-radius: 18px; background: linear-gradient(180deg, rgba(245, 249, 255, 0.98), rgba(234, 242, 252, 0.92)); color: #1f4dbb; }
+          .legacy-continue-head div { display: grid; gap: 2px; }
+          .legacy-continue-head strong { font-size: 14px; }
+          .legacy-continue-head span { font-size: 11px; color: #5473b8; }
+          .legacy-table-shell { flex: 1 1 auto; min-height: 0; }
           table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
           th, td { border: 1px solid #1f4dbb; padding: 8px; word-wrap: break-word; color: #1f4dbb; }
           th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
           td.desc-cell { text-align: left; }
+          .legacy-group-row td { break-inside: avoid; page-break-inside: avoid; }
           td.service-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 22%; }
+          td.service-cell--continuation { font-size: 11px; }
           td.price-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 18%; }
           .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
           .amount-blue { text-align: center; color: #1f4dbb; font-weight: 800; font-size: 11px; vertical-align: middle; }
@@ -773,64 +1050,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           .value-black { color: #000000; font-weight: 400; }
         </style>
       </head>
-      <body>
-        <div class="page">
-          <div class="${headerClass}">
-            <div class="header-inner">
-              <div class="header-left">
-                <span class="invoice-title">${escapeHtml(data.documentType)}</span>
-                <span class="invoice-number">No. ${escapeHtml(data.invoiceNumber)}</span>
-              </div>
-              <div class="header-right">
-                <span class="company-name">Sterling<br>Mechanical</span>
-                <div class="company-info">${companyInfoHtml}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="invoice-body">
-            <div class="top-details-wrap">
-              <div class="payment-grid">
-                <div class="payment-title-row"><span class="payment-title">Payment Details:</span></div>
-                <div class="p-left">
-                  <div><span class="label-blue">Ship to:</span> <span class="value-black">All Avenues Realty LLC.</span></div>
-                  <div class="value-black">crystalsarich@allavenuesrealty.com</div>
-                </div>
-                <div class="p-right">${rightDetailsHtml}</div>
-              </div>
-            </div>
-
-            <table>
-              <tr>
-                <th>Service</th>
-                <th>Description</th>
-                <th>Unit Price (USD)</th>
-              </tr>
-              ${groupedRowsHtml}
-              <tr>
-                <td colspan="2" class="summary-label-blue">Ryan Labor</td>
-                <td class="amount-blue">${formatPdfMoney(data.ryanLabor)}</td>
-              </tr>
-              <tr>
-                <td colspan="2" class="summary-label-blue">Juan Labor</td>
-                <td class="amount-blue">${formatPdfMoney(data.juanLabor)}</td>
-              </tr>
-              <tr>
-                <td colspan="2" class="summary-label-blue">Job Total</td>
-                <td class="amount-blue">${formatPdfMoney(data.jobTotal)}</td>
-              </tr>
-              <tr>
-                <td colspan="2" class="summary-label-blue" style="color:red;">${escapeHtml(materialLabel)}</td>
-                <td class="amount-blue" style="color:red;">${formatPdfMoney(data.materialExpense)}</td>
-              </tr>
-              <tr>
-                <td colspan="2" class="summary-label-blue" style="font-size:16px;">Total Due</td>
-                <td class="amount-blue" style="font-size:16px;">${formatPdfMoney(data.totalDue)}</td>
-              </tr>
-            </table>
-          </div>
-        </div>
-      </body>
+      <body>${pagesHtml}</body>
     </html>
   `;
 };
