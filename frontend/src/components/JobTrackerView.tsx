@@ -36,14 +36,19 @@ const getTrackerCompareImageStyle = (
 ): CSSProperties | undefined => {
   if (!dimensions) return undefined;
   const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
-  const padding =
+  const sizing =
     aspectRatio <= 0.9
-      ? 'clamp(76px, 11%, 138px) clamp(52px, 8%, 96px)'
+      ? { maxWidth: '84%', maxHeight: '74%' }
       : aspectRatio >= 1.2
-        ? 'clamp(56px, 8%, 96px) clamp(70px, 10.5%, 132px)'
-        : 'clamp(64px, 9.5%, 118px) clamp(60px, 9%, 112px)';
+        ? { maxWidth: '80%', maxHeight: '82%' }
+        : { maxWidth: '82%', maxHeight: '78%' };
   return {
-    padding,
+    width: 'auto',
+    height: 'auto',
+    maxWidth: sizing.maxWidth,
+    maxHeight: sizing.maxHeight,
+    padding: 0,
+    display: 'block',
     objectPosition: 'center center',
   };
 };

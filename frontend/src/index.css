@@ -6059,18 +6059,18 @@ textarea {
 
 .tracker-compare-panel--before .tracker-compare-image,
 .tracker-compare-panel--after .tracker-compare-image {
-  padding: 16px clamp(16px, 3.2%, 30px) 18px;
+  padding: 0;
   object-position: center center;
 }
 
 .tracker-compare-panel--single .tracker-compare-image {
-  padding: 16px clamp(16px, 3%, 28px) 18px;
+  padding: 0;
   object-position: center center;
 }
 
 .tracker-compare-image--reveal {
-  width: 100%;
-  height: 100%;
+  justify-self: center;
+  align-self: center;
 }
 
 .tracker-compare-image {
