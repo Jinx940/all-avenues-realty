@@ -221,10 +221,10 @@ const estimateLegacyChunkUnits = (chunk: LegacyServiceChunk) =>
   Math.max(0, Math.ceil(chunk.service.length / 18) - 1) * 0.12;
 
 const buildLegacyPageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 12.8;
-  const firstPageLimit = 18.2;
-  const middlePageLimit = 27.8;
-  const lastContinuePageLimit = 22.4;
+  const firstOnlyPageLimit = 18.6;
+  const firstPageLimit = 23.8;
+  const middlePageLimit = 31.4;
+  const lastContinuePageLimit = 27.8;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -931,7 +931,6 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
       const rowsHtml = buildLegacyRowsHtml(pageChunks);
       const isFirstPage = pageIndex === 0;
       const isLastPage = pageIndex === renderedPages.length - 1;
-      const pageLabel = `Page ${pageIndex + 1} of ${renderedPages.length}`;
 
       if (isFirstPage) {
         return `
@@ -975,14 +974,6 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
       return `
         <div class="page legacy-page legacy-page--continue ${isLastPage ? 'legacy-page--last' : ''}">
-          <div class="legacy-continue-head">
-            <div>
-              <strong>${escapeHtml(data.documentType)} No. ${escapeHtml(data.invoiceNumber)}</strong>
-              <span>${escapeHtml(data.propertyAddress)}</span>
-            </div>
-            <span>${pageLabel}</span>
-          </div>
-
           <div class="invoice-body invoice-body--continue">
             <div class="legacy-table-shell">
               <table>
@@ -1010,7 +1001,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 18mm 16mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
           .page:last-child { page-break-after: auto; break-after: auto; }
           .legacy-page { display: flex; flex-direction: column; }
-          .legacy-page--continue { padding-top: 12mm; }
+          .legacy-page--continue { padding-top: 10mm; }
           .legacy-page--last { padding-bottom: 16mm; }
           .invoice-header { width: 100%; padding: 24px 0; margin: 0; color: #ffffff; }
           .invoice-header.aze { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
@@ -1025,10 +1016,6 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           .company-info strong { font-weight: 800; }
           .invoice-body { padding: 14px 30px 0 30px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
           .invoice-body--continue { padding-top: 0; }
-          .legacy-continue-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0 30px 12px; padding: 10px 16px; border: 1px solid rgba(31, 77, 187, 0.18); border-radius: 18px; background: linear-gradient(180deg, rgba(245, 249, 255, 0.98), rgba(234, 242, 252, 0.92)); color: #1f4dbb; }
-          .legacy-continue-head div { display: grid; gap: 2px; }
-          .legacy-continue-head strong { font-size: 14px; }
-          .legacy-continue-head span { font-size: 11px; color: #5473b8; }
           .legacy-table-shell { flex: 1 1 auto; min-height: 0; }
           table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
           th, td { border: 1px solid #1f4dbb; padding: 8px; word-wrap: break-word; color: #1f4dbb; }
