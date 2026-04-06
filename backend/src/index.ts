@@ -1742,6 +1742,102 @@ app.get(
   }),
 );
 
+app.delete(
+  '/api/generated-documents/:documentId',
+  asyncRoute(async (request, response) => {
+    if (!requireAdmin(request, response)) {
+      return;
+    }
+
+    const documentId = String(request.params.documentId);
+    const targetDocument = await prisma.generatedDocument.findUnique({
+      where: { id: documentId },
+      select: {
+        id: true,
+        documentType: true,
+        documentNumber: true,
+        fileName: true,
+        property: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        files: {
+          select: {
+            id: true,
+            jobId: true,
+            storedName: true,
+          },
+        },
+      },
+    });
+
+    if (!targetDocument) {
+      response.status(404).json({ message: 'Document not found.' });
+      return;
+    }
+
+    const affectedJobIds = Array.from(new Set(targetDocument.files.map((file) => file.jobId)));
+
+    await prisma.$transaction(async (transaction) => {
+      await transaction.jobFile.deleteMany({
+        where: {
+          generatedDocumentId: documentId,
+        },
+      });
+
+      await transaction.generatedDocument.delete({
+        where: { id: documentId },
+      });
+
+      if (targetDocument.documentType === GeneratedDocumentType.INVOICE) {
+        await Promise.all(
+          affectedJobIds.map(async (jobId) => {
+            const hasInvoiceFiles = await transaction.jobFile.count({
+              where: {
+                jobId,
+                category: FileCategory.INVOICE,
+              },
+            });
+
+            if (hasInvoiceFiles === 0) {
+              await transaction.job.update({
+                where: { id: jobId },
+                data: {
+                  invoiceStatus: InvoiceStatus.NO,
+                },
+              });
+            }
+          }),
+        );
+      }
+    });
+
+    await Promise.all(
+      targetDocument.files.map((file) =>
+        file.storedName ? deleteManagedFile(file.storedName) : Promise.resolve(),
+      ),
+    );
+
+    await recordAuditLog(prisma, request, {
+      entityType: 'Document',
+      entityId: targetDocument.id,
+      entityLabel: targetDocument.documentNumber,
+      action: 'Deleted',
+      summary: `Deleted ${targetDocument.documentType.toLowerCase()} ${targetDocument.documentNumber} from "${targetDocument.property.name}".`,
+      metadata: {
+        documentType: targetDocument.documentType,
+        propertyId: targetDocument.property.id,
+        propertyName: targetDocument.property.name,
+        linkedJobCount: affectedJobIds.length,
+      },
+    });
+
+    response.json({ message: 'Document deleted successfully.' });
+  }),
+);
+
 app.post(
   '/api/generated-documents',
   asyncRoute(async (request, response) => {

@@ -1121,6 +1121,38 @@ export default function App() {
     });
   };
 
+  const deleteGeneratedDocument = (
+    documentId: string,
+    options: { kind: 'Invoice' | 'Quote'; documentNumber: string; fileName: string },
+  ) => {
+    if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can delete saved documents.')) return;
+    openConfirmDialog({
+      title: `Delete ${options.kind}`,
+      text:
+        options.documentNumber && options.documentNumber !== '-'
+          ? `Delete ${options.kind.toLowerCase()} ${options.documentNumber} permanently?`
+          : `Delete ${options.fileName} permanently?`,
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: async () => {
+        try {
+          await requestJson<{ message: string }>(`/api/generated-documents/${documentId}`, {
+            method: 'DELETE',
+          });
+          await refreshAll({
+            type: 'success',
+            text:
+              options.documentNumber && options.documentNumber !== '-'
+                ? `${options.kind} ${options.documentNumber} deleted.`
+                : `${options.kind} deleted.`,
+          });
+        } catch (error) {
+          setMessage({ type: 'error', text: messageFrom(error) });
+        }
+      },
+    });
+  };
+
   const addPropertyStory = () => {
     const story = createEmptyPropertyStoryForm(`Floor ${propertyForm.stories.length + 1}`);
     setPropertyForm((current) => ({
@@ -1862,6 +1894,27 @@ export default function App() {
             properties={bootstrap?.properties ?? []}
             jobs={jobs}
             documents={generatedDocuments}
+            canDelete={currentUser.role === 'ADMIN'}
+            onDeleteReceipt={(jobId, fileId, fileName) => {
+              if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can delete receipts.')) return;
+              openConfirmDialog({
+                title: 'Delete Receipt',
+                text: `Delete receipt "${fileName}" permanently?`,
+                confirmLabel: 'Delete',
+                tone: 'danger',
+                onConfirm: async () => {
+                  try {
+                    await requestJson<{ message: string }>(`/api/jobs/${jobId}/files/${fileId}`, {
+                      method: 'DELETE',
+                    });
+                    await refreshAll({ type: 'success', text: 'Receipt deleted.' });
+                  } catch (error) {
+                    setMessage({ type: 'error', text: messageFrom(error) });
+                  }
+                },
+              });
+            }}
+            onDeleteDocument={(documentId, options) => deleteGeneratedDocument(documentId, options)}
           />
         ) : null}
 

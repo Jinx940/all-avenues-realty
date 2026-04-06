@@ -20,6 +20,9 @@ type DocumentCenterItem = {
   linkedJobSummary: string;
   openUrl: string;
   downloadUrl: string;
+  jobId?: string;
+  fileId?: string;
+  documentId?: string;
 };
 
 type DocumentPreviewMode = 'image' | 'pdf' | 'frame' | 'unsupported';
@@ -101,10 +104,19 @@ export function DocumentCenterView({
   properties,
   jobs,
   documents,
+  canDelete,
+  onDeleteReceipt,
+  onDeleteDocument,
 }: {
   properties: PropertySummary[];
   jobs: JobRow[];
   documents: GeneratedDocumentHistoryItem[];
+  canDelete: boolean;
+  onDeleteReceipt: (jobId: string, fileId: string, fileName: string) => void;
+  onDeleteDocument: (
+    documentId: string,
+    options: { kind: 'Invoice' | 'Quote'; documentNumber: string; fileName: string },
+  ) => void;
 }) {
   const [search, setSearch] = useState('');
   const [propertyId, setPropertyId] = useState('');
@@ -131,6 +143,7 @@ export function DocumentCenterView({
         .join(' | '),
       openUrl: buildAssetUrl(document.url),
       downloadUrl: buildAssetUrl(document.url),
+      documentId: document.id,
     }));
 
     const receiptItems = jobs.flatMap<DocumentCenterItem>((job) =>
@@ -148,6 +161,8 @@ export function DocumentCenterView({
         linkedJobSummary: formatJobLocationSummary(job.story, job.unit, job.area, job.service),
         openUrl: buildAssetUrl(file.url),
         downloadUrl: buildAssetUrl(file.url),
+        jobId: job.id,
+        fileId: file.id,
       })),
     );
 
@@ -187,6 +202,21 @@ export function DocumentCenterView({
     invoices: filteredItems.filter((item) => item.kind === 'Invoice').length,
     quotes: filteredItems.filter((item) => item.kind === 'Quote').length,
     receipts: filteredItems.filter((item) => item.kind === 'Receipt').length,
+  };
+
+  const handleDeleteItem = (item: DocumentCenterItem) => {
+    if (item.kind === 'Receipt') {
+      if (!item.jobId || !item.fileId) return;
+      onDeleteReceipt(item.jobId, item.fileId, item.fileName);
+      return;
+    }
+
+    if (!item.documentId) return;
+    onDeleteDocument(item.documentId, {
+      kind: item.kind,
+      documentNumber: item.documentNumber,
+      fileName: item.fileName,
+    });
   };
 
   return (
@@ -332,6 +362,12 @@ export function DocumentCenterView({
                       <UiIcon name="file" size={15} />
                       Open
                     </button>
+                    {canDelete ? (
+                      <button type="button" className="ghost-button danger" onClick={() => handleDeleteItem(item)}>
+                        <UiIcon name="trash" size={15} />
+                        Delete
+                      </button>
+                    ) : null}
                   </span>
                 </div>
               ))
@@ -343,6 +379,12 @@ export function DocumentCenterView({
 
         <DocumentPreviewDialog
           item={previewItem}
+          canDelete={canDelete}
+          onDelete={() => {
+            if (!previewItem) return;
+            handleDeleteItem(previewItem);
+            setPreviewItem(null);
+          }}
           onClose={() => setPreviewItem(null)}
         />
       </div>
@@ -352,9 +394,13 @@ export function DocumentCenterView({
 
 function DocumentPreviewDialog({
   item,
+  canDelete,
+  onDelete,
   onClose,
 }: {
   item: DocumentCenterItem | null;
+  canDelete: boolean;
+  onDelete: () => void;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -503,6 +549,12 @@ function DocumentPreviewDialog({
                 <UiIcon name="download" size={15} />
                 Download
               </button>
+              {canDelete ? (
+                <button type="button" className="ghost-button danger" onClick={onDelete}>
+                  <UiIcon name="trash" size={15} />
+                  Delete
+                </button>
+              ) : null}
             </div>
           </aside>
         </div>
