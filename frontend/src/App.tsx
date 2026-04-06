@@ -1884,6 +1884,8 @@ export default function App() {
             properties={bootstrap?.properties ?? []}
             jobs={jobs}
             documents={generatedDocuments}
+            canDelete={currentUser.role === 'ADMIN'}
+            onDeleteDocument={(documentId, options) => deleteGeneratedDocument(documentId, options)}
             onDocumentSaved={(text) => void refreshAll({ type: 'success', text })}
             onDocumentError={(text) => setMessage({ type: 'error', text })}
           />

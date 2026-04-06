@@ -1069,12 +1069,19 @@ export function InvoiceQuoteView({
   properties,
   jobs,
   documents,
+  canDelete,
+  onDeleteDocument,
   onDocumentSaved,
   onDocumentError,
 }: {
   properties: PropertySummary[];
   jobs: JobRow[];
   documents: GeneratedDocumentHistoryItem[];
+  canDelete: boolean;
+  onDeleteDocument: (
+    documentId: string,
+    options: { kind: 'Invoice' | 'Quote'; documentNumber: string; fileName: string },
+  ) => void;
   onDocumentSaved?: (message: string) => void | Promise<void>;
   onDocumentError?: (message: string) => void | Promise<void>;
 }) {
@@ -1884,6 +1891,22 @@ export function InvoiceQuoteView({
                           <UiIcon name="receipt" size={15} />
                           Print
                         </button>
+                        {canDelete ? (
+                          <button
+                            type="button"
+                            className="ghost-button records-action-button danger"
+                            onClick={() =>
+                              onDeleteDocument(document.id, {
+                                kind: document.documentTypeLabel,
+                                documentNumber: document.documentNumber,
+                                fileName: document.fileName,
+                              })
+                            }
+                          >
+                            <UiIcon name="trash" size={15} />
+                            Delete
+                          </button>
+                        ) : null}
                       </div>
                     </span>
                   </div>
