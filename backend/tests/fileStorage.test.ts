@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
 import {
+  decodeManagedFileBackupBuffer,
+  encodeManagedFileBackupBuffer,
   createSupabaseStorageRef,
   isSupabaseStorageRef,
   localStoredFileSearchPaths,
@@ -56,4 +58,16 @@ test('localStoredFileSearchPaths builds candidate paths for legacy local uploads
     path.resolve(cwd, 'backend', 'uploads', 'legacy-photo.png'),
     path.resolve(cwd, '..', 'uploads', 'legacy-photo.png'),
   ]);
+});
+
+test('managed file backup buffers round-trip through compression encoding', async () => {
+  const original = Buffer.from('hello world '.repeat(300), 'utf8');
+  const encoded = await encodeManagedFileBackupBuffer(original);
+  const decoded = await decodeManagedFileBackupBuffer({
+    data: Uint8Array.from(encoded.storedBuffer),
+    encoding: encoded.encoding,
+  });
+
+  assert.equal(decoded.equals(original), true);
+  assert.ok(encoded.storedBuffer.length <= original.length);
 });

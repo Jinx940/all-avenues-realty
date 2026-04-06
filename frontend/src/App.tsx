@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   startTransition,
   useCallback,
   useDeferredValue,
@@ -40,14 +42,8 @@ import type {
   WorkerHistoryRow,
   WorkerSummary,
 } from './types';
-import { DashboardView } from './components/DashboardView';
-import { JobsView, type JobFormState } from './components/JobsView';
-import { PropertiesView, type PropertyFormState } from './components/PropertiesView';
-import { JobTrackerView } from './components/JobTrackerView';
-import { InvoiceQuoteView } from './components/InvoiceQuoteView';
-import { DocumentCenterView } from './components/DocumentCenterView';
-import { WorkersView } from './components/WorkersView';
-import { SettingsView } from './components/SettingsView';
+import type { JobFormState } from './components/JobsView';
+import type { PropertyFormState } from './components/PropertiesView';
 import { AdvanceCashAlertsBell } from './components/AdvanceCashAlertsBell';
 import { UiIcon } from './components/UiIcon';
 import { ConfirmDialog } from './components/ConfirmDialog';
@@ -68,6 +64,25 @@ import {
   unitHasAnyValue,
 } from './propertySpecs';
 import { pageMeta, readStoredSidebarPreference, roleTabs, sidebarPreferenceKey, tabs } from './lib/navigation';
+
+const DashboardView = lazy(() => import('./components/DashboardView').then((module) => ({ default: module.DashboardView })));
+const JobsView = lazy(() => import('./components/JobsView').then((module) => ({ default: module.JobsView })));
+const PropertiesView = lazy(() =>
+  import('./components/PropertiesView').then((module) => ({ default: module.PropertiesView })),
+);
+const JobTrackerView = lazy(() =>
+  import('./components/JobTrackerView').then((module) => ({ default: module.JobTrackerView })),
+);
+const InvoiceQuoteView = lazy(() =>
+  import('./components/InvoiceQuoteView').then((module) => ({ default: module.InvoiceQuoteView })),
+);
+const DocumentCenterView = lazy(() =>
+  import('./components/DocumentCenterView').then((module) => ({ default: module.DocumentCenterView })),
+);
+const WorkersView = lazy(() => import('./components/WorkersView').then((module) => ({ default: module.WorkersView })));
+const SettingsView = lazy(() =>
+  import('./components/SettingsView').then((module) => ({ default: module.SettingsView })),
+);
 
 type ConfirmDialogState = {
   title: string;
@@ -1666,6 +1681,7 @@ export default function App() {
         {message ? <div className={`flash ${message.type}`}>{message.text}</div> : null}
         {health?.database === 'down' ? <div className="flash info">The UI is ready, but PostgreSQL is not connected yet.</div> : null}
 
+        <Suspense fallback={<div className="empty-box">Loading panel...</div>}>
         {activeTab === 'dashboard' ? (
           <DashboardView
             dashboard={dashboard}
@@ -1870,6 +1886,7 @@ export default function App() {
             onLogout={() => void logout()}
           />
         ) : null}
+        </Suspense>
 
         <ConfirmDialog
           open={Boolean(confirmDialog)}

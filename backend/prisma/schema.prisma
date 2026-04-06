@@ -197,8 +197,10 @@ model ManagedFileBackup {
   id           String   @id @default(cuid())
   storedRef    String   @unique
   originalName String
+  encoding     String   @default("identity")
   mimeType     String
   size         Int
+  storedSize   Int      @default(0)
   data         Bytes
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -221,6 +223,8 @@ model GeneratedDocument {
 
   @@unique([documentType, documentNumber])
   @@index([propertyId, documentType])
+  @@index([issueDate, createdAt])
+  @@index([owner, documentType, issueDate])
 }
 
 model WorkerHistory {

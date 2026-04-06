@@ -35,7 +35,6 @@ import {
 import { env } from './env.js';
 import { buildInfo, buildSummary } from './lib/buildInfo.js';
 import { recordAuditLog } from './lib/audit.js';
-import { type AuthUser } from './lib/auth.js';
 import {
   requireAdmin,
   requireDocumentManager,
@@ -52,7 +51,7 @@ import {
   buildPropertyCoverUrl,
   sanitizeGeneratedDocumentHtml,
 } from './lib/documents.js';
-import { isDocumentNumberConflictError, nextDocumentNumberFromValues } from './lib/documentNumbers.js';
+import { isDocumentNumberConflictError, nextDocumentNumberFromDatabase } from './lib/documentNumbers.js';
 import { asyncRoute, HttpError, type AuthenticatedRequest } from './lib/http.js';
 import { prisma } from './lib/prisma.js';
 import { sessionMiddleware } from './lib/sessionAuth.js';
@@ -311,9 +310,6 @@ const parseNullableDate = (value: string | undefined) => {
   return date;
 };
 
-const sumBy = <T>(items: T[], getter: (item: T) => number) =>
-  items.reduce((total, item) => total + getter(item), 0);
-
 const summarizePropertyJobs = (
   jobs: Array<{ propertyId: string; status: JobStatus; dueDate: Date | null }>,
 ) => {
@@ -352,20 +348,6 @@ const documentOwnerLabels: Record<DocumentOwner, 'AZE' | 'Ryan'> = {
   [DocumentOwner.AZE]: 'AZE',
   [DocumentOwner.RYAN]: 'Ryan',
 };
-
-const countBy = <T>(items: T[], getKey: (item: T) => string) => {
-  const result = new Map<string, number>();
-  items.forEach((item) => {
-    const key = getKey(item);
-    result.set(key, (result.get(key) ?? 0) + 1);
-  });
-  return result;
-};
-
-const chartDataFrom = (map: Map<string, number>) =>
-  Array.from(map.entries())
-    .map(([label, value]) => ({ label, value }))
-    .sort((left, right) => right.value - left.value);
 
 const propertyDataFromDefaults = (
   specifications: (typeof defaultPropertySpecifications)[string] | undefined,
@@ -641,8 +623,10 @@ const serializeGeneratedDocument = (document: {
   createdAt: Date;
   updatedAt: Date;
   property: { id: string; name: string };
+  _count: {
+    files: number;
+  };
   files: Array<{
-    id: string;
     job: {
       id: string;
       story: string;
@@ -653,21 +637,14 @@ const serializeGeneratedDocument = (document: {
     };
   }>;
 }) => {
-  const linkedJobs = Array.from(
-    new Map(
-      document.files.map((file) => [
-        file.job.id,
-        {
-          id: file.job.id,
-          story: normalizeStoryInput(file.job.story),
-          unit: file.job.unit,
-          section: file.job.section,
-          area: file.job.area,
-          service: file.job.service,
-        },
-      ]),
-    ).values(),
-  );
+  const linkedJobs = document.files.map((file) => ({
+    id: file.job.id,
+    story: normalizeStoryInput(file.job.story),
+    unit: file.job.unit,
+    section: file.job.section,
+    area: file.job.area,
+    service: file.job.service,
+  }));
 
   return {
     id: document.id,
@@ -684,7 +661,7 @@ const serializeGeneratedDocument = (document: {
     updatedAt: document.updatedAt.toISOString(),
     url: buildGeneratedDocumentUrl(document.id),
     printUrl: buildGeneratedDocumentUrl(document.id, true),
-    linkedJobCount: linkedJobs.length,
+    linkedJobCount: document._count.files,
     linkedJobs,
   };
 };
@@ -759,71 +736,6 @@ const seedSystem = async () => {
   );
 
   return { properties: defaultProperties.length, workers: defaultWorkers.length };
-};
-
-const dashboardData = async (auth: AuthUser) => {
-  const jobs = await prisma.job.findMany({
-    where: roleScopeForJobs(auth),
-    include: {
-      property: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      assignments: {
-        include: {
-          worker: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  return {
-    stats: {
-      totalJobs: jobs.length,
-      doneJobs: jobs.filter((job) => job.status === JobStatus.DONE).length,
-      inProgressJobs: jobs.filter((job) => job.status === JobStatus.IN_PROGRESS).length,
-      pendingJobs: jobs.filter(
-        (job) => job.status === JobStatus.PENDING || job.status === JobStatus.PLANNING,
-      ).length,
-      lateJobs: jobs.filter(
-        (job) => job.status !== JobStatus.DONE && job.dueDate && job.dueDate < today(),
-      ).length,
-      unpaidOrPartial: jobs.filter(
-        (job) =>
-          job.paymentStatus === PaymentStatus.UNPAID ||
-          job.paymentStatus === PaymentStatus.PARTIAL_PAYMENT,
-      ).length,
-      materialTotal: sumBy(jobs, (job) => numericValue(job.materialCost)),
-      laborTotal: sumBy(jobs, (job) => numericValue(job.laborCost)),
-    },
-    charts: {
-      status: chartDataFrom(countBy(jobs, (job) => jobStatusLabels[job.status])),
-      payment: chartDataFrom(countBy(jobs, (job) => paymentStatusLabels[job.paymentStatus])),
-      workers: chartDataFrom(
-        countBy(
-          jobs.flatMap((job) => job.assignments.map((assignment) => assignment.worker)),
-          (worker) => worker.name,
-        ),
-      ).slice(0, 8),
-      timeline: chartDataFrom(
-        countBy(jobs, (job) => {
-          if (job.status === JobStatus.DONE) return 'Done';
-          if (!job.dueDate) return 'No due date';
-          if (job.dueDate < today()) return 'Overdue';
-          const diffDays = Math.ceil((job.dueDate.getTime() - today().getTime()) / 86400000);
-          return diffDays <= 7 ? 'Due soon' : 'Upcoming';
-        }),
-      ),
-      properties: chartDataFrom(countBy(jobs, (job) => job.property.name)).slice(0, 8),
-    },
-  };
 };
 
 
@@ -1315,7 +1227,7 @@ app.post(
       results.forEach(({ candidate, result }) => {
         if (result.status === 'backed_up') {
           summary.createdBackups += 1;
-          summary.totalBytesStored += result.size;
+          summary.totalBytesStored += result.storedSize;
           return;
         }
 
@@ -1421,19 +1333,6 @@ app.get(
   }),
 );
 
-app.get(
-  '/api/dashboard',
-  asyncRoute(async (request, response) => {
-    const auth = (request as AuthenticatedRequest).auth;
-    if (!auth) {
-      response.status(401).json({ message: 'Authentication required.' });
-      return;
-    }
-
-    response.json(await dashboardData(auth));
-  }),
-);
-
 registerUserRoutes(app);
 
 app.get(
@@ -1490,13 +1389,8 @@ app.get(
         ? GeneratedDocumentType.QUOTE
         : GeneratedDocumentType.INVOICE;
 
-    const numbers = await prisma.generatedDocument.findMany({
-      where: { documentType },
-      select: { documentNumber: true },
-    });
-
     response.json({
-      nextNumber: nextDocumentNumberFromValues(numbers.map((item) => item.documentNumber)),
+      nextNumber: await nextDocumentNumberFromDatabase(prisma, documentType),
     });
   }),
 );
@@ -1564,15 +1458,32 @@ app.get(
           : {}),
       },
       orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
-      include: {
+      select: {
+        id: true,
+        documentType: true,
+        owner: true,
+        documentNumber: true,
+        fileName: true,
+        issueDate: true,
+        createdAt: true,
+        updatedAt: true,
         property: {
           select: {
             id: true,
             name: true,
           },
         },
+        _count: {
+          select: {
+            files: true,
+          },
+        },
         files: {
-          include: {
+          orderBy: {
+            jobId: 'asc',
+          },
+          take: 3,
+          select: {
             job: {
               select: {
                 id: true,

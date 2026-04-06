@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { brotliCompress, brotliDecompress, constants as zlibConstants } from 'node:zlib';
+import { promisify } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
 import type { Express } from 'express';
 import { env } from '../env.js';
@@ -12,6 +14,9 @@ import {
 } from './uploads.js';
 
 const supabaseStorageRefPrefix = 'supabase:';
+const brotliCompressAsync = promisify(brotliCompress);
+const brotliDecompressAsync = promisify(brotliDecompress);
+export const managedFileBackupCompressionEncoding = 'br';
 
 const sanitizePathSegment = (value: string) =>
   String(value ?? '')
@@ -97,6 +102,34 @@ export const localStoredFileSearchPaths = (
   );
 };
 
+export const encodeManagedFileBackupBuffer = async (buffer: Buffer) => {
+  const compressedBuffer = await brotliCompressAsync(buffer, {
+    params: {
+      [zlibConstants.BROTLI_PARAM_QUALITY]: 5,
+    },
+  });
+  const shouldStoreCompressed = compressedBuffer.length + 32 < buffer.length;
+  return {
+    encoding: shouldStoreCompressed ? managedFileBackupCompressionEncoding : 'identity',
+    storedBuffer: shouldStoreCompressed ? compressedBuffer : buffer,
+  };
+};
+
+export const decodeManagedFileBackupBuffer = async ({
+  data,
+  encoding,
+}: {
+  data: Uint8Array;
+  encoding: string | null;
+}) => {
+  const buffer = Buffer.from(data);
+  if (encoding === managedFileBackupCompressionEncoding) {
+    return Buffer.from(await brotliDecompressAsync(buffer));
+  }
+
+  return buffer;
+};
+
 const upsertManagedFileBackup = async ({
   storedRef,
   originalName,
@@ -108,24 +141,35 @@ const upsertManagedFileBackup = async ({
   mimeType: string;
   buffer: Buffer;
 }) => {
-  const binaryData = Uint8Array.from(buffer);
+  const { encoding, storedBuffer } = await encodeManagedFileBackupBuffer(buffer);
+  const binaryData = Uint8Array.from(storedBuffer);
 
-  await prisma.managedFileBackup.upsert({
+  const backup = await prisma.managedFileBackup.upsert({
     where: { storedRef },
     create: {
       storedRef,
       originalName,
+      encoding,
       mimeType,
       size: buffer.length,
+      storedSize: storedBuffer.length,
       data: binaryData,
     },
     update: {
       originalName,
+      encoding,
       mimeType,
       size: buffer.length,
+      storedSize: storedBuffer.length,
       data: binaryData,
     },
   });
+
+  return {
+    size: backup.size,
+    storedSize: backup.storedSize,
+    encoding: backup.encoding,
+  };
 };
 
 const readManagedFileBackup = async (storedRef: string) =>
@@ -133,6 +177,9 @@ const readManagedFileBackup = async (storedRef: string) =>
     where: { storedRef },
     select: {
       storedRef: true,
+      encoding: true,
+      size: true,
+      storedSize: true,
       data: true,
       mimeType: true,
     },
@@ -178,7 +225,7 @@ export const syncManagedFileBackupFromSource = async ({
       ? managedFile.buffer
       : await fs.promises.readFile(managedFile.filePath);
 
-  await upsertManagedFileBackup({
+  const backup = await upsertManagedFileBackup({
     storedRef,
     originalName,
     mimeType: managedFile.kind === 'buffer' ? managedFile.mimeType || mimeType : mimeType,
@@ -187,7 +234,8 @@ export const syncManagedFileBackupFromSource = async ({
 
   return {
     status: 'backed_up' as const,
-    size: buffer.length,
+    size: backup.size,
+    storedSize: backup.storedSize,
   };
 };
 
@@ -411,9 +459,10 @@ export const readManagedFile = async (storedRef: string) => {
     if (!storagePath || !supabase || !env.supabase) {
       const backup = await readManagedFileBackup(storedRef);
       if (backup) {
+        const restoredBuffer = await decodeManagedFileBackupBuffer(backup);
         return {
           kind: 'buffer' as const,
-          buffer: Buffer.from(backup.data),
+          buffer: restoredBuffer,
           mimeType: backup.mimeType || null,
         };
       }
@@ -428,10 +477,11 @@ export const readManagedFile = async (storedRef: string) => {
     if (error || !data) {
       const backup = await readManagedFileBackup(storedRef);
       if (backup) {
-        await restorePrimaryManagedBuffer(storedRef, Buffer.from(backup.data), backup.mimeType).catch(() => undefined);
+        const restoredBuffer = await decodeManagedFileBackupBuffer(backup);
+        await restorePrimaryManagedBuffer(storedRef, restoredBuffer, backup.mimeType).catch(() => undefined);
         return {
           kind: 'buffer' as const,
-          buffer: Buffer.from(backup.data),
+          buffer: restoredBuffer,
           mimeType: backup.mimeType || null,
         };
       }
@@ -453,9 +503,10 @@ export const readManagedFile = async (storedRef: string) => {
   if (!filePath) {
     const backup = await readManagedFileBackup(storedRef);
     if (backup) {
+      const restoredBuffer = await decodeManagedFileBackupBuffer(backup);
       const restoredFilePath = await restorePrimaryManagedBuffer(
         storedRef,
-        Buffer.from(backup.data),
+        restoredBuffer,
         backup.mimeType,
       ).catch(() => null);
       if (restoredFilePath) {
@@ -467,7 +518,7 @@ export const readManagedFile = async (storedRef: string) => {
 
       return {
         kind: 'buffer' as const,
-        buffer: Buffer.from(backup.data),
+        buffer: restoredBuffer,
         mimeType: backup.mimeType || null,
       };
     }
