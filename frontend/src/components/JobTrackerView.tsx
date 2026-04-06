@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { buildAssetUrl } from '../lib/api';
 import { formatDate, formatMoney } from '../lib/format';
 import { formatAreaServiceLabel, formatStoryDisplayLabel } from '../lib/jobLocation';
@@ -129,6 +129,72 @@ const buildTrackerSelectOptions = (
       label: labelFormatter ? labelFormatter(value) : value,
     }));
 
+type TrackerUnitGroup = {
+  key: string;
+  unit: string;
+  jobs: JobRow[];
+};
+
+type TrackerStoryGroup = {
+  key: string;
+  story: string;
+  units: TrackerUnitGroup[];
+};
+
+type TrackerPropertyGroup = {
+  key: string;
+  propertyId: string;
+  propertyName: string;
+  stories: TrackerStoryGroup[];
+};
+
+const buildTrackerPreviewLabels = (values: string[]) =>
+  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort(trackerValueSort);
+
+const groupTrackerJobs = (jobs: JobRow[]): TrackerPropertyGroup[] => {
+  const propertyGroups: TrackerPropertyGroup[] = [];
+  const propertyIndex = new Map<string, TrackerPropertyGroup>();
+
+  for (const job of jobs) {
+    const propertyKey = job.propertyId || job.propertyName;
+    let propertyGroup = propertyIndex.get(propertyKey);
+    if (!propertyGroup) {
+      propertyGroup = {
+        key: propertyKey,
+        propertyId: job.propertyId,
+        propertyName: job.propertyName,
+        stories: [],
+      };
+      propertyIndex.set(propertyKey, propertyGroup);
+      propertyGroups.push(propertyGroup);
+    }
+
+    let storyGroup = propertyGroup.stories.find((story) => story.story === job.story);
+    if (!storyGroup) {
+      storyGroup = {
+        key: `${propertyKey}:${job.story || 'no-story'}`,
+        story: job.story,
+        units: [],
+      };
+      propertyGroup.stories.push(storyGroup);
+    }
+
+    let unitGroup = storyGroup.units.find((unit) => unit.unit === job.unit);
+    if (!unitGroup) {
+      unitGroup = {
+        key: `${storyGroup.key}:${job.unit || 'no-unit'}`,
+        unit: job.unit,
+        jobs: [],
+      };
+      storyGroup.units.push(unitGroup);
+    }
+
+    unitGroup.jobs.push(job);
+  }
+
+  return propertyGroups;
+};
+
 const triggerDownload = (url: string, fileName: string) => {
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -233,6 +299,158 @@ export function JobTrackerView({
   const unitOptions = buildTrackerSelectOptions(storyScopedJobs.map((job) => job.unit));
   const areaOptions = buildTrackerSelectOptions(unitScopedJobs.map((job) => job.area));
   const serviceOptions = buildTrackerSelectOptions(areaScopedJobs.map((job) => job.service));
+  const groupedJobs = useMemo(() => groupTrackerJobs(jobs), [jobs]);
+  const renderTrackerUnitJobRow = (job: JobRow) => {
+    const timelineVisual = timelineVisualFor(job);
+
+    return (
+      <div key={job.id} className={`tracker-unit-job-row tracker-unit-job-row--tone-${timelineVisual.tone}`}>
+        <span className="tracker-area-cell">{job.area || '-'}</span>
+        <div className="tracker-service-details">
+          <div className="tracker-service-summary">
+            <span className="tracker-service-summary-copy">
+              <strong className="tracker-service-name">{job.service}</strong>
+              <button
+                type="button"
+                className="tracker-service-summary-note tracker-service-trigger"
+                onClick={() => setDescriptionJob(job)}
+              >
+                View description
+              </button>
+            </span>
+          </div>
+        </div>
+        <div className="tracker-cell-stack tracker-cell-stack--worker">
+          {job.workers.length ? (
+            job.workers.map((worker) => (
+              <span key={worker.id} className={`tracker-worker-pill ${getWorkerAccentClass(worker)}`}>
+                {worker.name}
+              </span>
+            ))
+          ) : (
+            <span className="tracker-empty-mark">-</span>
+          )}
+        </div>
+        <span>{formatMoney(job.materialCost)}</span>
+        <span>
+          {job.files.receipt[0] ? (
+            <button
+              type="button"
+              className="tracker-receipt-trigger"
+              onClick={() => setReceiptPreview({ job, file: job.files.receipt[0] })}
+            >
+              {job.files.receipt[0].name}
+            </button>
+          ) : (
+            <span className="tracker-empty-mark">-</span>
+          )}
+        </span>
+        <span>{formatMoney(job.laborCost)}</span>
+        <div className="tracker-timeline-cell">
+          <div className="tracker-timeline-top">
+            <span className="tracker-date-range">{dateRangeFor(job)}</span>
+            {canManage && job.status !== 'DONE' ? (
+              <button
+                type="button"
+                className={`pill tone-${timelineVisual.tone} tracker-pill-button`}
+                onClick={() => onWorkStatusAction(job)}
+              >
+                {timelineVisual.badge}
+              </button>
+            ) : (
+              <span className={`pill tone-${timelineVisual.tone}`}>{timelineVisual.badge}</span>
+            )}
+          </div>
+          <div className="tracker-timeline-bar">
+            <div
+              className={`tracker-timeline-fill tracker-timeline-fill--${timelineVisual.tone}`}
+              style={{ width: `${timelineVisual.progress}%` }}
+            />
+          </div>
+          <small>{timelineVisual.caption}</small>
+        </div>
+        <div className="tracker-media-actions">
+          {job.files.before[0] || job.files.after[0] ? (
+            <button
+              type="button"
+              className="tracker-media-button"
+              onClick={() => setMediaDialog({ mode: 'compare', job })}
+            >
+              <UiIcon name="image" size={14} />
+              Before / After
+            </button>
+          ) : null}
+
+          {job.files.progress.length ? (
+            <button
+              type="button"
+              className="tracker-media-button tracker-media-button--progress"
+              onClick={() => setMediaDialog({ mode: 'progress', job })}
+            >
+              <UiIcon name="camera" size={14} />
+              Progress {job.files.progress.length > 1 ? `(${job.files.progress.length})` : ''}
+            </button>
+          ) : null}
+
+          {!job.files.before[0] && !job.files.after[0] && !job.files.progress.length ? (
+            <span className="tracker-empty-mark">-</span>
+          ) : null}
+        </div>
+        <div className="tracker-status-cell">
+          {canManage && job.status !== 'DONE' ? (
+            <button
+              type="button"
+              className={`pill tone-${statusToneFor(job)} tracker-pill-button`}
+              onClick={() => onWorkStatusAction(job)}
+            >
+              {job.statusLabel}
+            </button>
+          ) : (
+            <span className={`pill tone-${statusToneFor(job)}`}>{job.statusLabel}</span>
+          )}
+        </div>
+        <span>
+          <span className={`pill tone-${invoiceToneFor(job)}`}>{job.invoiceStatusLabel}</span>
+        </span>
+        <div className="tracker-payment-cell">
+          {canManage && job.paymentStatus !== 'PAID' ? (
+            <button
+              type="button"
+              className={`pill tone-${paymentToneFor(job)} tracker-pill-button`}
+              onClick={() => onPaymentStatusAction(job)}
+            >
+              {job.paymentStatusLabel}
+            </button>
+          ) : (
+            <span className={`pill tone-${paymentToneFor(job)}`}>{job.paymentStatusLabel}</span>
+          )}
+          {job.advanceCashApp > 0 ? (
+            <small className="tracker-payment-advance">Advance Cash App: {formatMoney(job.advanceCashApp)}</small>
+          ) : null}
+        </div>
+        <div className="tracker-actions-cell">
+          {canManage ? (
+            <div className="tracker-row-tools tracker-row-tools--actions">
+              <button type="button" className="ghost-button tracker-mini-button" onClick={() => onEdit(job)}>
+                <UiIcon name="file" size={13} />
+                Edit
+              </button>
+              <button
+                type="button"
+                className="records-danger-button records-action-button tracker-mini-button"
+                onClick={() => onDelete(job.id)}
+              >
+                <UiIcon name="trash" size={13} />
+                Delete
+              </button>
+            </div>
+          ) : (
+            <span className="tracker-empty-mark">-</span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <section className="tab-panel">
@@ -331,193 +549,138 @@ export function JobTrackerView({
         </div>
 
         <div className="tracker-table-shell">
-          <div className="tracker-table tracker-table--central">
-            <div className="tracker-row tracker-row--central tracker-header">
-              <span>Property</span>
-              <span>Floor</span>
-              <span>Unit</span>
-              <span>Area</span>
-              <span>Services</span>
-              <span>Worker</span>
-              <span>Material cost per Unit</span>
-              <span>Receipt</span>
-              <span>Labor</span>
-              <span>Timeline</span>
-              <span>Pictures</span>
-              <span>Work Status</span>
-              <span>Invoice Status</span>
-              <span>Payment Status</span>
-              <span>Actions</span>
-            </div>
-
-            {jobs.length ? (
-              jobs.map((job) => {
-                const timelineVisual = timelineVisualFor(job);
+          {jobs.length ? (
+            <div className="tracker-group-list">
+              {groupedJobs.map((propertyGroup) => {
+                const propertyOpen = groupedJobs.length === 1 || filters.propertyId === propertyGroup.propertyId;
+                const propertyUnitCount = propertyGroup.stories.reduce(
+                  (sum, storyGroup) => sum + storyGroup.units.length,
+                  0,
+                );
+                const propertyJobCount = propertyGroup.stories.reduce(
+                  (sum, storyGroup) =>
+                    sum + storyGroup.units.reduce((inner, unitGroup) => inner + unitGroup.jobs.length, 0),
+                  0,
+                );
 
                 return (
-                  <div
-                    key={job.id}
-                    className={`tracker-row tracker-row--central tracker-row--tone-${timelineVisual.tone}`}
+                  <details
+                    key={propertyGroup.key}
+                    className="tracker-group-card tracker-group-card--property"
+                    {...(propertyOpen ? { open: true } : {})}
                   >
-                    <span className="tracker-property-cell">{job.propertyName}</span>
-                    <span className="tracker-story-cell">{formatStoryDisplayLabel(job.story) || '-'}</span>
-                    <span className="tracker-unit-cell">{job.unit || '-'}</span>
-                    <span className="tracker-area-cell">{job.area || '-'}</span>
-                    <div className="tracker-service-details">
-                      <div className="tracker-service-summary">
-                        <span className="tracker-service-summary-copy">
-                          <strong className="tracker-service-name">{job.service}</strong>
-                          <button
-                            type="button"
-                            className="tracker-service-summary-note tracker-service-trigger"
-                            onClick={() => setDescriptionJob(job)}
-                          >
-                            View description
-                          </button>
-                        </span>
-                      </div>
-                    </div>
-                    <div className="tracker-cell-stack tracker-cell-stack--worker">
-                      {job.workers.length ? (
-                        job.workers.map((worker) => (
-                          <span key={worker.id} className={`tracker-worker-pill ${getWorkerAccentClass(worker)}`}>
-                            {worker.name}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="tracker-empty-mark">-</span>
-                      )}
-                    </div>
-                    <span>{formatMoney(job.materialCost)}</span>
-                    <span>
-                      {job.files.receipt[0] ? (
-                        <button
-                          type="button"
-                          className="tracker-receipt-trigger"
-                          onClick={() => setReceiptPreview({ job, file: job.files.receipt[0] })}
-                        >
-                          {job.files.receipt[0].name}
-                        </button>
-                      ) : (
-                        <span className="tracker-empty-mark">-</span>
-                      )}
-                    </span>
-                    <span>{formatMoney(job.laborCost)}</span>
-                    <div className="tracker-timeline-cell">
-                      <div className="tracker-timeline-top">
-                        <span className="tracker-date-range">{dateRangeFor(job)}</span>
-                        {canManage && job.status !== 'DONE' ? (
-                          <button
-                            type="button"
-                            className={`pill tone-${timelineVisual.tone} tracker-pill-button`}
-                            onClick={() => onWorkStatusAction(job)}
-                          >
-                            {timelineVisual.badge}
-                          </button>
-                        ) : (
-                          <span className={`pill tone-${timelineVisual.tone}`}>{timelineVisual.badge}</span>
-                        )}
-                      </div>
-                      <div className="tracker-timeline-bar">
-                        <div
-                          className={`tracker-timeline-fill tracker-timeline-fill--${timelineVisual.tone}`}
-                          style={{ width: `${timelineVisual.progress}%` }}
-                        />
-                      </div>
-                      <small>{timelineVisual.caption}</small>
-                    </div>
-                    <div className="tracker-media-actions">
-                      {job.files.before[0] || job.files.after[0] ? (
-                        <button
-                          type="button"
-                          className="tracker-media-button"
-                          onClick={() => setMediaDialog({ mode: 'compare', job })}
-                        >
-                          <UiIcon name="image" size={14} />
-                          Before / After
-                        </button>
-                      ) : null}
-
-                      {job.files.progress.length ? (
-                        <button
-                          type="button"
-                          className="tracker-media-button tracker-media-button--progress"
-                          onClick={() => setMediaDialog({ mode: 'progress', job })}
-                        >
-                          <UiIcon name="camera" size={14} />
-                          Progress {job.files.progress.length > 1 ? `(${job.files.progress.length})` : ''}
-                        </button>
-                      ) : null}
-
-                      {!job.files.before[0] && !job.files.after[0] && !job.files.progress.length ? (
-                        <span className="tracker-empty-mark">-</span>
-                      ) : null}
-                    </div>
-                    <div className="tracker-status-cell">
-                      {canManage && job.status !== 'DONE' ? (
-                        <button
-                          type="button"
-                          className={`pill tone-${statusToneFor(job)} tracker-pill-button`}
-                          onClick={() => onWorkStatusAction(job)}
-                        >
-                          {job.statusLabel}
-                        </button>
-                      ) : (
-                        <span className={`pill tone-${statusToneFor(job)}`}>{job.statusLabel}</span>
-                      )}
-                    </div>
-                    <span>
-                      <span className={`pill tone-${invoiceToneFor(job)}`}>{job.invoiceStatusLabel}</span>
-                    </span>
-                    <div className="tracker-payment-cell">
-                      {canManage && job.paymentStatus !== 'PAID' ? (
-                        <button
-                          type="button"
-                          className={`pill tone-${paymentToneFor(job)} tracker-pill-button`}
-                          onClick={() => onPaymentStatusAction(job)}
-                        >
-                          {job.paymentStatusLabel}
-                        </button>
-                      ) : (
-                        <span className={`pill tone-${paymentToneFor(job)}`}>{job.paymentStatusLabel}</span>
-                      )}
-                      {job.advanceCashApp > 0 ? (
-                        <small className="tracker-payment-advance">
-                          Advance Cash App: {formatMoney(job.advanceCashApp)}
-                        </small>
-                      ) : null}
-                    </div>
-                    <div className="tracker-actions-cell">
-                      {canManage ? (
-                        <div className="tracker-row-tools tracker-row-tools--actions">
-                          <button
-                            type="button"
-                            className="ghost-button tracker-mini-button"
-                            onClick={() => onEdit(job)}
-                          >
-                            <UiIcon name="file" size={13} />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="records-danger-button records-action-button tracker-mini-button"
-                            onClick={() => onDelete(job.id)}
-                          >
-                            <UiIcon name="trash" size={13} />
-                            Delete
-                          </button>
+                    <summary className="tracker-group-summary tracker-group-summary--property">
+                      <div className="tracker-group-summary-main">
+                        <span className="tracker-group-caret" />
+                        <div className="tracker-group-copy">
+                          <strong>{propertyGroup.propertyName}</strong>
+                          <small>
+                            {propertyGroup.stories.length} floor(s) · {propertyUnitCount} unit(s) · {propertyJobCount}{' '}
+                            row(s)
+                          </small>
                         </div>
-                      ) : (
-                        <span className="tracker-empty-mark">-</span>
-                      )}
+                      </div>
+                      <div className="tracker-group-meta">
+                        <span className="tracker-group-badge">Property</span>
+                      </div>
+                    </summary>
+
+                    <div className="tracker-group-body">
+                      {propertyGroup.stories.map((storyGroup) => {
+                        const storyOpen =
+                          (propertyOpen && propertyGroup.stories.length === 1) || filters.story === storyGroup.story;
+
+                        return (
+                          <details
+                            key={storyGroup.key}
+                            className="tracker-group-card tracker-group-card--story"
+                            {...(storyOpen ? { open: true } : {})}
+                          >
+                            <summary className="tracker-group-summary tracker-group-summary--story">
+                              <div className="tracker-group-summary-main">
+                                <span className="tracker-group-caret" />
+                                <div className="tracker-group-copy">
+                                  <strong>{formatStoryDisplayLabel(storyGroup.story) || '-'}</strong>
+                                  <small>{storyGroup.units.length} unit(s)</small>
+                                </div>
+                              </div>
+                              <div className="tracker-group-meta">
+                                <span className="tracker-group-badge tracker-group-badge--soft">Floor</span>
+                              </div>
+                            </summary>
+
+                            <div className="tracker-group-body">
+                              {storyGroup.units.map((unitGroup) => {
+                                const unitOpen =
+                                  (storyOpen && storyGroup.units.length === 1) || filters.unit === unitGroup.unit;
+                                const areaPreview = buildTrackerPreviewLabels(
+                                  unitGroup.jobs.map((job) => job.area || 'No area'),
+                                );
+
+                                return (
+                                  <details
+                                    key={unitGroup.key}
+                                    className="tracker-group-card tracker-group-card--unit"
+                                    {...(unitOpen ? { open: true } : {})}
+                                  >
+                                    <summary className="tracker-group-summary tracker-group-summary--unit">
+                                      <div className="tracker-group-summary-main">
+                                        <span className="tracker-group-caret" />
+                                        <div className="tracker-group-copy">
+                                          <strong>{unitGroup.unit || '-'}</strong>
+                                          <small>{unitGroup.jobs.length} area/service row(s)</small>
+                                        </div>
+                                      </div>
+                                      <div className="tracker-group-preview">
+                                        {areaPreview.slice(0, 3).map((label) => (
+                                          <span key={label} className="tracker-group-preview-chip">
+                                            {label}
+                                          </span>
+                                        ))}
+                                        {areaPreview.length > 3 ? (
+                                          <span className="tracker-group-preview-chip tracker-group-preview-chip--more">
+                                            +{areaPreview.length - 3} more
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    </summary>
+
+                                    <div className="tracker-group-body">
+                                      <div className="tracker-unit-job-table-shell">
+                                        <div className="tracker-unit-job-table">
+                                          <div className="tracker-unit-job-row tracker-unit-job-row--header">
+                                            <span>Area</span>
+                                            <span>Services</span>
+                                            <span>Worker</span>
+                                            <span>Material cost per Unit</span>
+                                            <span>Receipt</span>
+                                            <span>Labor</span>
+                                            <span>Timeline</span>
+                                            <span>Pictures</span>
+                                            <span>Work Status</span>
+                                            <span>Invoice</span>
+                                            <span>Payment</span>
+                                            <span>Actions</span>
+                                          </div>
+                                          {unitGroup.jobs.map(renderTrackerUnitJobRow)}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </details>
+                                );
+                              })}
+                            </div>
+                          </details>
+                        );
+                      })}
                     </div>
-                  </div>
+                  </details>
                 );
-              })
-            ) : (
-              <div className="empty-box">No jobs match the active filters.</div>
-            )}
-          </div>
+              })}
+            </div>
+          ) : (
+            <div className="empty-box">No jobs match the active filters.</div>
+          )}
         </div>
       </div>
 
