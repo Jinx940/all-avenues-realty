@@ -700,17 +700,13 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         .map(
           (sentence, index) => `
             <tr>
-              ${
-                index === 0
-                  ? `<td class="merge-service" rowspan="${group.sentences.length}">${escapeHtml(group.service)}</td>`
-                  : ''
-              }
+              <td class="service-cell${index === 0 ? '' : ' is-empty'}">${
+                index === 0 ? escapeHtml(group.service) : '&nbsp;'
+              }</td>
               <td class="desc-cell">${escapeHtml(sentence)}</td>
-              ${
-                index === 0
-                  ? `<td class="merge-price" rowspan="${group.sentences.length}">${formatPdfMoney(group.totalPrice)}</td>`
-                  : ''
-              }
+              <td class="price-cell${index === 0 ? '' : ' is-empty'}">${
+                index === 0 ? formatPdfMoney(group.totalPrice) : '&nbsp;'
+              }</td>
             </tr>
           `,
         )
@@ -757,10 +753,11 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           th, td { border: 1px solid #1f4dbb; padding: 8px; word-wrap: break-word; color: #1f4dbb; }
           th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
           td.desc-cell { text-align: left; }
-          td.merge-service { text-align: center; vertical-align: middle; font-weight: 800; width: 22%; }
-          td.merge-price { text-align: center; vertical-align: middle; font-weight: 800; width: 18%; }
+          td.service-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 22%; }
+          td.price-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 18%; }
           .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
           .amount-blue { text-align: center; color: #1f4dbb; font-weight: 800; font-size: 11px; vertical-align: middle; }
+          td.is-empty { color: transparent; }
           .top-details-wrap { border-top: 3px solid #1f4dbb; margin-top: 8px; padding-top: 12px; margin-bottom: 14px; }
           .payment-title { color: #1f4dbb; font-weight: 800; font-size: 14px; display: block; margin-bottom: 6px; }
           .payment-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; }
