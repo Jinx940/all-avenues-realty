@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type MouseEvent } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { buildAssetUrl } from '../lib/api';
 import { formatDate, formatMoney } from '../lib/format';
 import { formatAreaServiceLabel, formatStoryDisplayLabel } from '../lib/jobLocation';
@@ -129,74 +129,6 @@ const buildTrackerSelectOptions = (
       label: labelFormatter ? labelFormatter(value) : value,
     }));
 
-const closeTrackerFilterDropdown = (event: MouseEvent<HTMLButtonElement>) => {
-  const details = event.currentTarget.closest('details');
-  if (details instanceof HTMLDetailsElement) {
-    details.open = false;
-  }
-};
-
-function TrackerFilterDropdown({
-  label,
-  allLabel,
-  value,
-  options,
-  onSelect,
-  emptyMessage,
-}: {
-  label: string;
-  allLabel: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onSelect: (nextValue: string) => void;
-  emptyMessage: string;
-}) {
-  const activeLabel = value
-    ? options.find((option) => option.value === value)?.label ?? value
-    : allLabel;
-
-  return (
-    <div className="tracker-filter-dropdown-field">
-      <span>{label}</span>
-      <details className={`tracker-filter-dropdown ${value ? 'is-active' : ''}`.trim()}>
-        <summary>
-          <span className="tracker-filter-dropdown-value">{activeLabel}</span>
-          <span className="tracker-filter-dropdown-arrow" />
-        </summary>
-        <div className="tracker-filter-dropdown-menu">
-          <button
-            type="button"
-            className={`tracker-filter-dropdown-option ${!value ? 'is-active' : ''}`.trim()}
-            onClick={(event) => {
-              onSelect('');
-              closeTrackerFilterDropdown(event);
-            }}
-          >
-            {allLabel}
-          </button>
-          {options.length ? (
-            options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`tracker-filter-dropdown-option ${value === option.value ? 'is-active' : ''}`.trim()}
-                onClick={(event) => {
-                  onSelect(option.value);
-                  closeTrackerFilterDropdown(event);
-                }}
-              >
-                {option.label}
-              </button>
-            ))
-          ) : (
-            <div className="tracker-filter-dropdown-empty">{emptyMessage}</div>
-          )}
-        </div>
-      </details>
-    </div>
-  );
-}
-
 const triggerDownload = (url: string, fileName: string) => {
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -288,10 +220,19 @@ export function JobTrackerView({
   const storyScopedJobs = filters.story
     ? propertyScopedJobs.filter((job) => job.story === filters.story)
     : propertyScopedJobs;
-  const storyOptions = buildTrackerSelectOptions(propertyScopedJobs.map((job) => job.story), formatStoryDisplayLabel);
+  const unitScopedJobs = filters.unit
+    ? storyScopedJobs.filter((job) => job.unit === filters.unit)
+    : storyScopedJobs;
+  const areaScopedJobs = filters.area
+    ? unitScopedJobs.filter((job) => job.area === filters.area)
+    : unitScopedJobs;
+  const storyOptions = buildTrackerSelectOptions(
+    propertyScopedJobs.map((job) => job.story),
+    formatStoryDisplayLabel,
+  );
   const unitOptions = buildTrackerSelectOptions(storyScopedJobs.map((job) => job.unit));
-  const areaOptions = buildTrackerSelectOptions(propertyScopedJobs.map((job) => job.area));
-  const serviceOptions = buildTrackerSelectOptions(propertyScopedJobs.map((job) => job.service));
+  const areaOptions = buildTrackerSelectOptions(unitScopedJobs.map((job) => job.area));
+  const serviceOptions = buildTrackerSelectOptions(areaScopedJobs.map((job) => job.service));
 
   return (
     <section className="tab-panel">
@@ -326,27 +267,29 @@ export function JobTrackerView({
             </select>
           </label>
 
-          <TrackerFilterDropdown
-            label="Floor"
-            allLabel="All floors"
-            value={filters.story}
-            options={storyOptions}
-            onSelect={(nextValue) => onFilterChange('story', nextValue)}
-            emptyMessage="No floors available for this property."
-          />
+          <label>
+            Floor
+            <select value={filters.story} onChange={(event) => onFilterChange('story', event.target.value)}>
+              <option value="">All</option>
+              {storyOptions.map((story) => (
+                <option key={story.value} value={story.value}>
+                  {story.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <TrackerFilterDropdown
-            label="Unit"
-            allLabel="All units"
-            value={filters.unit}
-            options={unitOptions}
-            onSelect={(nextValue) => onFilterChange('unit', nextValue)}
-            emptyMessage={
-              filters.story
-                ? 'No units available for this floor.'
-                : 'Select a property or floor to narrow units.'
-            }
-          />
+          <label>
+            Unit
+            <select value={filters.unit} onChange={(event) => onFilterChange('unit', event.target.value)}>
+              <option value="">All</option>
+              {unitOptions.map((unit) => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label>
             Area

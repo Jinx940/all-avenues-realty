@@ -822,6 +822,21 @@ export default function App() {
               ...current,
               story: value,
               unit: '',
+              area: '',
+              service: '',
+            }
+        : field === 'unit'
+          ? {
+              ...current,
+              unit: value,
+              area: '',
+              service: '',
+            }
+        : field === 'area'
+          ? {
+              ...current,
+              area: value,
+              service: '',
             }
         : {
             ...current,
