@@ -6052,13 +6052,31 @@ textarea {
   overflow: hidden;
 }
 
+.tracker-compare-split-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+}
+
+.tracker-compare-split-panel {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.tracker-compare-split-panel--before {
+  border-right: 1px solid rgba(154, 176, 194, 0.16);
+}
+
 .tracker-compare-panel--single {
   position: relative;
   inset: auto;
 }
 
 .tracker-compare-panel--before .tracker-compare-image,
-.tracker-compare-panel--after .tracker-compare-image {
+.tracker-compare-panel--after .tracker-compare-image,
+.tracker-compare-split-panel .tracker-compare-image {
   padding: 16px clamp(16px, 3.2%, 30px) 18px;
   object-position: center center;
 }
