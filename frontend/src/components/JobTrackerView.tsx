@@ -132,6 +132,12 @@ const buildTrackerSelectOptions = (
 type TrackerUnitGroup = {
   key: string;
   unit: string;
+  areas: TrackerAreaGroup[];
+};
+
+type TrackerAreaGroup = {
+  key: string;
+  area: string;
   jobs: JobRow[];
 };
 
@@ -184,12 +190,22 @@ const groupTrackerJobs = (jobs: JobRow[]): TrackerPropertyGroup[] => {
       unitGroup = {
         key: `${storyGroup.key}:${job.unit || 'no-unit'}`,
         unit: job.unit,
-        jobs: [],
+        areas: [],
       };
       storyGroup.units.push(unitGroup);
     }
 
-    unitGroup.jobs.push(job);
+    let areaGroup = unitGroup.areas.find((area) => area.area === job.area);
+    if (!areaGroup) {
+      areaGroup = {
+        key: `${unitGroup.key}:${job.area || 'no-area'}`,
+        area: job.area,
+        jobs: [],
+      };
+      unitGroup.areas.push(areaGroup);
+    }
+
+    areaGroup.jobs.push(job);
   }
 
   return propertyGroups;
@@ -305,7 +321,6 @@ export function JobTrackerView({
 
     return (
       <div key={job.id} className={`tracker-unit-job-row tracker-unit-job-row--tone-${timelineVisual.tone}`}>
-        <span className="tracker-area-cell">{job.area || '-'}</span>
         <div className="tracker-service-details">
           <div className="tracker-service-summary">
             <span className="tracker-service-summary-copy">
@@ -559,7 +574,12 @@ export function JobTrackerView({
                 );
                 const propertyJobCount = propertyGroup.stories.reduce(
                   (sum, storyGroup) =>
-                    sum + storyGroup.units.reduce((inner, unitGroup) => inner + unitGroup.jobs.length, 0),
+                    sum +
+                    storyGroup.units.reduce(
+                      (inner, unitGroup) =>
+                        inner + unitGroup.areas.reduce((areaTotal, areaGroup) => areaTotal + areaGroup.jobs.length, 0),
+                      0,
+                    ),
                   0,
                 );
 
@@ -613,8 +633,12 @@ export function JobTrackerView({
                               {storyGroup.units.map((unitGroup) => {
                                 const unitOpen =
                                   (storyOpen && storyGroup.units.length === 1) || filters.unit === unitGroup.unit;
+                                const unitServiceRowCount = unitGroup.areas.reduce(
+                                  (sum, areaGroup) => sum + areaGroup.jobs.length,
+                                  0,
+                                );
                                 const areaPreview = buildTrackerPreviewLabels(
-                                  unitGroup.jobs.map((job) => job.area || 'No area'),
+                                  unitGroup.areas.map((areaGroup) => areaGroup.area || 'No area'),
                                 );
 
                                 return (
@@ -628,7 +652,9 @@ export function JobTrackerView({
                                         <span className="tracker-group-caret" />
                                         <div className="tracker-group-copy">
                                           <strong>{unitGroup.unit || '-'}</strong>
-                                          <small>{unitGroup.jobs.length} area/service row(s)</small>
+                                          <small>
+                                            {unitGroup.areas.length} area(s) · {unitServiceRowCount} service row(s)
+                                          </small>
                                         </div>
                                       </div>
                                       <div className="tracker-group-preview">
@@ -649,7 +675,6 @@ export function JobTrackerView({
                                       <div className="tracker-unit-job-table-shell">
                                         <div className="tracker-unit-job-table">
                                           <div className="tracker-unit-job-row tracker-unit-job-row--header">
-                                            <span>Area</span>
                                             <span>Services</span>
                                             <span>Worker</span>
                                             <span>Material cost per Unit</span>
@@ -662,7 +687,21 @@ export function JobTrackerView({
                                             <span>Payment</span>
                                             <span>Actions</span>
                                           </div>
-                                          {unitGroup.jobs.map(renderTrackerUnitJobRow)}
+                                          <div className="tracker-area-group-list">
+                                            {unitGroup.areas.map((areaGroup) => (
+                                              <section key={areaGroup.key} className="tracker-area-group">
+                                                <header className="tracker-area-group-head">
+                                                  <div className="tracker-area-group-copy">
+                                                    <strong>{areaGroup.area || '-'}</strong>
+                                                    <small>{areaGroup.jobs.length} service row(s)</small>
+                                                  </div>
+                                                </header>
+                                                <div className="tracker-area-group-body">
+                                                  {areaGroup.jobs.map(renderTrackerUnitJobRow)}
+                                                </div>
+                                              </section>
+                                            ))}
+                                          </div>
                                         </div>
                                       </div>
                                     </div>

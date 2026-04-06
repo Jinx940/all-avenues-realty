@@ -5579,10 +5579,49 @@ textarea {
   min-width: 1180px;
 }
 
+.tracker-area-group-list {
+  display: grid;
+}
+
+.tracker-area-group + .tracker-area-group {
+  border-top: 1px solid rgba(219, 232, 244, 0.96);
+}
+
+.tracker-area-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  background: linear-gradient(180deg, rgba(248, 252, 255, 0.98), rgba(241, 248, 255, 0.92));
+  border-bottom: 1px solid rgba(227, 238, 248, 0.94);
+}
+
+.tracker-area-group-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.tracker-area-group-copy strong {
+  color: var(--ink-strong);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.98rem;
+}
+
+.tracker-area-group-copy small {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.tracker-area-group-body {
+  display: grid;
+}
+
 .tracker-unit-job-row {
   display: grid;
   grid-template-columns:
-    minmax(8ch, 0.58fr)
     minmax(18ch, 1.12fr)
     minmax(10ch, 0.72fr)
     minmax(10ch, 0.7fr)
