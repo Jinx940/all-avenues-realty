@@ -1122,13 +1122,12 @@ export default function App() {
   };
 
   const addPropertyStory = () => {
+    const story = createEmptyPropertyStoryForm(`Floor ${propertyForm.stories.length + 1}`);
     setPropertyForm((current) => ({
       ...current,
-      stories: [
-        ...current.stories,
-        createEmptyPropertyStoryForm(`Floor ${current.stories.length + 1}`),
-      ],
+      stories: [...current.stories, story],
     }));
+    return story.id;
   };
 
   const updatePropertyStory = (
@@ -1152,17 +1151,21 @@ export default function App() {
   };
 
   const addPropertyUnit = (storyId: string) => {
+    const targetStory = propertyForm.stories.find((story) => story.id === storyId);
+    if (!targetStory) return '';
+    const unit = createEmptyPropertyUnitForm(`Unit ${targetStory.units.length + 1}`);
     setPropertyForm((current) => ({
       ...current,
       stories: current.stories.map((story) =>
         story.id === storyId
           ? {
               ...story,
-              units: [...story.units, createEmptyPropertyUnitForm(`Unit ${story.units.length + 1}`)],
+              units: [...story.units, unit],
             }
           : story,
       ),
     }));
+    return unit.id;
   };
 
   const updatePropertyUnit = (
@@ -1784,6 +1787,7 @@ export default function App() {
 
         {activeTab === 'property-info' ? (
           <PropertiesView
+            key={`property-info:${selectedPropertyId || 'new'}:${propertyEditorMode}`}
             focusMode="overview"
             form={propertyForm}
             properties={bootstrap?.properties ?? []}
@@ -1813,6 +1817,7 @@ export default function App() {
 
         {activeTab === 'property-register' ? (
           <PropertiesView
+            key={`property-register:${selectedPropertyId || 'new'}:${propertyEditorMode}`}
             focusMode="register"
             form={propertyForm}
             properties={bootstrap?.properties ?? []}

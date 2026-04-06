@@ -1,4 +1,9 @@
-import { useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react';
+import {
+  useState,
+  type CSSProperties,
+  type ChangeEvent,
+  type FormEvent,
+} from 'react';
 import { formatAreaServiceLabel, formatJobLocationSummary, formatStoryDisplayLabel } from '../lib/jobLocation';
 import { paymentStatusColor, workStatusColor } from '../lib/statusVisuals';
 import {
@@ -65,6 +70,11 @@ const getPropertyCompareImageStyle = (
   };
 };
 
+const buildInitialExpandedUnitMap = (stories: PropertyStoryFormState[]) =>
+  Object.fromEntries(
+    stories.map((story) => [story.id, story.units[0] ? [story.units[0].id] : []]),
+  );
+
 export function PropertiesView({
   focusMode,
   form,
@@ -107,14 +117,14 @@ export function PropertiesView({
   onDelete: (propertyId: string) => void;
   onSelect: (propertyId: string) => void;
   onFieldChange: (field: PropertyFormFieldName, value: string) => void;
-  onAddStory: () => void;
+  onAddStory: () => string;
   onStoryChange: (
     storyId: string,
     field: keyof PropertyStoryFormState,
     value: string,
   ) => void;
   onRemoveStory: (storyId: string) => void;
-  onAddUnit: (storyId: string) => void;
+  onAddUnit: (storyId: string) => string;
   onUnitChange: (
     storyId: string,
     unitId: string,
@@ -127,6 +137,12 @@ export function PropertiesView({
 }) {
   const isRegisterScreen = focusMode === 'register';
   const [isStructureDialogOpen, setIsStructureDialogOpen] = useState(false);
+  const [expandedStoryIds, setExpandedStoryIds] = useState<string[]>(
+    () => (form.stories[0] ? [form.stories[0].id] : []),
+  );
+  const [expandedUnitIdsByStory, setExpandedUnitIdsByStory] = useState<Record<string, string[]>>(
+    () => buildInitialExpandedUnitMap(form.stories),
+  );
   const [galleryState, setGalleryState] = useState({
     propertyId: '',
     sectionId: '',
@@ -219,6 +235,79 @@ export function PropertiesView({
     framePercent: compareFramePercent,
     sharedHeightPercent: compareSharedHeightPercent,
   });
+
+  const toggleStoryExpansion = (storyId: string) => {
+    setExpandedStoryIds((current) => {
+      const isExpanded = current.includes(storyId);
+      if (isExpanded) {
+        return current.filter((item) => item !== storyId);
+      }
+
+      const story = form.stories.find((item) => item.id === storyId);
+      if (story?.units.length) {
+        setExpandedUnitIdsByStory((currentUnits) => {
+          const storyUnits = currentUnits[storyId] ?? [];
+          if (storyUnits.length) return currentUnits;
+          return { ...currentUnits, [storyId]: [story.units[0].id] };
+        });
+      }
+
+      return [...current, storyId];
+    });
+  };
+
+  const toggleUnitExpansion = (storyId: string, unitId: string) => {
+    setExpandedUnitIdsByStory((current) => {
+      const storyUnits = current[storyId] ?? [];
+      const isExpanded = storyUnits.includes(unitId);
+      return {
+        ...current,
+        [storyId]: isExpanded
+          ? storyUnits.filter((item) => item !== unitId)
+          : [...storyUnits, unitId],
+      };
+    });
+  };
+
+  const handleAddStory = () => {
+    const storyId = onAddStory();
+    if (!storyId) return;
+    setExpandedStoryIds((current) =>
+      current.includes(storyId) ? current : [...current, storyId],
+    );
+    setExpandedUnitIdsByStory((current) => ({ ...current, [storyId]: [] }));
+  };
+
+  const handleRemoveStory = (storyId: string) => {
+    onRemoveStory(storyId);
+    setExpandedStoryIds((current) => current.filter((item) => item !== storyId));
+    setExpandedUnitIdsByStory((current) => {
+      const remaining = { ...current };
+      delete remaining[storyId];
+      return remaining;
+    });
+  };
+
+  const handleAddUnit = (storyId: string) => {
+    const unitId = onAddUnit(storyId);
+    if (!unitId) return;
+
+    setExpandedStoryIds((current) =>
+      current.includes(storyId) ? current : [...current, storyId],
+    );
+    setExpandedUnitIdsByStory((current) => ({
+      ...current,
+      [storyId]: [...(current[storyId] ?? []), unitId],
+    }));
+  };
+
+  const handleRemoveUnit = (storyId: string, unitId: string) => {
+    onRemoveUnit(storyId, unitId);
+    setExpandedUnitIdsByStory((current) => ({
+      ...current,
+      [storyId]: (current[storyId] ?? []).filter((item) => item !== unitId),
+    }));
+  };
 
   const goToPreviousSlide = () => {
     if (!timelineSections.length) return;
@@ -402,7 +491,7 @@ export function PropertiesView({
                     <h3>Floor by floor, unit by unit</h3>
                   </div>
 
-                  <button type="button" className="ghost-button" onClick={onAddStory}>
+                  <button type="button" className="ghost-button" onClick={handleAddStory}>
                     <UiIcon name="plus" />
                     Add floor
                   </button>
@@ -411,24 +500,40 @@ export function PropertiesView({
                 {form.stories.length ? (
                   <div className="property-story-list">
                     {form.stories.map((story, storyIndex) => (
-                      <article key={story.id} className="property-story-card">
-                        <div className="property-story-head">
-                          <label className="property-story-title">
-                            <span>Floor</span>
-                            <input
-                              value={story.label}
-                              onChange={(event) =>
-                                onStoryChange(story.id, 'label', event.target.value)
-                              }
-                              placeholder={`Floor ${storyIndex + 1}`}
+                      <article
+                        key={story.id}
+                        className={`property-story-card ${
+                          expandedStoryIds.includes(story.id) ? 'is-open' : ''
+                        }`}
+                      >
+                        <div className="property-story-toolbar">
+                          <button
+                            type="button"
+                            className="property-story-toggle"
+                            onClick={() => toggleStoryExpansion(story.id)}
+                            aria-expanded={expandedStoryIds.includes(story.id)}
+                          >
+                            <span
+                              className={`property-toggle-caret ${
+                                expandedStoryIds.includes(story.id) ? 'is-open' : ''
+                              }`}
+                              aria-hidden="true"
                             />
-                          </label>
+                            <div className="property-story-toggle-copy">
+                              <strong>{story.label.trim() || `Floor ${storyIndex + 1}`}</strong>
+                              <span>
+                                {story.units.length
+                                  ? `${story.units.length} unit${story.units.length === 1 ? '' : 's'} inside this floor`
+                                  : 'No units added yet'}
+                              </span>
+                            </div>
+                          </button>
 
                           <div className="property-story-actions">
                             <button
                               type="button"
                               className="ghost-button"
-                              onClick={() => onAddUnit(story.id)}
+                              onClick={() => handleAddUnit(story.id)}
                             >
                               <UiIcon name="plus" />
                               Add unit
@@ -436,7 +541,7 @@ export function PropertiesView({
                             <button
                               type="button"
                               className="ghost-button danger"
-                              onClick={() => onRemoveStory(story.id)}
+                              onClick={() => handleRemoveStory(story.id)}
                             >
                               <UiIcon name="trash" />
                               Remove floor
@@ -444,58 +549,116 @@ export function PropertiesView({
                           </div>
                         </div>
 
-                        {story.units.length ? (
-                          <div className="property-unit-list">
-                            {story.units.map((unit, unitIndex) => (
-                              <article key={unit.id} className="property-unit-card">
-                                <div className="property-unit-head">
-                                  <label className="property-unit-title">
-                                    <span>Unit</span>
-                                    <input
-                                      value={unit.label}
-                                      onChange={(event) =>
-                                        onUnitChange(story.id, unit.id, 'label', event.target.value)
-                                      }
-                                      placeholder={`Unit ${unitIndex + 1}`}
-                                    />
-                                  </label>
+                        {expandedStoryIds.includes(story.id) ? (
+                          <div className="property-story-body">
+                            <label className="property-story-title">
+                              <span>Floor</span>
+                              <input
+                                value={story.label}
+                                onChange={(event) =>
+                                  onStoryChange(story.id, 'label', event.target.value)
+                                }
+                                placeholder={`Floor ${storyIndex + 1}`}
+                              />
+                            </label>
 
-                                  <button
-                                    type="button"
-                                    className="ghost-button danger"
-                                    onClick={() => onRemoveUnit(story.id, unit.id)}
+                            {story.units.length ? (
+                              <div className="property-unit-list">
+                                {story.units.map((unit, unitIndex) => (
+                                  <article
+                                    key={unit.id}
+                                    className={`property-unit-card ${
+                                      (expandedUnitIdsByStory[story.id] ?? []).includes(unit.id)
+                                        ? 'is-open'
+                                        : ''
+                                    }`}
                                   >
-                                    <UiIcon name="trash" />
-                                    Remove unit
-                                  </button>
-                                </div>
+                                    <div className="property-unit-toolbar">
+                                      <button
+                                        type="button"
+                                        className="property-unit-toggle"
+                                        onClick={() => toggleUnitExpansion(story.id, unit.id)}
+                                        aria-expanded={(expandedUnitIdsByStory[story.id] ?? []).includes(unit.id)}
+                                      >
+                                        <span
+                                          className={`property-toggle-caret ${
+                                            (expandedUnitIdsByStory[story.id] ?? []).includes(unit.id)
+                                              ? 'is-open'
+                                              : ''
+                                          }`}
+                                          aria-hidden="true"
+                                        />
+                                        <div className="property-unit-toggle-copy">
+                                          <strong>{unit.label.trim() || `Unit ${unitIndex + 1}`}</strong>
+                                          <span>Open to edit room counts and layout details</span>
+                                        </div>
+                                      </button>
 
-                                <div className="property-unit-fields-grid">
-                                  {propertyUnitSpecFields.map((field) => (
-                                    <label key={`${unit.id}-${field.key}`}>
-                                      {field.label}
-                                      <input
-                                        value={unit[field.key]}
-                                        onChange={(event) =>
-                                          onUnitChange(story.id, unit.id, field.key, event.target.value)
-                                        }
-                                        type="number"
-                                        min="0"
-                                        step="1"
-                                        inputMode="numeric"
-                                        placeholder="0"
-                                      />
-                                    </label>
-                                  ))}
-                                </div>
-                              </article>
-                            ))}
+                                      <div className="property-unit-actions">
+                                        <button
+                                          type="button"
+                                          className="ghost-button danger"
+                                          onClick={() => handleRemoveUnit(story.id, unit.id)}
+                                        >
+                                          <UiIcon name="trash" />
+                                          Remove unit
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {(expandedUnitIdsByStory[story.id] ?? []).includes(unit.id) ? (
+                                      <div className="property-unit-body">
+                                        <label className="property-unit-title">
+                                          <span>Unit</span>
+                                          <input
+                                            value={unit.label}
+                                            onChange={(event) =>
+                                              onUnitChange(
+                                                story.id,
+                                                unit.id,
+                                                'label',
+                                                event.target.value,
+                                              )
+                                            }
+                                            placeholder={`Unit ${unitIndex + 1}`}
+                                          />
+                                        </label>
+
+                                        <div className="property-unit-fields-grid">
+                                          {propertyUnitSpecFields.map((field) => (
+                                            <label key={`${unit.id}-${field.key}`}>
+                                              {field.label}
+                                              <input
+                                                value={unit[field.key]}
+                                                onChange={(event) =>
+                                                  onUnitChange(
+                                                    story.id,
+                                                    unit.id,
+                                                    field.key,
+                                                    event.target.value,
+                                                  )
+                                                }
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                inputMode="numeric"
+                                                placeholder="0"
+                                              />
+                                            </label>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </article>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="empty-box">
+                                Add the units or tenants that belong to this floor before saving.
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <div className="empty-box">
-                            Add the units or tenants that belong to this floor before saving.
-                          </div>
-                        )}
+                        ) : null}
                       </article>
                     ))}
                   </div>
