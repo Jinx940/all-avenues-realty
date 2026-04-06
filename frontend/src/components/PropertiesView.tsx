@@ -48,13 +48,20 @@ type SectionTimelineItem = {
 
 const getPropertyCompareImageStyle = (
   dimensions: ProtectedAssetDimensions | null,
+  options?: {
+    framePercent?: number;
+    sharedHeightPercent?: number;
+  },
 ): CSSProperties | undefined => {
   if (!dimensions) return undefined;
-  const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
-  if (aspectRatio < 0.95) return undefined;
   return {
-    padding: 'clamp(56px, 14%, 74px) clamp(60px, 18%, 96px) clamp(82px, 20%, 104px)',
-    objectPosition: 'center 46%',
+    width: 'auto',
+    height: `${options?.sharedHeightPercent ?? options?.framePercent ?? 82}%`,
+    maxWidth: `${options?.framePercent ?? 82}%`,
+    maxHeight: `${options?.framePercent ?? 82}%`,
+    padding: 0,
+    display: 'block',
+    objectPosition: 'center center',
   };
 };
 
@@ -187,6 +194,14 @@ export function PropertiesView({
   const availableAspectRatios = [beforePhoto.dimensions, afterPhoto.dimensions]
     .filter((dimensions): dimensions is ProtectedAssetDimensions => Boolean(dimensions))
     .map((dimensions) => dimensions.width / Math.max(dimensions.height, 1));
+  const compareFramePercent = 82;
+  const compareWidestAspectRatio = availableAspectRatios.length
+    ? Math.max(...availableAspectRatios, 1)
+    : 1;
+  const compareSharedHeightPercent = Math.max(
+    56,
+    Math.min(compareFramePercent, compareFramePercent / compareWidestAspectRatio),
+  );
   const compareAspectRatio = Math.min(
     Math.max(
       availableAspectRatios.length ? Math.min(...availableAspectRatios) : 1,
@@ -196,8 +211,14 @@ export function PropertiesView({
   );
   const compareStageDisplayAspectRatio = Math.max(compareAspectRatio, 1.25);
   const compareStageMaxWidth = `${Math.round(420 * compareStageDisplayAspectRatio)}px`;
-  const beforeCompareImageStyle = getPropertyCompareImageStyle(beforePhoto.dimensions);
-  const afterCompareImageStyle = getPropertyCompareImageStyle(afterPhoto.dimensions);
+  const beforeCompareImageStyle = getPropertyCompareImageStyle(beforePhoto.dimensions, {
+    framePercent: compareFramePercent,
+    sharedHeightPercent: compareSharedHeightPercent,
+  });
+  const afterCompareImageStyle = getPropertyCompareImageStyle(afterPhoto.dimensions, {
+    framePercent: compareFramePercent,
+    sharedHeightPercent: compareSharedHeightPercent,
+  });
 
   const goToPreviousSlide = () => {
     if (!timelineSections.length) return;
@@ -679,27 +700,29 @@ export function PropertiesView({
                     >
                       {shouldShowAfterOnly ? (
                         <div className="before-after-stage before-after-stage--single">
-                          <ProtectedAssetImage
-                            className="before-after-image"
-                            src={currentTimelineItem?.after?.file.url ?? null}
-                            alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
-                            mimeType={currentTimelineItem?.after?.file.mimeType}
-                            style={afterCompareImageStyle}
-                            onStateChange={afterPhoto.handleStateChange}
-                            onDimensionsChange={afterPhoto.handleDimensionsChange}
-                            loadingFallback={
-                              <div className="before-after-empty">
-                                <strong>Loading after photo...</strong>
-                                <span>Please wait while the file opens.</span>
-                              </div>
-                            }
-                            errorFallback={(message) => (
-                              <div className="before-after-empty">
-                                <strong>Could not load the after photo</strong>
-                                <span>{message}</span>
-                              </div>
-                            )}
-                          />
+                          <div className="before-after-media-shell">
+                            <ProtectedAssetImage
+                              className="before-after-image"
+                              src={currentTimelineItem?.after?.file.url ?? null}
+                              alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
+                              mimeType={currentTimelineItem?.after?.file.mimeType}
+                              style={afterCompareImageStyle}
+                              onStateChange={afterPhoto.handleStateChange}
+                              onDimensionsChange={afterPhoto.handleDimensionsChange}
+                              loadingFallback={
+                                <div className="before-after-empty">
+                                  <strong>Loading after photo...</strong>
+                                  <span>Please wait while the file opens.</span>
+                                </div>
+                              }
+                              errorFallback={(message) => (
+                                <div className="before-after-empty">
+                                  <strong>Could not load the after photo</strong>
+                                  <span>{message}</span>
+                                </div>
+                              )}
+                            />
+                          </div>
                           <div className="before-after-single-note">
                             <strong>Before photo unavailable</strong>
                             <span>Showing the available after image while the older before file is missing.</span>
@@ -707,27 +730,29 @@ export function PropertiesView({
                         </div>
                       ) : shouldShowBeforeOnly ? (
                         <div className="before-after-stage before-after-stage--single">
-                          <ProtectedAssetImage
-                            className="before-after-image"
-                            src={currentTimelineItem?.before?.file.url ?? null}
-                            alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
-                            mimeType={currentTimelineItem?.before?.file.mimeType}
-                            style={beforeCompareImageStyle}
-                            onStateChange={beforePhoto.handleStateChange}
-                            onDimensionsChange={beforePhoto.handleDimensionsChange}
-                            loadingFallback={
-                              <div className="before-after-empty">
-                                <strong>Loading before photo...</strong>
-                                <span>Please wait while the file opens.</span>
-                              </div>
-                            }
-                            errorFallback={(message) => (
-                              <div className="before-after-empty">
-                                <strong>Could not load the before photo</strong>
-                                <span>{message}</span>
-                              </div>
-                            )}
-                          />
+                          <div className="before-after-media-shell">
+                            <ProtectedAssetImage
+                              className="before-after-image"
+                              src={currentTimelineItem?.before?.file.url ?? null}
+                              alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem?.area ?? '', currentTimelineItem?.service ?? '')}`}
+                              mimeType={currentTimelineItem?.before?.file.mimeType}
+                              style={beforeCompareImageStyle}
+                              onStateChange={beforePhoto.handleStateChange}
+                              onDimensionsChange={beforePhoto.handleDimensionsChange}
+                              loadingFallback={
+                                <div className="before-after-empty">
+                                  <strong>Loading before photo...</strong>
+                                  <span>Please wait while the file opens.</span>
+                                </div>
+                              }
+                              errorFallback={(message) => (
+                                <div className="before-after-empty">
+                                  <strong>Could not load the before photo</strong>
+                                  <span>{message}</span>
+                                </div>
+                              )}
+                            />
+                          </div>
                           <div className="before-after-single-note">
                             <strong>After photo unavailable</strong>
                             <span>Showing the available before image while the older after file is missing.</span>
@@ -740,27 +765,29 @@ export function PropertiesView({
                             style={{ clipPath: `inset(0 0 0 ${comparePosition}%)` }}
                           >
                             {currentTimelineItem?.after ? (
-                              <ProtectedAssetImage
-                                className="before-after-image"
-                                src={currentTimelineItem.after.file.url}
-                                alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
-                                mimeType={currentTimelineItem.after.file.mimeType}
-                                style={afterCompareImageStyle}
-                                onStateChange={afterPhoto.handleStateChange}
-                                onDimensionsChange={afterPhoto.handleDimensionsChange}
-                                loadingFallback={
-                                  <div className="before-after-empty">
-                                    <strong>Loading after photo...</strong>
-                                    <span>Please wait while the file opens.</span>
-                                  </div>
-                                }
-                                errorFallback={(message) => (
-                                  <div className="before-after-empty">
-                                    <strong>Could not load the after photo</strong>
-                                    <span>{message}</span>
-                                  </div>
-                                )}
-                              />
+                              <div className="before-after-media-shell">
+                                <ProtectedAssetImage
+                                  className="before-after-image"
+                                  src={currentTimelineItem.after.file.url}
+                                  alt={`After - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
+                                  mimeType={currentTimelineItem.after.file.mimeType}
+                                  style={afterCompareImageStyle}
+                                  onStateChange={afterPhoto.handleStateChange}
+                                  onDimensionsChange={afterPhoto.handleDimensionsChange}
+                                  loadingFallback={
+                                    <div className="before-after-empty">
+                                      <strong>Loading after photo...</strong>
+                                      <span>Please wait while the file opens.</span>
+                                    </div>
+                                  }
+                                  errorFallback={(message) => (
+                                    <div className="before-after-empty">
+                                      <strong>Could not load the after photo</strong>
+                                      <span>{message}</span>
+                                    </div>
+                                  )}
+                                />
+                              </div>
                             ) : (
                               <div className="before-after-empty">
                                 <strong>No after photo yet</strong>
@@ -774,27 +801,29 @@ export function PropertiesView({
                             style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
                           >
                             {currentTimelineItem?.before ? (
-                              <ProtectedAssetImage
-                                className="before-after-image"
-                                src={currentTimelineItem.before.file.url}
-                                alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
-                                mimeType={currentTimelineItem.before.file.mimeType}
-                                style={beforeCompareImageStyle}
-                                onStateChange={beforePhoto.handleStateChange}
-                                onDimensionsChange={beforePhoto.handleDimensionsChange}
-                                loadingFallback={
-                                  <div className="before-after-empty">
-                                    <strong>Loading before photo...</strong>
-                                    <span>Please wait while the file opens.</span>
-                                  </div>
-                                }
-                                errorFallback={(message) => (
-                                  <div className="before-after-empty">
-                                    <strong>Could not load the before photo</strong>
-                                    <span>{message}</span>
-                                  </div>
-                                )}
-                              />
+                              <div className="before-after-media-shell">
+                                <ProtectedAssetImage
+                                  className="before-after-image"
+                                  src={currentTimelineItem.before.file.url}
+                                  alt={`Before - ${currentTimeline.section} - ${formatAreaServiceLabel(currentTimelineItem.area, currentTimelineItem.service)}`}
+                                  mimeType={currentTimelineItem.before.file.mimeType}
+                                  style={beforeCompareImageStyle}
+                                  onStateChange={beforePhoto.handleStateChange}
+                                  onDimensionsChange={beforePhoto.handleDimensionsChange}
+                                  loadingFallback={
+                                    <div className="before-after-empty">
+                                      <strong>Loading before photo...</strong>
+                                      <span>Please wait while the file opens.</span>
+                                    </div>
+                                  }
+                                  errorFallback={(message) => (
+                                    <div className="before-after-empty">
+                                      <strong>Could not load the before photo</strong>
+                                      <span>{message}</span>
+                                    </div>
+                                  )}
+                                />
+                              </div>
                             ) : (
                               <div className="before-after-empty">
                                 <strong>No before photo yet</strong>
