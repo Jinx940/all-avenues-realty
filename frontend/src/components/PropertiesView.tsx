@@ -527,40 +527,45 @@ export function PropertiesView({
                                   : 'No units added yet'}
                               </span>
                             </div>
+                            <span className="property-toggle-status">
+                              {expandedStoryIds.includes(story.id) ? 'Hide' : 'Open'}
+                            </span>
                           </button>
-
-                          <div className="property-story-actions">
-                            <button
-                              type="button"
-                              className="ghost-button"
-                              onClick={() => handleAddUnit(story.id)}
-                            >
-                              <UiIcon name="plus" />
-                              Add unit
-                            </button>
-                            <button
-                              type="button"
-                              className="ghost-button danger"
-                              onClick={() => handleRemoveStory(story.id)}
-                            >
-                              <UiIcon name="trash" />
-                              Remove floor
-                            </button>
-                          </div>
                         </div>
 
                         {expandedStoryIds.includes(story.id) ? (
                           <div className="property-story-body">
-                            <label className="property-story-title">
-                              <span>Floor</span>
-                              <input
-                                value={story.label}
-                                onChange={(event) =>
-                                  onStoryChange(story.id, 'label', event.target.value)
-                                }
-                                placeholder={`Floor ${storyIndex + 1}`}
-                              />
-                            </label>
+                            <div className="property-story-head">
+                              <label className="property-story-title">
+                                <span>Floor</span>
+                                <input
+                                  value={story.label}
+                                  onChange={(event) =>
+                                    onStoryChange(story.id, 'label', event.target.value)
+                                  }
+                                  placeholder={`Floor ${storyIndex + 1}`}
+                                />
+                              </label>
+
+                              <div className="property-story-actions">
+                                <button
+                                  type="button"
+                                  className="ghost-button"
+                                  onClick={() => handleAddUnit(story.id)}
+                                >
+                                  <UiIcon name="plus" />
+                                  Add unit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ghost-button danger"
+                                  onClick={() => handleRemoveStory(story.id)}
+                                >
+                                  <UiIcon name="trash" />
+                                  Remove floor
+                                </button>
+                              </div>
+                            </div>
 
                             {story.units.length ? (
                               <div className="property-unit-list">
@@ -592,37 +597,44 @@ export function PropertiesView({
                                           <strong>{unit.label.trim() || `Unit ${unitIndex + 1}`}</strong>
                                           <span>Open to edit room counts and layout details</span>
                                         </div>
+                                        <span className="property-toggle-status">
+                                          {(expandedUnitIdsByStory[story.id] ?? []).includes(unit.id)
+                                            ? 'Hide'
+                                            : 'Open'}
+                                        </span>
                                       </button>
-
-                                      <div className="property-unit-actions">
-                                        <button
-                                          type="button"
-                                          className="ghost-button danger"
-                                          onClick={() => handleRemoveUnit(story.id, unit.id)}
-                                        >
-                                          <UiIcon name="trash" />
-                                          Remove unit
-                                        </button>
-                                      </div>
                                     </div>
 
                                     {(expandedUnitIdsByStory[story.id] ?? []).includes(unit.id) ? (
                                       <div className="property-unit-body">
-                                        <label className="property-unit-title">
-                                          <span>Unit</span>
-                                          <input
-                                            value={unit.label}
-                                            onChange={(event) =>
-                                              onUnitChange(
-                                                story.id,
-                                                unit.id,
-                                                'label',
-                                                event.target.value,
-                                              )
-                                            }
-                                            placeholder={`Unit ${unitIndex + 1}`}
-                                          />
-                                        </label>
+                                        <div className="property-unit-head">
+                                          <label className="property-unit-title">
+                                            <span>Unit</span>
+                                            <input
+                                              value={unit.label}
+                                              onChange={(event) =>
+                                                onUnitChange(
+                                                  story.id,
+                                                  unit.id,
+                                                  'label',
+                                                  event.target.value,
+                                                )
+                                              }
+                                              placeholder={`Unit ${unitIndex + 1}`}
+                                            />
+                                          </label>
+
+                                          <div className="property-unit-actions">
+                                            <button
+                                              type="button"
+                                              className="ghost-button danger"
+                                              onClick={() => handleRemoveUnit(story.id, unit.id)}
+                                            >
+                                              <UiIcon name="trash" />
+                                              Remove unit
+                                            </button>
+                                          </div>
+                                        </div>
 
                                         <div className="property-unit-fields-grid">
                                           {propertyUnitSpecFields.map((field) => (
