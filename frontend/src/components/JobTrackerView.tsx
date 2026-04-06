@@ -818,7 +818,7 @@ function TrackerMediaDialog({
     1.8,
   );
   const compareStageDisplayAspectRatio = Math.max(compareAspectRatio, 1.25);
-  const compareStageMaxWidth = `${Math.round(580 * compareStageDisplayAspectRatio)}px`;
+  const compareStageMaxWidth = `${Math.round(760 * compareStageDisplayAspectRatio)}px`;
   const beforeCompareImageStyle = getTrackerCompareImageStyle(beforePhoto.dimensions);
   const afterCompareImageStyle = getTrackerCompareImageStyle(afterPhoto.dimensions);
 

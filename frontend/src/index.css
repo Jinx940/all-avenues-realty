@@ -5927,7 +5927,8 @@ textarea {
 }
 
 .tracker-media-dialog-card--compare {
-  width: min(1180px, 100%);
+  width: min(1340px, 100%);
+  max-height: min(92vh, 1040px);
 }
 
 .tracker-media-dialog-card--description {
@@ -6008,7 +6009,7 @@ textarea {
 
 .tracker-compare-stage {
   position: relative;
-  height: 580px;
+  height: 700px;
   width: 100%;
   margin: 0 auto;
   border: 1px solid rgba(42, 56, 68, 0.72);
@@ -6055,7 +6056,7 @@ textarea {
 
 .tracker-compare-panel--before .tracker-compare-image,
 .tracker-compare-panel--after .tracker-compare-image {
-  padding: 54px clamp(72px, 16%, 128px) 84px;
+  padding: 42px clamp(48px, 10%, 104px) 62px;
   object-position: center 46%;
 }
 
