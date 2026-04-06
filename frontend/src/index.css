@@ -8347,13 +8347,25 @@ input.invoice-service-check:focus-visible {
   gap: 6px;
 }
 
+.property-static-label {
+  display: grid;
+  gap: 6px;
+}
+
 .property-story-title span,
-.property-unit-title span {
+.property-unit-title span,
+.property-static-label span {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.property-static-label strong {
+  color: var(--ink-strong);
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
 }
 
 .property-story-actions {

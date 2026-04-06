@@ -93,7 +93,6 @@ export function PropertiesView({
   onSelect,
   onFieldChange,
   onAddStory,
-  onStoryChange,
   onRemoveStory,
   onAddUnit,
   onUnitChange,
@@ -118,11 +117,6 @@ export function PropertiesView({
   onSelect: (propertyId: string) => void;
   onFieldChange: (field: PropertyFormFieldName, value: string) => void;
   onAddStory: () => string;
-  onStoryChange: (
-    storyId: string,
-    field: keyof PropertyStoryFormState,
-    value: string,
-  ) => void;
   onRemoveStory: (storyId: string) => void;
   onAddUnit: (storyId: string) => string;
   onUnitChange: (
@@ -536,16 +530,10 @@ export function PropertiesView({
                         {expandedStoryIds.includes(story.id) ? (
                           <div className="property-story-body">
                             <div className="property-story-head">
-                              <label className="property-story-title">
+                              <div className="property-static-label">
                                 <span>Floor</span>
-                                <input
-                                  value={story.label}
-                                  onChange={(event) =>
-                                    onStoryChange(story.id, 'label', event.target.value)
-                                  }
-                                  placeholder={`Floor ${storyIndex + 1}`}
-                                />
-                              </label>
+                                <strong>{story.label.trim() || `Floor ${storyIndex + 1}`}</strong>
+                              </div>
 
                               <div className="property-story-actions">
                                 <button
@@ -608,21 +596,10 @@ export function PropertiesView({
                                     {(expandedUnitIdsByStory[story.id] ?? []).includes(unit.id) ? (
                                       <div className="property-unit-body">
                                         <div className="property-unit-head">
-                                          <label className="property-unit-title">
+                                          <div className="property-static-label">
                                             <span>Unit</span>
-                                            <input
-                                              value={unit.label}
-                                              onChange={(event) =>
-                                                onUnitChange(
-                                                  story.id,
-                                                  unit.id,
-                                                  'label',
-                                                  event.target.value,
-                                                )
-                                              }
-                                              placeholder={`Unit ${unitIndex + 1}`}
-                                            />
-                                          </label>
+                                            <strong>{unit.label.trim() || `Unit ${unitIndex + 1}`}</strong>
+                                          </div>
 
                                           <div className="property-unit-actions">
                                             <button

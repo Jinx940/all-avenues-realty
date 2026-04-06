@@ -1130,19 +1130,6 @@ export default function App() {
     return story.id;
   };
 
-  const updatePropertyStory = (
-    storyId: string,
-    field: keyof PropertyFormState['stories'][number],
-    value: string,
-  ) => {
-    setPropertyForm((current) => ({
-      ...current,
-      stories: current.stories.map((story) =>
-        story.id === storyId ? { ...story, [field]: value } : story,
-      ),
-    }));
-  };
-
   const removePropertyStory = (storyId: string) => {
     setPropertyForm((current) => ({
       ...current,
@@ -1805,7 +1792,6 @@ export default function App() {
             onSelect={(propertyId) => void handlePropertySelection(propertyId)}
             onFieldChange={(field, value) => setPropertyForm((current) => ({ ...current, [field]: value }))}
             onAddStory={addPropertyStory}
-            onStoryChange={updatePropertyStory}
             onRemoveStory={removePropertyStory}
             onAddUnit={addPropertyUnit}
             onUnitChange={updatePropertyUnit}
@@ -1835,7 +1821,6 @@ export default function App() {
             onSelect={(propertyId) => void handlePropertySelection(propertyId)}
             onFieldChange={(field, value) => setPropertyForm((current) => ({ ...current, [field]: value }))}
             onAddStory={addPropertyStory}
-            onStoryChange={updatePropertyStory}
             onRemoveStory={removePropertyStory}
             onAddUnit={addPropertyUnit}
             onUnitChange={updatePropertyUnit}
