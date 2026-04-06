@@ -38,10 +38,10 @@ const getTrackerCompareImageStyle = (
   const aspectRatio = dimensions.width / Math.max(dimensions.height, 1);
   const padding =
     aspectRatio <= 0.9
-      ? 'clamp(56px, 9%, 112px) clamp(42px, 7%, 88px)'
+      ? 'clamp(28px, 4.5%, 56px) clamp(44px, 7%, 88px) clamp(104px, 14%, 164px)'
       : aspectRatio >= 1.2
-        ? 'clamp(48px, 8%, 98px) clamp(52px, 8%, 104px)'
-        : 'clamp(52px, 8.5%, 104px) clamp(48px, 7.5%, 96px)';
+        ? 'clamp(34px, 5.5%, 68px) clamp(58px, 9%, 112px) clamp(68px, 10%, 108px)'
+        : 'clamp(30px, 5%, 60px) clamp(52px, 8%, 100px) clamp(88px, 12%, 140px)';
   return {
     padding,
     objectPosition: 'center center',
