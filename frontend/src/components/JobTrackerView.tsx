@@ -36,10 +36,10 @@ const getTrackerCompareImageStyle = (
 ): CSSProperties | undefined => {
   if (!dimensions) return undefined;
   return {
-    width: '86%',
-    height: '86%',
-    maxWidth: '86%',
-    maxHeight: '86%',
+    width: '80%',
+    height: '80%',
+    maxWidth: '80%',
+    maxHeight: '80%',
     padding: 0,
     display: 'block',
     objectPosition: 'center center',
