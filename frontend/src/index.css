@@ -6052,22 +6052,6 @@ textarea {
   overflow: hidden;
 }
 
-.tracker-compare-reveal-frame {
-  width: 50%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-}
-
-.tracker-compare-reveal-frame--before {
-  justify-self: start;
-}
-
-.tracker-compare-reveal-frame--after {
-  justify-self: end;
-}
-
 .tracker-compare-panel--single {
   position: relative;
   inset: auto;
