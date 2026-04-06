@@ -4927,6 +4927,13 @@ textarea {
   justify-content: flex-start;
 }
 
+.invoice-generate-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .invoice-generate-button {
   background: var(--mint);
 }

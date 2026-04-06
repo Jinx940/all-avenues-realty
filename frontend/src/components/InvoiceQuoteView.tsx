@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, buildAssetUrl, requestJson } from '../lib/api';
 import { buildGeneratedPdfBlob, downloadPdfBlob } from '../lib/generatedPdf';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
@@ -71,6 +71,12 @@ type SaveGeneratedDocumentResponse = {
   url: string;
   printUrl: string;
   documentNumber: string;
+};
+
+type GeneratedDocumentContent = {
+  html: string;
+  pdfFileName: string;
+  safeDocumentNumber: string;
 };
 
 type JobSelectionState = {
@@ -861,6 +867,7 @@ export function InvoiceQuoteView({
     mode: 'auto',
   });
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
   const [generatePdfConfirmOpen, setGeneratePdfConfirmOpen] = useState(false);
   const [generatePdfBusy, setGeneratePdfBusy] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
@@ -868,6 +875,7 @@ export function InvoiceQuoteView({
   const [historyOwner, setHistoryOwner] = useState<'ALL' | 'AZE' | 'RYAN'>('ALL');
   const [historyType, setHistoryType] = useState<'ALL' | 'INVOICE' | 'QUOTE'>('ALL');
   const [historyDateRange, setHistoryDateRange] = useState<'ALL' | 'TODAY' | '7' | '30'>('ALL');
+  const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
 
   const normalizedPropertyId =
     propertyId && properties.some((property) => property.id === propertyId) ? propertyId : '';
@@ -909,6 +917,21 @@ export function InvoiceQuoteView({
       cancelled = true;
     };
   }, [documentType, documents]);
+
+  useEffect(() => {
+    if (!documentPreviewOpen) return undefined;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setDocumentPreviewOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [documentPreviewOpen]);
 
   const selectedItems: PdfServiceItem[] = selectedJobs.map((job) => ({
     service: formatAreaServiceLabel(job.area, job.service),
@@ -1026,7 +1049,9 @@ export function InvoiceQuoteView({
   const isDocumentNumberConflict = (error: unknown) =>
     error instanceof ApiError && error.status === 409;
 
-  const buildGeneratedDocumentContent = (documentNumberOverride?: string) => {
+  const buildGeneratedDocumentContent = (
+    documentNumberOverride?: string,
+  ): GeneratedDocumentContent | null => {
     if (!selectedItems.length) {
       return null;
     }
@@ -1079,6 +1104,28 @@ export function InvoiceQuoteView({
       pdfFileName,
       safeDocumentNumber,
     };
+  };
+
+  const previewDocument = buildGeneratedDocumentContent();
+
+  const openDocumentPreview = async () => {
+    if (!selectedItems.length) {
+      await onDocumentError?.('Select at least one service before opening the document preview.');
+      return;
+    }
+
+    setDocumentPreviewOpen(true);
+  };
+
+  const printDocumentPreview = async () => {
+    const frameWindow = previewFrameRef.current?.contentWindow;
+    if (!previewDocument || !frameWindow) {
+      await onDocumentError?.('The preview is not ready yet. Please try again in a moment.');
+      return;
+    }
+
+    frameWindow.focus();
+    frameWindow.print();
   };
 
   const handleGeneratePdf = async () => {
@@ -1136,6 +1183,7 @@ export function InvoiceQuoteView({
           downloadPdfBlob(pdfBlob, generated.pdfFileName);
 
           setGeneratePdfConfirmOpen(false);
+          setDocumentPreviewOpen(false);
           await onDocumentSaved?.(
             `${documentType} ${saved.documentNumber} issued and downloaded as PDF.`,
           );
@@ -1424,15 +1472,26 @@ export function InvoiceQuoteView({
           </div>
 
           <div className="invoice-generate-row">
-            <button
-              type="button"
-              className="invoice-generate-button"
-              onClick={handleGeneratePdf}
-              disabled={!selectedItems.length}
-            >
-              <UiIcon name="file" />
-              Generate PDF
-            </button>
+            <div className="invoice-generate-actions">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => void openDocumentPreview()}
+                disabled={!selectedItems.length}
+              >
+                <UiIcon name="receipt" />
+                Preview document
+              </button>
+              <button
+                type="button"
+                className="invoice-generate-button"
+                onClick={() => void handleGeneratePdf()}
+                disabled={!selectedItems.length}
+              >
+                <UiIcon name="file" />
+                Generate PDF
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1587,6 +1646,98 @@ export function InvoiceQuoteView({
           }
         }}
       />
+
+      {documentPreviewOpen && previewDocument ? (
+        <div
+          className="document-preview-backdrop"
+          role="presentation"
+          onClick={() => setDocumentPreviewOpen(false)}
+        >
+          <div
+            className="document-preview-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invoice-document-preview-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="document-preview-head">
+              <div className="document-preview-head-copy">
+                <p className="eyebrow">Live document preview</p>
+                <h2 id="invoice-document-preview-title">
+                  {documentType} {previewDocument.safeDocumentNumber}
+                </h2>
+                <p>{activeProperty?.name || 'Selected property'}</p>
+              </div>
+
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setDocumentPreviewOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="document-preview-body">
+              <div className="document-preview-stage">
+                <iframe
+                  ref={previewFrameRef}
+                  className="document-preview-frame"
+                  srcDoc={previewDocument.html}
+                  title={`${documentType} preview for ${activeProperty?.name || 'property'}`}
+                />
+              </div>
+
+              <aside className="document-preview-sidebar">
+                <div className="document-preview-meta-grid">
+                  <article className="document-preview-meta-card">
+                    <span>No.</span>
+                    <strong>{previewDocument.safeDocumentNumber}</strong>
+                  </article>
+                  <article className="document-preview-meta-card">
+                    <span>Type</span>
+                    <strong>{documentType}</strong>
+                  </article>
+                  <article className="document-preview-meta-card">
+                    <span>Owner</span>
+                    <strong>{ownerKey === 'ryan' ? 'Ryan' : 'AZE'}</strong>
+                  </article>
+                  <article className="document-preview-meta-card">
+                    <span>Date</span>
+                    <strong>{formatPdfDate(issueDate)}</strong>
+                  </article>
+                  <article className="document-preview-meta-card document-preview-meta-card--wide">
+                    <span>Property</span>
+                    <strong>{activeProperty?.name || '-'}</strong>
+                    <small>{[propertyAddress, propertyCityLine].filter(Boolean).join(', ') || '-'}</small>
+                  </article>
+                  <article className="document-preview-meta-card document-preview-meta-card--wide">
+                    <span>Services selected</span>
+                    <strong>{selectedItems.length}</strong>
+                    <small>Total due: {formatUsd(totalDue)}</small>
+                  </article>
+                </div>
+
+                <div className="document-preview-actions">
+                  <button type="button" className="ghost-button" onClick={() => void printDocumentPreview()}>
+                    <UiIcon name="receipt" size={15} />
+                    Print preview
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => void handleGeneratePdf()}
+                    disabled={generatePdfBusy}
+                  >
+                    <UiIcon name="download" size={15} />
+                    Generate PDF
+                  </button>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
