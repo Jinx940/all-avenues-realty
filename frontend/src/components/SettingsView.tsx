@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import type {
   AuditLogRow,
   AuthUser,
@@ -81,6 +81,7 @@ export function SettingsView({
   onDeleteUser: (userId: string) => void;
   onLogout: () => void;
 }) {
+  const [isAuditHistoryOpen, setIsAuditHistoryOpen] = useState(false);
   const isEditing = Boolean(editingUserId);
   const isAdmin = currentUser.role === 'ADMIN';
   const activeUsers = users.filter((user) => user.status === 'ACTIVE').length;
@@ -696,40 +697,67 @@ export function SettingsView({
                       </h3>
                       <p>Recent administrative actions across users, jobs, properties and documents.</p>
                     </div>
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={exportAuditLogs}
-                      disabled={!auditLogs.length}
-                    >
-                      <UiIcon name="download" />
-                      Export CSV
-                    </button>
+                    <div className="settings-admin-actions">
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => setIsAuditHistoryOpen((current) => !current)}
+                      >
+                        <UiIcon name="activity" />
+                        {isAuditHistoryOpen ? 'Hide history' : 'Show history'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={exportAuditLogs}
+                        disabled={!auditLogs.length}
+                      >
+                        <UiIcon name="download" />
+                        Export CSV
+                      </button>
+                    </div>
                   </div>
 
-                  {auditLogs.length ? (
-                    <div className="settings-audit-list">
-                      {auditLogs.map((item) => (
-                        <article key={item.id} className="settings-audit-item">
-                          <div className="settings-audit-main">
-                            <div className="settings-audit-topline">
-                              <span className="pill tone-sky">{item.entityType}</span>
-                              <span className="pill tone-neutral">{item.action}</span>
-                              <span className="settings-user-inline">
-                                {new Date(item.date).toLocaleString('en-US')}
-                              </span>
+                  <div className="settings-history-summary">
+                    {auditLogs.length ? (
+                      <p>
+                        {recentAuditCount} audit entr{recentAuditCount === 1 ? 'y' : 'ies'}{' '}
+                        {isAuditHistoryOpen ? 'visible below.' : 'hidden to keep this section compact.'}
+                      </p>
+                    ) : (
+                      <p>No audit activity recorded yet.</p>
+                    )}
+                  </div>
+
+                  {isAuditHistoryOpen ? (
+                    auditLogs.length ? (
+                      <div className="settings-audit-list">
+                        {auditLogs.map((item) => (
+                          <article key={item.id} className="settings-audit-item">
+                            <div className="settings-audit-main">
+                              <div className="settings-audit-topline">
+                                <span className="pill tone-sky">{item.entityType}</span>
+                                <span className="pill tone-neutral">{item.action}</span>
+                                <span className="settings-user-inline">
+                                  {new Date(item.date).toLocaleString('en-US')}
+                                </span>
+                              </div>
+                              <strong>{item.summary}</strong>
+                              <p>
+                                {item.entityLabel ? `${item.entityLabel} - ` : ''}
+                                by {item.performedBy}
+                              </p>
                             </div>
-                            <strong>{item.summary}</strong>
-                            <p>
-                              {item.entityLabel ? `${item.entityLabel} - ` : ''}
-                              by {item.performedBy}
-                            </p>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="empty-box">No audit activity recorded yet.</div>
+                    )
                   ) : (
-                    <div className="empty-box">No audit activity recorded yet.</div>
+                    <div className="settings-history-collapsed">
+                      <span className="pill tone-neutral">Collapsed</span>
+                    </div>
                   )}
                 </article>
               </>
