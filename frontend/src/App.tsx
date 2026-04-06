@@ -72,8 +72,10 @@ type ConfirmDialogState = {
   title: string;
   text: string;
   confirmLabel: string;
+  cancelLabel?: string;
   tone?: 'default' | 'success' | 'warning' | 'danger';
   onConfirm: () => Promise<void> | void;
+  onCancel?: () => void;
 };
 
 type PropertyEditorMode = 'edit' | 'create';
@@ -655,12 +657,24 @@ export default function App() {
   const confirmDiscardUnsavedChanges = useCallback(
     (destinationLabel: string) => {
       if (!hasUnsavedChanges) {
-        return true;
+        return Promise.resolve(true);
       }
 
-      return window.confirm(
-        `You have unsaved changes in the ${unsavedChangesContext}. Continue to ${destinationLabel} and lose those changes?`,
-      );
+      return new Promise<boolean>((resolve) => {
+        setConfirmDialog({
+          title: 'Unsaved Changes',
+          text: `You have unsaved changes in the ${unsavedChangesContext}. Continue to ${destinationLabel} and lose those changes?`,
+          confirmLabel: 'Discard changes',
+          cancelLabel: 'Keep editing',
+          tone: 'warning',
+          onConfirm: () => {
+            resolve(true);
+          },
+          onCancel: () => {
+            resolve(false);
+          },
+        });
+      });
     },
     [hasUnsavedChanges, unsavedChangesContext],
   );
@@ -709,8 +723,8 @@ export default function App() {
     setIsDesktopSidebarExpanded(false);
   };
 
-  const handleTabSelection = (tabId: TabId) => {
-    if (tabId !== activeTab && !confirmDiscardUnsavedChanges(pageMeta[tabId].title)) {
+  const handleTabSelection = async (tabId: TabId) => {
+    if (tabId !== activeTab && !(await confirmDiscardUnsavedChanges(pageMeta[tabId].title))) {
       return;
     }
 
@@ -721,7 +735,7 @@ export default function App() {
   };
 
   const logout = async () => {
-    if (!confirmDiscardUnsavedChanges('sign out')) {
+    if (!(await confirmDiscardUnsavedChanges('sign out'))) {
       return;
     }
 
@@ -742,6 +756,7 @@ export default function App() {
 
   const closeConfirmDialog = () => {
     if (isConfirmingAction) return;
+    confirmDialog?.onCancel?.();
     setConfirmDialog(null);
   };
 
@@ -759,12 +774,16 @@ export default function App() {
     }
   };
 
-  const resetJobForm = () => {
-    if (!confirmDiscardUnsavedChanges('reset the job form')) {
+  const applyResetJobForm = () => {
+    setJobForm(createJobForm(bootstrap));
+  };
+
+  const resetJobForm = async () => {
+    if (!(await confirmDiscardUnsavedChanges('reset the job form'))) {
       return;
     }
 
-    setJobForm(createJobForm(bootstrap));
+    applyResetJobForm();
   };
 
   const updateJobTrackerFilter = (
@@ -902,9 +921,9 @@ export default function App() {
     });
   };
 
-  const handleEditJob = (job: JobRow) => {
+  const handleEditJob = async (job: JobRow) => {
     if (!requireRole(canManageJobs, 'Only admins and office users can edit jobs.')) return;
-    if (!confirmDiscardUnsavedChanges('open another job')) {
+    if (!(await confirmDiscardUnsavedChanges('open another job'))) {
       return;
     }
 
@@ -915,7 +934,7 @@ export default function App() {
   const openAdvanceCashAlertJob = (jobId: string) => {
     const targetJob = jobs.find((job) => job.id === jobId);
     if (!targetJob) return;
-    handleEditJob(targetJob);
+    void handleEditJob(targetJob);
   };
 
   const submitJob = async (event: FormEvent<HTMLFormElement>) => {
@@ -955,7 +974,7 @@ export default function App() {
         method: jobForm.id ? 'PUT' : 'POST',
         body: formData,
       });
-      resetJobForm();
+      applyResetJobForm();
       await refreshAll({ type: 'success', text: jobForm.id ? 'Job updated.' : 'Job created.' });
     } catch (error) {
       setMessage({ type: 'error', text: messageFrom(error) });
@@ -974,7 +993,7 @@ export default function App() {
       onConfirm: async () => {
         try {
           await requestJson<{ message: string }>(`/api/jobs/${jobId}`, { method: 'DELETE' });
-          if (jobForm.id === jobId) resetJobForm();
+          if (jobForm.id === jobId) applyResetJobForm();
           await refreshAll({ type: 'success', text: 'Job deleted.' });
         } catch (error) {
           setMessage({ type: 'error', text: messageFrom(error) });
@@ -1122,9 +1141,9 @@ export default function App() {
     }
   };
 
-  const startCreateProperty = () => {
+  const startCreateProperty = async () => {
     if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can register properties.')) return;
-    if (!confirmDiscardUnsavedChanges('start a new property')) {
+    if (!(await confirmDiscardUnsavedChanges('start a new property'))) {
       return;
     }
 
@@ -1132,9 +1151,9 @@ export default function App() {
     setPropertyForm(createPropertyForm());
   };
 
-  const startEditSelectedProperty = () => {
+  const startEditSelectedProperty = async () => {
     if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can edit property details.')) return;
-    if (!confirmDiscardUnsavedChanges('reload the saved property details')) {
+    if (!(await confirmDiscardUnsavedChanges('reload the saved property details'))) {
       return;
     }
 
@@ -1142,12 +1161,12 @@ export default function App() {
     setPropertyForm(createPropertyFormFromSummary(selectedProperty));
   };
 
-  const handlePropertySelection = (propertyId: string) => {
+  const handlePropertySelection = async (propertyId: string) => {
     if (propertyId === selectedPropertyId) {
       return;
     }
 
-    if (hasUnsavedPropertyChanges && !confirmDiscardUnsavedChanges('open another property')) {
+    if (hasUnsavedPropertyChanges && !(await confirmDiscardUnsavedChanges('open another property'))) {
       return;
     }
 
@@ -1551,7 +1570,7 @@ export default function App() {
               key={tab.id}
               type="button"
               className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => handleTabSelection(tab.id)}
+              onClick={() => void handleTabSelection(tab.id)}
             >
               <span className="nav-icon">
                 <UiIcon name={tab.icon} size={18} />
@@ -1613,8 +1632,8 @@ export default function App() {
           <DashboardView
             dashboard={dashboard}
             jobs={jobs}
-            onCreateJob={() => handleTabSelection('new-job')}
-            onOpenSettings={() => handleTabSelection('settings')}
+            onCreateJob={() => void handleTabSelection('new-job')}
+            onOpenSettings={() => void handleTabSelection('settings')}
             canCreateJob={canManageJobs(currentUser)}
             canOpenSettings={Boolean(currentUser)}
           />
@@ -1627,7 +1646,7 @@ export default function App() {
             form={jobForm}
             isSaving={isSavingJob}
             onSubmit={submitJob}
-            onReset={resetJobForm}
+            onReset={() => void resetJobForm()}
             onFieldChange={(field, value) =>
               setJobForm((current) => ({
                 ...current,
@@ -1677,7 +1696,7 @@ export default function App() {
             onUploadCover={(file) => void uploadPropertyCover(file)}
             onClearCover={() => void clearPropertyCover()}
             onDelete={(propertyId) => void deleteProperty(propertyId)}
-            onSelect={handlePropertySelection}
+            onSelect={(propertyId) => void handlePropertySelection(propertyId)}
             onFieldChange={(field, value) => setPropertyForm((current) => ({ ...current, [field]: value }))}
             onAddStory={addPropertyStory}
             onStoryChange={updatePropertyStory}
@@ -1685,8 +1704,8 @@ export default function App() {
             onAddUnit={addPropertyUnit}
             onUnitChange={updatePropertyUnit}
             onRemoveUnit={removePropertyUnit}
-            onStartCreate={startCreateProperty}
-            onStartEditSelected={startEditSelectedProperty}
+            onStartCreate={() => void startCreateProperty()}
+            onStartEditSelected={() => void startEditSelectedProperty()}
           />
         ) : null}
 
@@ -1706,7 +1725,7 @@ export default function App() {
             onUploadCover={(file) => void uploadPropertyCover(file)}
             onClearCover={() => void clearPropertyCover()}
             onDelete={(propertyId) => void deleteProperty(propertyId)}
-            onSelect={handlePropertySelection}
+            onSelect={(propertyId) => void handlePropertySelection(propertyId)}
             onFieldChange={(field, value) => setPropertyForm((current) => ({ ...current, [field]: value }))}
             onAddStory={addPropertyStory}
             onStoryChange={updatePropertyStory}
@@ -1714,8 +1733,8 @@ export default function App() {
             onAddUnit={addPropertyUnit}
             onUnitChange={updatePropertyUnit}
             onRemoveUnit={removePropertyUnit}
-            onStartCreate={startCreateProperty}
-            onStartEditSelected={startEditSelectedProperty}
+            onStartCreate={() => void startCreateProperty()}
+            onStartEditSelected={() => void startEditSelectedProperty()}
           />
         ) : null}
 
@@ -1729,7 +1748,7 @@ export default function App() {
             onResetFilters={() => setJobFilters(createJobFilters())}
             onFilterChange={updateJobTrackerFilter}
             canManage={canManageJobs(currentUser)}
-            onEdit={handleEditJob}
+            onEdit={(job) => void handleEditJob(job)}
             onDelete={(jobId) => void deleteJob(jobId)}
             onWorkStatusAction={requestMarkJobDone}
             onPaymentStatusAction={requestMarkPaymentPaid}
@@ -1819,6 +1838,7 @@ export default function App() {
           title={confirmDialog?.title ?? ''}
           text={confirmDialog?.text ?? ''}
           confirmLabel={confirmDialog?.confirmLabel}
+          cancelLabel={confirmDialog?.cancelLabel}
           tone={confirmDialog?.tone}
           busy={isConfirmingAction}
           onConfirm={() => void runConfirmAction()}
