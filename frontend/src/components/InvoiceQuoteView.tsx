@@ -10,6 +10,8 @@ type DocumentType = 'Invoice' | 'Quote';
 type OwnerKey = 'aze' | 'ryan';
 
 type PdfServiceItem = {
+  unit: string;
+  area: string;
   service: string;
   description: string;
   unitPrice: number;
@@ -25,6 +27,19 @@ type LegacyServiceChunk = {
   service: string;
   totalPrice: number;
   sentences: string[];
+  continuation: boolean;
+  showPrice: boolean;
+};
+
+type RyanInvoiceGroup = {
+  unit: string;
+  area: string;
+  service: string;
+  totalPrice: number;
+  sentences: string[];
+};
+
+type RyanInvoiceChunk = RyanInvoiceGroup & {
   continuation: boolean;
   showPrice: boolean;
 };
@@ -203,11 +218,13 @@ const normalizeInvoiceDescription = (value: string) => {
   return normalizeInvoiceDescriptionLine(value.replace(/\r?\n/g, ' '));
 };
 
+const displayInvoiceCell = (value: string, fallback = '-') => value.trim() || fallback;
+
 const buildLegacyServiceGroups = (items: PdfServiceItem[]): LegacyServiceGroup[] => {
   const groups = new Map<string, LegacyServiceGroup>();
 
   items.forEach((item) => {
-    const service = item.service.trim();
+    const service = formatAreaServiceLabel(item.area, item.service).trim();
     if (!service) return;
 
     const existing = groups.get(service) ?? {
@@ -232,6 +249,19 @@ const buildLegacyServiceGroups = (items: PdfServiceItem[]): LegacyServiceGroup[]
     sentences: group.sentences.length ? group.sentences : [''],
   }));
 };
+
+const buildRyanInvoiceGroups = (items: PdfServiceItem[]): RyanInvoiceGroup[] =>
+  items.map((item) => ({
+    unit: displayInvoiceCell(item.unit),
+    area: displayInvoiceCell(item.area),
+    service: displayInvoiceCell(item.service, 'General Service'),
+    totalPrice: item.unitPrice,
+    sentences: splitDescriptionIntoSentences(item.description),
+  }))
+  .map((group) => ({
+    ...group,
+    sentences: group.sentences.length ? group.sentences : ['-'],
+  }));
 
 const estimateLegacySentenceUnits = (sentence: string) => {
   const normalized = sentence.trim();
@@ -304,6 +334,155 @@ const fitLegacyChunk = (
     continuation,
     showPrice: !continuation,
   };
+};
+
+const estimateRyanInvoiceSentenceUnits = (sentence: string) => {
+  const normalized = sentence.trim();
+  if (!normalized || normalized === '-') return 1.18;
+
+  return 0.92 + Math.max(1, Math.ceil(normalized.length / 44)) * 0.72;
+};
+
+const estimateRyanInvoiceMetaUnits = (chunk: Pick<RyanInvoiceChunk, 'unit' | 'area' | 'service'>) =>
+  Math.max(
+    Math.max(1, Math.ceil(chunk.unit.length / 12)),
+    Math.max(1, Math.ceil(chunk.area.length / 14)),
+    Math.max(1, Math.ceil(chunk.service.length / 16)),
+  ) * 0.22;
+
+const estimateRyanInvoiceChunkUnits = (chunk: RyanInvoiceChunk) =>
+  estimateRyanInvoiceMetaUnits(chunk) +
+  chunk.sentences.reduce((sum, sentence) => sum + estimateRyanInvoiceSentenceUnits(sentence), 0);
+
+const buildRyanInvoicePageCapacities = (pageCount: number) => {
+  const firstOnlyPageLimit = 14.4;
+  const firstPageLimit = 18.4;
+  const middlePageLimit = 24.2;
+  const lastContinuePageLimit = 20.8;
+
+  if (pageCount <= 1) {
+    return [firstOnlyPageLimit];
+  }
+
+  const capacities = [firstPageLimit];
+
+  for (let index = 0; index < pageCount - 2; index += 1) {
+    capacities.push(middlePageLimit);
+  }
+
+  capacities.push(lastContinuePageLimit);
+  return capacities;
+};
+
+const fitRyanInvoiceChunk = (
+  group: RyanInvoiceGroup,
+  startIndex: number,
+  availableUnits: number,
+  continuation: boolean,
+): RyanInvoiceChunk | null => {
+  if (availableUnits <= 0.5) {
+    return null;
+  }
+
+  const sentences: string[] = [];
+  let usedUnits = estimateRyanInvoiceMetaUnits(group);
+
+  for (let index = startIndex; index < group.sentences.length; index += 1) {
+    const sentence = group.sentences[index];
+    const rowUnits = estimateRyanInvoiceSentenceUnits(sentence);
+
+    if (sentences.length && usedUnits + rowUnits > availableUnits) {
+      break;
+    }
+
+    sentences.push(sentence);
+    usedUnits += rowUnits;
+
+    if (usedUnits >= availableUnits) {
+      break;
+    }
+  }
+
+  if (!sentences.length) {
+    return null;
+  }
+
+  return {
+    ...group,
+    sentences,
+    continuation,
+    showPrice: !continuation,
+  };
+};
+
+const paginateRyanInvoiceGroups = (groups: RyanInvoiceGroup[]) => {
+  if (!groups.length) return [[]];
+
+  const maxPageCount = groups.reduce((total, group) => total + group.sentences.length, 0) + 1;
+
+  for (let pageCount = 1; pageCount <= maxPageCount; pageCount += 1) {
+    const capacities = buildRyanInvoicePageCapacities(pageCount);
+    const pages = capacities.map(() => [] as RyanInvoiceChunk[]);
+    let pageIndex = 0;
+    let usedUnits = 0;
+    let fitsAll = true;
+
+    for (const group of groups) {
+      let sentenceIndex = 0;
+      let continuation = false;
+
+      while (sentenceIndex < group.sentences.length) {
+        if (pageIndex >= capacities.length) {
+          fitsAll = false;
+          break;
+        }
+
+        const availableUnits = capacities[pageIndex] - usedUnits;
+        const chunk = fitRyanInvoiceChunk(group, sentenceIndex, availableUnits, continuation);
+
+        if (!chunk) {
+          pageIndex += 1;
+          usedUnits = 0;
+          continue;
+        }
+
+        const chunkUnits = estimateRyanInvoiceChunkUnits(chunk);
+
+        if (chunkUnits > capacities[pageIndex] && usedUnits === 0) {
+          fitsAll = false;
+          break;
+        }
+
+        pages[pageIndex].push(chunk);
+        usedUnits += chunkUnits;
+        sentenceIndex += chunk.sentences.length;
+        continuation = true;
+
+        if (sentenceIndex < group.sentences.length) {
+          pageIndex += 1;
+          usedUnits = 0;
+        }
+      }
+
+      if (!fitsAll) {
+        break;
+      }
+    }
+
+    if (fitsAll) {
+      while (pages.length > 1 && pages[pages.length - 1].length === 0) {
+        pages.pop();
+      }
+
+      return pages.length ? pages : [[]];
+    }
+  }
+
+  return [groups.map((group) => ({
+    ...group,
+    continuation: false,
+    showPrice: true,
+  }))];
 };
 
 const paginateLegacyServiceGroups = (groups: LegacyServiceGroup[]) => {
@@ -386,6 +565,16 @@ const legacyTableHeadHtml = `
   </tr>
 `;
 
+const ryanInvoiceTableHeadHtml = `
+  <tr>
+    <th class="ryan-unit-head">Unit</th>
+    <th class="ryan-area-head">Area</th>
+    <th class="ryan-service-head">Service</th>
+    <th class="ryan-desc-head">Description</th>
+    <th class="ryan-price-head">Unit Price (USD)</th>
+  </tr>
+`;
+
 const buildLegacyRowsHtml = (chunks: LegacyServiceChunk[]) =>
   chunks
     .map((chunk) =>
@@ -415,12 +604,55 @@ const buildLegacyRowsHtml = (chunks: LegacyServiceChunk[]) =>
     )
     .join('');
 
+const buildRyanInvoiceRowsHtml = (chunks: RyanInvoiceChunk[]) =>
+  chunks
+    .map((chunk) =>
+      chunk.sentences
+        .map(
+          (sentence, index) => `
+            <tr class="${chunk.continuation ? 'legacy-group-row legacy-group-row--continuation' : 'legacy-group-row'}">
+              ${
+                index === 0
+                  ? `<td class="ryan-unit-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.sentences.length}">${escapeHtml(
+                      chunk.unit,
+                    )}</td>`
+                  : ''
+              }
+              ${
+                index === 0
+                  ? `<td class="ryan-area-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.sentences.length}">${escapeHtml(
+                      chunk.area,
+                    )}</td>`
+                  : ''
+              }
+              ${
+                index === 0
+                  ? `<td class="ryan-service-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.sentences.length}">${escapeHtml(
+                      chunk.continuation ? `${chunk.service} (cont.)` : chunk.service,
+                    )}</td>`
+                  : ''
+              }
+              <td class="desc-cell ryan-desc-cell">${escapeHtml(sentence)}</td>
+              ${
+                index === 0
+                  ? `<td class="price-cell ryan-price-cell${chunk.showPrice ? '' : ' is-empty'}" rowspan="${chunk.sentences.length}">${
+                      chunk.showPrice ? formatPdfMoney(chunk.totalPrice) : '&nbsp;'
+                    }</td>`
+                  : ''
+              }
+            </tr>
+          `,
+        )
+        .join(''),
+    )
+    .join('');
+
 const buildAzeInvoiceTableRows = (items: PdfServiceItem[]): AzeInvoiceRow[] =>
   items
     .flatMap((item) => {
       const bullets = splitDescriptionIntoSentences(item.description);
       const baseRow = {
-        service: item.service.trim(),
+        service: formatAreaServiceLabel(item.area, item.service).trim(),
         totalPrice: item.unitPrice,
         bullets: bullets.length ? bullets : [''],
         showService: true,
@@ -908,12 +1140,21 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           'IG: azedj.pe',
         ].join('<br>');
 
-  const groupedItems = buildLegacyServiceGroups(data.selectedItems);
-  const renderedPages = paginateLegacyServiceGroups(groupedItems);
+  const isRyanInvoice = data.ownerKey === 'ryan' && data.documentType === 'Invoice';
+  const renderedPageRows = isRyanInvoice
+    ? paginateRyanInvoiceGroups(buildRyanInvoiceGroups(data.selectedItems)).map((pageChunks) =>
+        buildRyanInvoiceRowsHtml(pageChunks),
+      )
+    : paginateLegacyServiceGroups(buildLegacyServiceGroups(data.selectedItems)).map((pageChunks) =>
+        buildLegacyRowsHtml(pageChunks),
+      );
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const docDateHtml = escapeHtml(data.docDate);
   const headerClass = data.ownerKey === 'ryan' ? 'invoice-header ryan' : 'invoice-header aze';
   const materialLabel = data.documentType === 'Quote' ? 'Material Expense Estimate' : 'Material Expense';
+  const summaryLabelColspan = isRyanInvoice ? 4 : 2;
+  const tableHeadHtml = isRyanInvoice ? ryanInvoiceTableHeadHtml : legacyTableHeadHtml;
+  const tableClassName = isRyanInvoice ? 'ryan-invoice-table' : '';
 
   const rightDetailsHtml =
     data.documentType === 'Quote'
@@ -929,32 +1170,31 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
   const summaryRowsHtml = `
     <tr>
-      <td colspan="2" class="summary-label-blue">Ryan Labor</td>
+      <td colspan="${summaryLabelColspan}" class="summary-label-blue">Ryan Labor</td>
       <td class="amount-blue">${formatPdfMoney(data.ryanLabor)}</td>
     </tr>
     <tr>
-      <td colspan="2" class="summary-label-blue">Juan Labor</td>
+      <td colspan="${summaryLabelColspan}" class="summary-label-blue">Juan Labor</td>
       <td class="amount-blue">${formatPdfMoney(data.juanLabor)}</td>
     </tr>
     <tr>
-      <td colspan="2" class="summary-label-blue">Job Total</td>
+      <td colspan="${summaryLabelColspan}" class="summary-label-blue">Job Total</td>
       <td class="amount-blue">${formatPdfMoney(data.jobTotal)}</td>
     </tr>
     <tr>
-      <td colspan="2" class="summary-label-blue" style="color:red;">${escapeHtml(materialLabel)}</td>
+      <td colspan="${summaryLabelColspan}" class="summary-label-blue" style="color:red;">${escapeHtml(materialLabel)}</td>
       <td class="amount-blue" style="color:red;">${formatPdfMoney(data.materialExpense)}</td>
     </tr>
     <tr>
-      <td colspan="2" class="summary-label-blue" style="font-size:16px;">Total Due</td>
+      <td colspan="${summaryLabelColspan}" class="summary-label-blue" style="font-size:16px;">Total Due</td>
       <td class="amount-blue" style="font-size:16px;">${formatPdfMoney(data.totalDue)}</td>
     </tr>
   `;
 
-  const pagesHtml = renderedPages
-    .map((pageChunks, pageIndex) => {
-      const rowsHtml = buildLegacyRowsHtml(pageChunks);
+  const pagesHtml = renderedPageRows
+    .map((rowsHtml, pageIndex) => {
       const isFirstPage = pageIndex === 0;
-      const isLastPage = pageIndex === renderedPages.length - 1;
+      const isLastPage = pageIndex === renderedPageRows.length - 1;
 
       if (isFirstPage) {
         return `
@@ -985,8 +1225,8 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
               </div>
 
               <div class="legacy-table-shell">
-                <table>
-                  ${legacyTableHeadHtml}
+                <table class="${tableClassName}">
+                  ${tableHeadHtml}
                   ${rowsHtml}
                   ${isLastPage ? summaryRowsHtml : ''}
                 </table>
@@ -1000,7 +1240,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         <div class="page legacy-page legacy-page--continue ${isLastPage ? 'legacy-page--last' : ''}">
           <div class="invoice-body invoice-body--continue">
             <div class="legacy-table-shell">
-              <table>
+              <table class="${tableClassName}">
                 ${rowsHtml}
                 ${isLastPage ? summaryRowsHtml : ''}
               </table>
@@ -1044,10 +1284,24 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           th, td { border: 1px solid #1f4dbb; padding: 8px; word-wrap: break-word; color: #1f4dbb; }
           th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
           td.desc-cell { text-align: left; }
+          table.ryan-invoice-table { table-layout: fixed; }
+          table.ryan-invoice-table th { font-size: 10px; padding: 8px 6px; }
+          th.ryan-unit-head, td.ryan-unit-cell { width: 12%; }
+          th.ryan-area-head, td.ryan-area-cell { width: 14%; }
+          th.ryan-service-head, td.ryan-service-cell { width: 18%; }
+          th.ryan-desc-head, td.ryan-desc-cell { width: 38%; }
+          th.ryan-price-head, td.ryan-price-cell { width: 18%; }
           .legacy-group-row td { break-inside: avoid; page-break-inside: avoid; }
           td.service-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 22%; }
           td.service-cell--continuation { font-size: 11px; }
           td.price-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 18%; }
+          td.ryan-unit-cell,
+          td.ryan-area-cell,
+          td.ryan-service-cell,
+          td.ryan-price-cell { text-align: center; vertical-align: middle; font-weight: 800; font-size: 10px; line-height: 1.3; }
+          td.ryan-desc-cell { font-size: 10px; line-height: 1.35; }
+          td.ryan-service-cell { word-break: break-word; }
+          td.ryan-meta-cell--continuation { font-size: 9px; }
           .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
           .amount-blue { text-align: center; color: #1f4dbb; font-weight: 800; font-size: 11px; vertical-align: middle; }
           td.is-empty { color: transparent; }
@@ -1173,7 +1427,9 @@ export function InvoiceQuoteView({
   }, [documentPreviewOpen]);
 
   const selectedItems: PdfServiceItem[] = selectedJobs.map((job) => ({
-    service: formatAreaServiceLabel(job.area, job.service),
+    unit: job.unit,
+    area: job.area,
+    service: job.service,
     description: normalizeInvoiceDescription(descriptionValueFor(job)),
     unitPrice: job.totalCost,
   }));
