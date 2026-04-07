@@ -384,10 +384,10 @@ const estimateRyanInvoiceChunkUnits = (chunk: RyanInvoiceChunk) =>
   chunk.sentences.reduce((sum, sentence) => sum + estimateRyanInvoiceSentenceUnits(sentence), 0);
 
 const buildRyanInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 22.8;
-  const firstPageLimit = 27.6;
-  const middlePageLimit = 31.4;
-  const lastContinuePageLimit = 27.2;
+  const firstOnlyPageLimit = 20.8;
+  const firstPageLimit = 24.2;
+  const middlePageLimit = 29.6;
+  const lastContinuePageLimit = 26.2;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
