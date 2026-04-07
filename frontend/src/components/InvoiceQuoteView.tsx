@@ -366,9 +366,9 @@ const fitLegacyChunk = (
 
 const estimateRyanInvoiceSentenceUnits = (sentence: string) => {
   const normalized = sentence.trim();
-  if (!normalized || normalized === '-') return 0.96;
+  if (!normalized || normalized === '-') return 0.42;
 
-  return 0.7 + Math.max(1, Math.ceil(normalized.length / 56)) * 0.52;
+  return 0.28 + Math.max(1, Math.ceil(normalized.length / 68)) * 0.28;
 };
 
 const estimateRyanInvoiceMetaUnits = (chunk: Pick<RyanInvoiceChunk, 'unit' | 'area' | 'service'>) =>
@@ -376,17 +376,18 @@ const estimateRyanInvoiceMetaUnits = (chunk: Pick<RyanInvoiceChunk, 'unit' | 'ar
     Math.max(1, Math.ceil(chunk.unit.length / 14)),
     Math.max(1, Math.ceil(chunk.area.length / 16)),
     Math.max(1, Math.ceil(chunk.service.length / 18)),
-  ) * 0.15;
+  ) * 0.12;
 
 const estimateRyanInvoiceChunkUnits = (chunk: RyanInvoiceChunk) =>
   estimateRyanInvoiceMetaUnits(chunk) +
+  0.26 +
   chunk.sentences.reduce((sum, sentence) => sum + estimateRyanInvoiceSentenceUnits(sentence), 0);
 
 const buildRyanInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 18.8;
-  const firstPageLimit = 23.6;
-  const middlePageLimit = 29.6;
-  const lastContinuePageLimit = 25.8;
+  const firstOnlyPageLimit = 23.6;
+  const firstPageLimit = 28.8;
+  const middlePageLimit = 35.4;
+  const lastContinuePageLimit = 31.6;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -604,7 +605,23 @@ const ryanInvoiceTableHeadHtml = `
 `;
 
 const countRyanInvoiceChunkRows = (chunk: Pick<RyanInvoiceChunk, 'sentences'>) =>
-  Math.max(chunk.sentences.length, 1);
+  Math.max(chunk.sentences.length ? 1 : 0, 1);
+
+const buildRyanInvoiceDescriptionHtml = (sentences: string[]) => {
+  const lines = sentences.filter(Boolean);
+
+  if (!lines.length) {
+    return '-';
+  }
+
+  if (lines.length === 1) {
+    return escapeHtml(lines[0]);
+  }
+
+  return `<div class="ryan-desc-stack">${lines
+    .map((line) => `<div class="ryan-desc-line">${escapeHtml(line)}</div>`)
+    .join('')}</div>`;
+};
 
 const buildRyanInvoiceDisplayChunks = (chunks: RyanInvoiceChunk[]): RyanInvoiceDisplayChunk[] => {
   const displayChunks = chunks.map((chunk) => ({
@@ -686,43 +703,35 @@ const buildLegacyRowsHtml = (chunks: LegacyServiceChunk[]) =>
 const buildRyanInvoiceRowsHtml = (chunks: RyanInvoiceChunk[]) =>
   buildRyanInvoiceDisplayChunks(chunks)
     .map((chunk) =>
-      chunk.sentences
-        .map(
-          (sentence, index) => `
+      `
             <tr class="${chunk.continuation ? 'legacy-group-row legacy-group-row--continuation' : 'legacy-group-row'}">
               ${
-                index === 0 && chunk.showUnit
+                chunk.showUnit
                   ? `<td class="ryan-unit-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.unitRowSpan}">${escapeHtml(
                       chunk.unit,
                     )}</td>`
                   : ''
               }
               ${
-                index === 0 && chunk.showArea
+                chunk.showArea
                   ? `<td class="ryan-area-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.areaRowSpan}">${escapeHtml(
                       chunk.area,
                     )}</td>`
                   : ''
               }
               ${
-                index === 0
-                  ? `<td class="ryan-service-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.sentences.length}">${escapeHtml(
+                `<td class="ryan-service-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}">${escapeHtml(
                       chunk.continuation ? `${chunk.service} (cont.)` : chunk.service,
                     )}</td>`
-                  : ''
               }
-              <td class="desc-cell ryan-desc-cell">${escapeHtml(sentence)}</td>
+              <td class="desc-cell ryan-desc-cell">${buildRyanInvoiceDescriptionHtml(chunk.sentences)}</td>
               ${
-                index === 0
-                  ? `<td class="price-cell ryan-price-cell${chunk.showPrice ? '' : ' is-empty'}" rowspan="${chunk.sentences.length}">${
+                `<td class="price-cell ryan-price-cell${chunk.showPrice ? '' : ' is-empty'}">${
                       chunk.showPrice ? formatPdfMoney(chunk.totalPrice) : '&nbsp;'
                     }</td>`
-                  : ''
               }
             </tr>
           `,
-        )
-        .join(''),
     )
     .join('');
 
@@ -1340,11 +1349,11 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           @page { size: A4; margin: 0; }
           html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #ffffff; font-family: Montserrat, Arial, sans-serif; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { overflow: auto; }
-          .page { width: 210mm; height: 297mm; margin: 0; padding: 16mm 14mm 14mm 14mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
+          .page { width: 210mm; height: 297mm; margin: 0; padding: 14mm 12mm 10mm 12mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
           .page:last-child { page-break-after: auto; break-after: auto; }
           .legacy-page { display: flex; flex-direction: column; }
-          .legacy-page--continue { padding-top: 8mm; }
-          .legacy-page--last { padding-bottom: 12mm; }
+          .legacy-page--continue { padding: 4mm 12mm 8mm 12mm; }
+          .legacy-page--last { padding-bottom: 8mm; }
           .invoice-header { width: 100%; padding: 18px 0; margin: 0; color: #ffffff; }
           .invoice-header.aze { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
           .invoice-header.ryan { background-color: #24c6dc; background-image: linear-gradient(to bottom, #24c6dc, #c471ed); }
@@ -1356,11 +1365,11 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           .company-name { display: block; font-size: 30px; font-weight: 700; margin-bottom: 8px; }
           .company-info { font-size: 13px; }
           .company-info strong { font-weight: 800; }
-          .invoice-body { padding: 10px 24px 0 24px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+          .invoice-body { padding: 8px 16px 0 16px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
           .invoice-body--continue { padding-top: 0; }
           .legacy-table-shell { flex: 1 1 auto; min-height: 0; }
           table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
-          th, td { border: 1px solid #1f4dbb; padding: 6px; word-wrap: break-word; color: #1f4dbb; }
+          th, td { border: 1px solid #1f4dbb; padding: 5px; word-wrap: break-word; color: #1f4dbb; }
           th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
           td.desc-cell { text-align: left; }
           table.ryan-invoice-table { table-layout: fixed; }
@@ -1379,12 +1388,14 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           td.ryan-service-cell,
           td.ryan-price-cell { text-align: center; vertical-align: middle; font-weight: 800; font-size: 10px; line-height: 1.3; }
           td.ryan-desc-cell { font-size: 10px; line-height: 1.35; }
+          .ryan-desc-stack { display: grid; gap: 3px; }
+          .ryan-desc-line { display: block; }
           td.ryan-service-cell { word-break: break-word; }
           td.ryan-meta-cell--continuation { font-size: 9px; }
           .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
           .amount-blue { text-align: center; color: #1f4dbb; font-weight: 800; font-size: 11px; vertical-align: middle; }
           td.is-empty { color: transparent; }
-          .top-details-wrap { border-top: 3px solid #1f4dbb; margin-top: 6px; padding-top: 8px; margin-bottom: 10px; }
+          .top-details-wrap { border-top: 3px solid #1f4dbb; margin-top: 4px; padding-top: 6px; margin-bottom: 8px; }
           .payment-title { color: #1f4dbb; font-weight: 800; font-size: 14px; display: block; margin-bottom: 6px; }
           .payment-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; }
           .payment-title-row { grid-column: 1 / -1; }
