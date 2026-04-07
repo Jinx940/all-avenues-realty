@@ -366,27 +366,27 @@ const fitLegacyChunk = (
 
 const estimateRyanInvoiceSentenceUnits = (sentence: string) => {
   const normalized = sentence.trim();
-  if (!normalized || normalized === '-') return 1.18;
+  if (!normalized || normalized === '-') return 0.96;
 
-  return 0.92 + Math.max(1, Math.ceil(normalized.length / 44)) * 0.72;
+  return 0.7 + Math.max(1, Math.ceil(normalized.length / 56)) * 0.52;
 };
 
 const estimateRyanInvoiceMetaUnits = (chunk: Pick<RyanInvoiceChunk, 'unit' | 'area' | 'service'>) =>
   Math.max(
-    Math.max(1, Math.ceil(chunk.unit.length / 12)),
-    Math.max(1, Math.ceil(chunk.area.length / 14)),
-    Math.max(1, Math.ceil(chunk.service.length / 16)),
-  ) * 0.22;
+    Math.max(1, Math.ceil(chunk.unit.length / 14)),
+    Math.max(1, Math.ceil(chunk.area.length / 16)),
+    Math.max(1, Math.ceil(chunk.service.length / 18)),
+  ) * 0.15;
 
 const estimateRyanInvoiceChunkUnits = (chunk: RyanInvoiceChunk) =>
   estimateRyanInvoiceMetaUnits(chunk) +
   chunk.sentences.reduce((sum, sentence) => sum + estimateRyanInvoiceSentenceUnits(sentence), 0);
 
 const buildRyanInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 14.4;
-  const firstPageLimit = 18.4;
-  const middlePageLimit = 24.2;
-  const lastContinuePageLimit = 20.8;
+  const firstOnlyPageLimit = 18.8;
+  const firstPageLimit = 23.6;
+  const middlePageLimit = 29.6;
+  const lastContinuePageLimit = 25.8;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1340,27 +1340,27 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           @page { size: A4; margin: 0; }
           html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #ffffff; font-family: Montserrat, Arial, sans-serif; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { overflow: auto; }
-          .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 18mm 16mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
+          .page { width: 210mm; height: 297mm; margin: 0; padding: 16mm 14mm 14mm 14mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
           .page:last-child { page-break-after: auto; break-after: auto; }
           .legacy-page { display: flex; flex-direction: column; }
-          .legacy-page--continue { padding-top: 10mm; }
-          .legacy-page--last { padding-bottom: 16mm; }
-          .invoice-header { width: 100%; padding: 24px 0; margin: 0; color: #ffffff; }
+          .legacy-page--continue { padding-top: 8mm; }
+          .legacy-page--last { padding-bottom: 12mm; }
+          .invoice-header { width: 100%; padding: 18px 0; margin: 0; color: #ffffff; }
           .invoice-header.aze { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
           .invoice-header.ryan { background-color: #24c6dc; background-image: linear-gradient(to bottom, #24c6dc, #c471ed); }
-          .header-inner { width: 100%; margin: 0 auto; padding: 0 30px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; }
+          .header-inner { width: 100%; margin: 0 auto; padding: 0 24px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; }
           .header-left { line-height: 0.9; }
           .invoice-title { display: block; font-size: 58px; font-weight: 800; letter-spacing: 1px; color: #ffffff; }
           .invoice-number { display: block; font-size: 58px; font-weight: 800; color: #ffffff; }
           .header-right { text-align: right; font-size: 12px; line-height: 1.5; }
-          .company-name { display: block; font-size: 30px; font-weight: 700; margin-bottom: 12px; }
+          .company-name { display: block; font-size: 30px; font-weight: 700; margin-bottom: 8px; }
           .company-info { font-size: 13px; }
           .company-info strong { font-weight: 800; }
-          .invoice-body { padding: 14px 30px 0 30px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+          .invoice-body { padding: 10px 24px 0 24px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
           .invoice-body--continue { padding-top: 0; }
           .legacy-table-shell { flex: 1 1 auto; min-height: 0; }
           table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
-          th, td { border: 1px solid #1f4dbb; padding: 8px; word-wrap: break-word; color: #1f4dbb; }
+          th, td { border: 1px solid #1f4dbb; padding: 6px; word-wrap: break-word; color: #1f4dbb; }
           th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
           td.desc-cell { text-align: left; }
           table.ryan-invoice-table { table-layout: fixed; }
@@ -1384,9 +1384,9 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
           .amount-blue { text-align: center; color: #1f4dbb; font-weight: 800; font-size: 11px; vertical-align: middle; }
           td.is-empty { color: transparent; }
-          .top-details-wrap { border-top: 3px solid #1f4dbb; margin-top: 8px; padding-top: 12px; margin-bottom: 14px; }
+          .top-details-wrap { border-top: 3px solid #1f4dbb; margin-top: 6px; padding-top: 8px; margin-bottom: 10px; }
           .payment-title { color: #1f4dbb; font-weight: 800; font-size: 14px; display: block; margin-bottom: 6px; }
-          .payment-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; }
+          .payment-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; }
           .payment-title-row { grid-column: 1 / -1; }
           .p-left, .p-right { font-size: 12px; line-height: 1.6; color: #000000; }
           .label-blue { color: #1f4dbb; font-weight: 800; }
