@@ -4770,8 +4770,34 @@ textarea {
   flex-wrap: wrap;
 }
 
+.invoice-section-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .invoice-section-head h3 {
   margin: 4px 0 0;
+}
+
+.invoice-services-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding-inline: 14px;
+  font-weight: 800;
+}
+
+.invoice-services-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  text-align: center;
 }
 
 .invoice-select-all {
@@ -4828,17 +4854,23 @@ textarea {
 .invoice-services-shell {
   border: 1px solid var(--line);
   border-radius: 22px;
-  overflow: hidden;
+  overflow: auto;
   background: rgba(255, 255, 255, 0.66);
 }
 
 .invoice-services-table {
   display: grid;
+  min-width: 1080px;
 }
 
 .invoice-services-row {
   display: grid;
-  grid-template-columns: 44px minmax(180px, 0.9fr) minmax(320px, 1.8fr) minmax(140px, 0.7fr);
+  grid-template-columns:
+    minmax(148px, 0.75fr)
+    minmax(132px, 0.72fr)
+    minmax(156px, 0.82fr)
+    minmax(340px, 1.9fr)
+    minmax(152px, 0.76fr);
   gap: 12px;
   align-items: center;
   padding: 12px 10px;
@@ -4856,10 +4888,31 @@ textarea {
   border-bottom: 0;
 }
 
-.invoice-services-row > span:first-child {
+.invoice-services-row > span {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.invoice-services-cell {
+  min-height: 100%;
+}
+
+.invoice-services-cell strong {
+  color: var(--ink-strong);
+  font-weight: 800;
+}
+
+.invoice-service-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 100%;
+  text-align: center;
 }
 
 .invoice-service-name {
@@ -4884,12 +4937,31 @@ textarea {
   font: inherit;
   line-height: 1.45;
   resize: vertical;
+  text-align: center;
 }
 
 .invoice-description-editor:focus {
   border-color: rgba(132, 187, 229, 0.98);
   box-shadow: 0 0 0 4px rgba(168, 211, 243, 0.18);
   outline: none;
+}
+
+.invoice-services-collapsed {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px dashed rgba(181, 207, 231, 0.96);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(248, 252, 255, 0.94), rgba(241, 248, 255, 0.86));
+  text-align: center;
+}
+
+.invoice-services-collapsed strong {
+  color: var(--ink-strong);
+}
+
+.invoice-services-collapsed span {
+  color: var(--muted);
 }
 
 .invoice-preview-note {

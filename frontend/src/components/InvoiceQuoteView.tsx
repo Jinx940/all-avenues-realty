@@ -1437,6 +1437,7 @@ export function InvoiceQuoteView({
     ids: [],
     mode: 'auto',
   });
+  const [isServicesOpen, setIsServicesOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
   const [generatePdfConfirmOpen, setGeneratePdfConfirmOpen] = useState(false);
@@ -1464,6 +1465,7 @@ export function InvoiceQuoteView({
   const usesAutoDocumentNumber = !documentNumber.trim();
   const effectiveDocumentNumber = documentNumber.trim() || suggestedNumber;
   const descriptionValueFor = (job: JobRow) => descriptionEdits[job.id] ?? normalizeInvoiceDescription(job.description);
+  const displayedSelectedCount = selectedJobIds.length;
 
   useEffect(() => {
     let cancelled = false;
@@ -1932,56 +1934,88 @@ export function InvoiceQuoteView({
                 You can edit only the description here. We automatically remove list dashes and add a final period.
               </p>
             </div>
-            <label className="invoice-select-all">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={toggleSelectAll}
-                disabled={!propertyJobs.length}
-              />
-              <span>Select all</span>
-            </label>
-          </div>
+            <div className="invoice-section-actions">
+              <button
+                type="button"
+                className="ghost-button invoice-services-toggle"
+                onClick={() => setIsServicesOpen((current) => !current)}
+                aria-expanded={isServicesOpen}
+              >
+                <span className={`invoice-services-caret ${isServicesOpen ? 'is-open' : ''}`}>
+                  {isServicesOpen ? 'v' : '>'}
+                </span>
+                <span>{isServicesOpen ? 'Hide services' : 'Show services'}</span>
+              </button>
 
-          <div className="invoice-services-shell">
-            <div className="invoice-services-table">
-              <div className="invoice-services-row invoice-services-row--header">
-                <span>Select</span>
-                <span>Area / Service</span>
-                <span>Description</span>
-                <span>Unit Price (USD)</span>
-              </div>
-
-              {propertyJobs.length ? (
-                propertyJobs.map((job) => (
-                  <div key={job.id} className="invoice-services-row">
-                    <span>
-                      <input
-                        className="invoice-service-check"
-                        type="checkbox"
-                        checked={selectedJobIds.includes(job.id)}
-                        onChange={() => toggleJobSelection(job.id)}
-                      />
-                    </span>
-                    <span className="invoice-service-name">{formatAreaServiceLabel(job.area, job.service)}</span>
-                    <span>
-                      <textarea
-                        className="invoice-description-editor"
-                        rows={2}
-                        value={descriptionValueFor(job)}
-                        onChange={(event) => updateDescriptionEdit(job.id, event.target.value)}
-                        onBlur={() => commitDescriptionEdit(job)}
-                        placeholder="Edit the description used for this invoice or quote"
-                      />
-                    </span>
-                    <span>{formatUsd(job.totalCost)}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="empty-box">Select a property with jobs to generate a preview.</div>
-              )}
+              <label className="invoice-select-all">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  disabled={!propertyJobs.length}
+                />
+                <span>Select all</span>
+              </label>
             </div>
           </div>
+
+          {isServicesOpen ? (
+            <div className="invoice-services-shell">
+              <div className="invoice-services-table">
+                <div className="invoice-services-row invoice-services-row--header">
+                  <span>Unit</span>
+                  <span>Area</span>
+                  <span>Service</span>
+                  <span>Description</span>
+                  <span>Unit Price (USD)</span>
+                </div>
+
+                {propertyJobs.length ? (
+                  propertyJobs.map((job) => (
+                    <div key={job.id} className="invoice-services-row">
+                      <span className="invoice-services-cell invoice-services-cell--unit">
+                        <label className="invoice-service-select">
+                          <input
+                            className="invoice-service-check"
+                            type="checkbox"
+                            checked={selectedJobIds.includes(job.id)}
+                            onChange={() => toggleJobSelection(job.id)}
+                          />
+                          <strong>{displayInvoiceCell(job.unit)}</strong>
+                        </label>
+                      </span>
+                      <span className="invoice-services-cell invoice-services-cell--area">
+                        <strong>{displayInvoiceCell(job.area)}</strong>
+                      </span>
+                      <span className="invoice-services-cell invoice-services-cell--service">
+                        <strong>{displayInvoiceCell(job.service, 'General Service')}</strong>
+                      </span>
+                      <span className="invoice-services-cell invoice-services-cell--description">
+                        <textarea
+                          className="invoice-description-editor"
+                          rows={2}
+                          value={descriptionValueFor(job)}
+                          onChange={(event) => updateDescriptionEdit(job.id, event.target.value)}
+                          onBlur={() => commitDescriptionEdit(job)}
+                          placeholder="Edit the description used for this invoice or quote"
+                        />
+                      </span>
+                      <span className="invoice-services-cell invoice-services-cell--price">
+                        <strong>{formatUsd(job.totalCost)}</strong>
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="empty-box">Select a property with jobs to generate a preview.</div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="invoice-services-collapsed">
+              <strong>{propertyJobs.length} loaded</strong>
+              <span>{displayedSelectedCount} service(s) currently selected for this document.</span>
+            </div>
+          )}
         </div>
 
         <div className="invoice-section-card">
