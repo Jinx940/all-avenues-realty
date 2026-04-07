@@ -44,6 +44,13 @@ type RyanInvoiceChunk = RyanInvoiceGroup & {
   showPrice: boolean;
 };
 
+type RyanInvoiceDisplayChunk = RyanInvoiceChunk & {
+  showUnit: boolean;
+  unitRowSpan: number;
+  showArea: boolean;
+  areaRowSpan: number;
+};
+
 type AzeInvoiceRow = {
   service: string;
   totalPrice: number;
@@ -117,6 +124,10 @@ const formatPdfNumber = (value: number) =>
     maximumFractionDigits: 2,
   });
 const formatPdfMoney = (value: number) => `$ ${formatPdfNumber(value)}`;
+const invoiceCellCollator = new Intl.Collator('en-US', {
+  numeric: true,
+  sensitivity: 'base',
+});
 
 const toAmount = (value: string) => {
   const parsed = Number(value);
@@ -220,6 +231,17 @@ const normalizeInvoiceDescription = (value: string) => {
 
 const displayInvoiceCell = (value: string, fallback = '-') => value.trim() || fallback;
 
+const compareInvoiceCells = (left: string, right: string) => {
+  const leftIsFallback = left === '-';
+  const rightIsFallback = right === '-';
+
+  if (leftIsFallback !== rightIsFallback) {
+    return leftIsFallback ? 1 : -1;
+  }
+
+  return invoiceCellCollator.compare(left, right);
+};
+
 const buildLegacyServiceGroups = (items: PdfServiceItem[]): LegacyServiceGroup[] => {
   const groups = new Map<string, LegacyServiceGroup>();
 
@@ -261,7 +283,13 @@ const buildRyanInvoiceGroups = (items: PdfServiceItem[]): RyanInvoiceGroup[] =>
   .map((group) => ({
     ...group,
     sentences: group.sentences.length ? group.sentences : ['-'],
-  }));
+  }))
+  .sort((left, right) =>
+    compareInvoiceCells(left.unit, right.unit) ||
+    compareInvoiceCells(left.area, right.area) ||
+    compareInvoiceCells(left.service, right.service) ||
+    invoiceCellCollator.compare(left.sentences.join(' '), right.sentences.join(' ')),
+  );
 
 const estimateLegacySentenceUnits = (sentence: string) => {
   const normalized = sentence.trim();
@@ -575,6 +603,57 @@ const ryanInvoiceTableHeadHtml = `
   </tr>
 `;
 
+const countRyanInvoiceChunkRows = (chunk: Pick<RyanInvoiceChunk, 'sentences'>) =>
+  Math.max(chunk.sentences.length, 1);
+
+const buildRyanInvoiceDisplayChunks = (chunks: RyanInvoiceChunk[]): RyanInvoiceDisplayChunk[] => {
+  const displayChunks = chunks.map((chunk) => ({
+    ...chunk,
+    showUnit: true,
+    unitRowSpan: countRyanInvoiceChunkRows(chunk),
+    showArea: true,
+    areaRowSpan: countRyanInvoiceChunkRows(chunk),
+  }));
+
+  for (let index = 0; index < displayChunks.length; ) {
+    const current = displayChunks[index];
+    let endIndex = index + 1;
+    let rowSpan = countRyanInvoiceChunkRows(current);
+
+    while (endIndex < displayChunks.length && displayChunks[endIndex].unit === current.unit) {
+      rowSpan += countRyanInvoiceChunkRows(displayChunks[endIndex]);
+      displayChunks[endIndex].showUnit = false;
+      displayChunks[endIndex].unitRowSpan = 0;
+      endIndex += 1;
+    }
+
+    displayChunks[index].unitRowSpan = rowSpan;
+    index = endIndex;
+  }
+
+  for (let index = 0; index < displayChunks.length; ) {
+    const current = displayChunks[index];
+    let endIndex = index + 1;
+    let rowSpan = countRyanInvoiceChunkRows(current);
+
+    while (
+      endIndex < displayChunks.length &&
+      displayChunks[endIndex].unit === current.unit &&
+      displayChunks[endIndex].area === current.area
+    ) {
+      rowSpan += countRyanInvoiceChunkRows(displayChunks[endIndex]);
+      displayChunks[endIndex].showArea = false;
+      displayChunks[endIndex].areaRowSpan = 0;
+      endIndex += 1;
+    }
+
+    displayChunks[index].areaRowSpan = rowSpan;
+    index = endIndex;
+  }
+
+  return displayChunks;
+};
+
 const buildLegacyRowsHtml = (chunks: LegacyServiceChunk[]) =>
   chunks
     .map((chunk) =>
@@ -605,22 +684,22 @@ const buildLegacyRowsHtml = (chunks: LegacyServiceChunk[]) =>
     .join('');
 
 const buildRyanInvoiceRowsHtml = (chunks: RyanInvoiceChunk[]) =>
-  chunks
+  buildRyanInvoiceDisplayChunks(chunks)
     .map((chunk) =>
       chunk.sentences
         .map(
           (sentence, index) => `
             <tr class="${chunk.continuation ? 'legacy-group-row legacy-group-row--continuation' : 'legacy-group-row'}">
               ${
-                index === 0
-                  ? `<td class="ryan-unit-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.sentences.length}">${escapeHtml(
+                index === 0 && chunk.showUnit
+                  ? `<td class="ryan-unit-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.unitRowSpan}">${escapeHtml(
                       chunk.unit,
                     )}</td>`
                   : ''
               }
               ${
-                index === 0
-                  ? `<td class="ryan-area-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.sentences.length}">${escapeHtml(
+                index === 0 && chunk.showArea
+                  ? `<td class="ryan-area-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.areaRowSpan}">${escapeHtml(
                       chunk.area,
                     )}</td>`
                   : ''
