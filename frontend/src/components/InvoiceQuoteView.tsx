@@ -386,8 +386,8 @@ const estimateRyanInvoiceChunkUnits = (chunk: RyanInvoiceChunk) =>
 const buildRyanInvoicePageCapacities = (pageCount: number) => {
   const firstOnlyPageLimit = 22.8;
   const firstPageLimit = 27.6;
-  const middlePageLimit = 33.4;
-  const lastContinuePageLimit = 29.4;
+  const middlePageLimit = 31.4;
+  const lastContinuePageLimit = 27.2;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1329,6 +1329,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           <div class="invoice-body invoice-body--continue">
             <div class="legacy-table-shell">
               <table class="${tableClassName}">
+                ${tableHeadHtml}
                 ${rowsHtml}
                 ${isLastPage ? summaryRowsHtml : ''}
               </table>
@@ -1352,7 +1353,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           .page { width: 210mm; height: 297mm; margin: 0; padding: 14mm 12mm 10mm 12mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
           .page:last-child { page-break-after: auto; break-after: auto; }
           .legacy-page { display: flex; flex-direction: column; }
-          .legacy-page--continue { padding: 8mm 12mm 10mm 12mm; }
+          .legacy-page--continue { padding: 12mm 12mm 10mm 12mm; }
           .legacy-page--last { padding-bottom: 10mm; }
           .invoice-header { width: 100%; padding: 18px 0; margin: 0; color: #ffffff; }
           .invoice-header.aze { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
@@ -1366,7 +1367,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           .company-info { font-size: 13px; }
           .company-info strong { font-weight: 800; }
           .invoice-body { padding: 8px 16px 0 16px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-          .invoice-body--continue { padding-top: 4px; }
+          .invoice-body--continue { padding-top: 0; }
           .legacy-table-shell { flex: 1 1 auto; min-height: 0; }
           table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
           th, td { border: 1px solid #1f4dbb; padding: 5px; word-wrap: break-word; color: #1f4dbb; }
