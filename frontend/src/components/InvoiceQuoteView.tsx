@@ -10,6 +10,7 @@ type DocumentType = 'Invoice' | 'Quote';
 type OwnerKey = 'aze' | 'ryan';
 
 type PdfServiceItem = {
+  story: string;
   unit: string;
   area: string;
   service: string;
@@ -52,6 +53,7 @@ type RyanInvoiceDisplayChunk = RyanInvoiceChunk & {
 };
 
 type AzeInvoiceRow = {
+  story: string;
   unit: string;
   area: string;
   service: string;
@@ -63,6 +65,13 @@ type AzeInvoiceRow = {
   showService?: boolean;
   showPrice?: boolean;
   showDivider?: boolean;
+};
+
+type AzeInvoiceDisplayRow = AzeInvoiceRow & {
+  showUnitCell: boolean;
+  unitRowSpan: number;
+  showAreaCell: boolean;
+  areaRowSpan: number;
 };
 
 type AzeInvoiceData = {
@@ -740,10 +749,18 @@ const buildRyanInvoiceRowsHtml = (chunks: RyanInvoiceChunk[]) =>
     .join('');
 
 const buildAzeInvoiceTableRows = (items: PdfServiceItem[]): AzeInvoiceRow[] =>
-  items
+  [...items]
+    .sort((left, right) =>
+      compareInvoiceCells(displayInvoiceCell(left.story), displayInvoiceCell(right.story)) ||
+      compareInvoiceCells(displayInvoiceCell(left.unit), displayInvoiceCell(right.unit)) ||
+      compareInvoiceCells(displayInvoiceCell(left.area), displayInvoiceCell(right.area)) ||
+      compareInvoiceCells(displayInvoiceCell(left.service, 'General Service'), displayInvoiceCell(right.service, 'General Service')) ||
+      invoiceCellCollator.compare(left.description, right.description),
+    )
     .flatMap((item) => {
       const bullets = splitDescriptionIntoSentences(item.description);
       const baseRow = {
+        story: displayInvoiceCell(item.story),
         unit: displayInvoiceCell(item.unit),
         area: displayInvoiceCell(item.area),
         service: displayInvoiceCell(item.service, 'General Service'),
@@ -757,7 +774,7 @@ const buildAzeInvoiceTableRows = (items: PdfServiceItem[]): AzeInvoiceRow[] =>
 
       return splitAzeInvoiceRow(baseRow);
     })
-    .filter((row) => row.unit || row.area || row.service || row.bullets.some(Boolean) || row.totalPrice);
+    .filter((row) => row.story || row.unit || row.area || row.service || row.bullets.some(Boolean) || row.totalPrice);
 
 const estimateAzeInvoiceRowUnits = (row: AzeInvoiceRow) => {
   const unitLines = Math.max(1, Math.ceil(row.unit.length / 12));
@@ -785,6 +802,7 @@ const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
     if (!chunkBullets.length) return;
 
     chunks.push({
+      story: row.story,
       unit: row.unit,
       area: row.area,
       service: row.service,
@@ -805,6 +823,7 @@ const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
   row.bullets.forEach((bullet) => {
     const candidateBullets = [...chunkBullets, bullet];
     const candidateRow: AzeInvoiceRow = {
+      story: row.story,
       unit: row.unit,
       area: row.area,
       service: row.service,
@@ -833,6 +852,59 @@ const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
   });
 
   return chunks.length ? chunks : [row];
+};
+
+const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow[] => {
+  const displayRows = rows.map((row) => ({
+    ...row,
+    showUnitCell: true,
+    unitRowSpan: 1,
+    showAreaCell: true,
+    areaRowSpan: 1,
+  }));
+
+  for (let index = 0; index < displayRows.length; ) {
+    const current = displayRows[index];
+    let endIndex = index + 1;
+    let rowSpan = 1;
+
+    while (
+      endIndex < displayRows.length &&
+      displayRows[endIndex].story === current.story &&
+      displayRows[endIndex].unit === current.unit
+    ) {
+      rowSpan += 1;
+      displayRows[endIndex].showUnitCell = false;
+      displayRows[endIndex].unitRowSpan = 0;
+      endIndex += 1;
+    }
+
+    displayRows[index].unitRowSpan = rowSpan;
+    index = endIndex;
+  }
+
+  for (let index = 0; index < displayRows.length; ) {
+    const current = displayRows[index];
+    let endIndex = index + 1;
+    let rowSpan = 1;
+
+    while (
+      endIndex < displayRows.length &&
+      displayRows[endIndex].story === current.story &&
+      displayRows[endIndex].unit === current.unit &&
+      displayRows[endIndex].area === current.area
+    ) {
+      rowSpan += 1;
+      displayRows[endIndex].showAreaCell = false;
+      displayRows[endIndex].areaRowSpan = 0;
+      endIndex += 1;
+    }
+
+    displayRows[index].areaRowSpan = rowSpan;
+    index = endIndex;
+  }
+
+  return displayRows;
 };
 
 const buildAzeInvoicePageCapacities = (pageCount: number) => {
@@ -911,13 +983,11 @@ const paginateAzeInvoiceRows = (rows: AzeInvoiceRow[]) => {
 };
 
 const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
-  rows
+  buildAzeInvoiceDisplayRows(rows)
     .map((row) => {
       const bulletHtml = row.bullets.length
         ? `<ul>${row.bullets.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
         : '<ul><li></li></ul>';
-      const unitHtml = row.showUnit === false ? '&nbsp;' : escapeHtml(row.unit);
-      const areaHtml = row.showArea === false ? '&nbsp;' : escapeHtml(row.area);
       const serviceHtml = row.showService === false ? '&nbsp;' : escapeHtml(row.service);
       const costHtml =
         row.showPrice === false ? '&nbsp;' : escapeHtml(formatPdfMoney(row.totalPrice));
@@ -930,25 +1000,42 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
         .join(' ');
 
       return `
-        <div class="${rowClass}">
-          <div class="unit${row.showUnit === false ? ' is-empty' : ''}">${unitHtml}</div>
-          <div class="area${row.showArea === false ? ' is-empty' : ''}">${areaHtml}</div>
-          <div class="service${row.showService === false ? ' is-empty' : ''}">${serviceHtml}</div>
-          <div class="desc">${bulletHtml}</div>
-          <div class="cost${row.showPrice === false ? ' is-empty' : ''}">${costHtml}</div>
-        </div>
+        <tr class="${rowClass}">
+          ${
+            row.showUnitCell
+              ? `<td class="unit" rowspan="${row.unitRowSpan}">${escapeHtml(row.unit)}</td>`
+              : ''
+          }
+          ${
+            row.showAreaCell
+              ? `<td class="area" rowspan="${row.areaRowSpan}">${escapeHtml(row.area)}</td>`
+              : ''
+          }
+          <td class="service${row.showService === false ? ' is-empty' : ''}">${serviceHtml}</td>
+          <td class="desc">${bulletHtml}</td>
+          <td class="cost${row.showPrice === false ? ' is-empty' : ''}">${costHtml}</td>
+        </tr>
       `;
     })
     .join('');
 
 const azeInvoiceTableHeadHtml = `
-  <div class="thead">
-    <div>Unit</div>
-    <div>Area</div>
-    <div>Service</div>
-    <div>Description</div>
-    <div>Unit Price (USD)</div>
-  </div>
+  <colgroup>
+    <col class="aze-unit-col" />
+    <col class="aze-area-col" />
+    <col class="aze-service-col" />
+    <col class="aze-desc-col" />
+    <col class="aze-price-col" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Unit</th>
+      <th>Area</th>
+      <th>Service</th>
+      <th>Description</th>
+      <th>Unit Price (USD)</th>
+    </tr>
+  </thead>
 `;
 
 const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
@@ -1119,10 +1206,10 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
                 <section class="main">
                   <div class="table-block">
-                    <div class="table">
+                    <table class="table aze-invoice-table">
                       ${azeInvoiceTableHeadHtml}
-                      ${rowsHtml}
-                    </div>
+                      <tbody>${rowsHtml}</tbody>
+                    </table>
                     ${isLastPage ? summaryHtml : ''}
                   </div>
                 </section>
@@ -1138,7 +1225,10 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
             <div class="page-main continue-wrap">
               <section class="main main-full continue-main">
                 <div class="table-block table-block-continue">
-                  <div class="table continue-table">${rowsHtml}</div>
+                  <table class="table aze-invoice-table continue-table">
+                    ${azeInvoiceTableHeadHtml}
+                    <tbody>${rowsHtml}</tbody>
+                  </table>
                   ${isLastPage ? summaryHtml : ''}
                 </div>
               </section>
@@ -1196,31 +1286,27 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .table-block { display: flex; flex-direction: column; width: 100%; }
           .table-block-continue { flex: 0 0 auto; }
           .table { width: 100%; }
-            .thead { display: grid; grid-template-columns: 72px 86px 108px minmax(0, 1fr) 108px; background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 13px; align-items: center; min-height: 58px; padding: 0 10px; column-gap: 8px; }
-            .thead div { text-align: center; }
-            .row { display: grid; grid-template-columns: 72px 86px 108px minmax(0, 1fr) 108px; padding: 12px 10px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); align-items: stretch; min-height: 58px; column-gap: 8px; }
-            .row-continuation { padding-top: 0; min-height: auto; }
-            .row-no-divider { border-bottom: none; padding-bottom: 0; min-height: auto; }
-            .unit,
-            .area,
-            .service { color: #ff5b5b; font-size: 12px; font-weight: 700; line-height: 1.15; padding: 4px 4px 0 4px; word-break: break-word; display: flex; align-items: center; justify-content: center; text-align: center; }
-            .unit.is-empty,
-            .area.is-empty,
-            .service.is-empty { color: transparent; }
-            .desc { color: #2f49a7; font-size: 14px; line-height: 1.45; padding-right: 14px; }
-            .desc ul { margin: 0; padding-left: 20px; }
-            .desc li + li { margin-top: 4px; }
-            .cost { color: #2f49a7; font-size: 14px; font-weight: 800; white-space: nowrap; padding: 4px 10px 0 10px; font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: center; text-align: center; }
-            .cost.is-empty { color: transparent; }
-            .row-continuation .unit,
-            .row-continuation .area,
-            .row-continuation .service,
-            .row-continuation .cost { padding-top: 0; }
-            .row-no-divider .unit,
-            .row-no-divider .area,
-            .row-no-divider .service,
-            .row-no-divider .cost { padding-bottom: 0; }
-            .row-continuation .desc ul { margin-top: 0; }
+          .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
+          .aze-unit-col { width: 72px; }
+          .aze-area-col { width: 86px; }
+          .aze-service-col { width: 108px; }
+          .aze-price-col { width: 108px; }
+          .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 13px; line-height: 1.2; text-align: center; height: 58px; padding: 0 10px; }
+          .aze-invoice-table td { min-height: 58px; padding: 12px 8px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
+          .aze-invoice-table .unit,
+          .aze-invoice-table .area,
+          .aze-invoice-table .service { color: #ff5b5b; font-size: 12px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
+          .aze-invoice-table .service.is-empty { color: transparent; }
+          .aze-invoice-table .desc { color: #2f49a7; font-size: 14px; line-height: 1.45; padding-right: 14px; }
+          .aze-invoice-table .desc ul { margin: 0; padding-left: 20px; }
+          .aze-invoice-table .desc li + li { margin-top: 4px; }
+          .aze-invoice-table .cost { color: #2f49a7; font-size: 14px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+          .aze-invoice-table .cost.is-empty { color: transparent; }
+          .aze-invoice-table .row-continuation .service,
+          .aze-invoice-table .row-continuation .cost { padding-top: 0; }
+          .aze-invoice-table .row-no-divider .service,
+          .aze-invoice-table .row-no-divider .cost { padding-bottom: 0; }
+          .aze-invoice-table .row-continuation .desc ul { margin-top: 0; }
             .summary-section { width: 100%; margin-top: 2px; display: flex; justify-content: flex-end; break-inside: avoid; page-break-inside: avoid; }
             .summary { width: 320px; margin: 0; align-self: flex-end; break-inside: avoid; page-break-inside: avoid; }
             .sum-row { display: grid; grid-template-columns: 1fr 130px; align-items: center; min-height: 54px; padding: 0 0 0 16px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); font-size: 16px; }
@@ -1552,6 +1638,7 @@ export function InvoiceQuoteView({
   }, [documentPreviewOpen]);
 
   const selectedItems: PdfServiceItem[] = selectedJobs.map((job) => ({
+    story: job.story,
     unit: job.unit,
     area: job.area,
     service: job.service,
