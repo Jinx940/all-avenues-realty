@@ -1044,6 +1044,7 @@ const azeInvoiceTableHeadHtml = `
 const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
   const renderedPages = paginateAzeInvoiceRows(tableRows);
+  const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
 
   const summaryHtml = `
     <div class="summary-section">
@@ -1195,6 +1196,11 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                   </div>
 
                   <div class="job-block">
+                    <div class="job-label">Bill To</div>
+                    <div class="job-value">${billToHtml || '-'}</div>
+                  </div>
+
+                  <div class="job-block">
                     <div class="job-label">Start date</div>
                     <div class="job-value">${escapeHtml(formatPdfDate(data.startDate))}</div>
                   </div>
@@ -1279,7 +1285,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .label { font-size: 14px; margin-bottom: 4px; }
           .value { font-size: 16px; font-weight: 800; }
           .content { display: flex; flex-direction: column; gap: 14px; }
-          .job-panel { background: #bfe6e8; min-height: 86px; padding: 12px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) 112px 112px; gap: 16px; align-items: center; text-align: left; }
+          .job-panel { background: #bfe6e8; min-height: 86px; padding: 12px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 16px; align-items: center; text-align: left; }
           .job-title { font-size: 24px; line-height: 1.05; font-weight: 400; margin: 0; text-align: center; }
           .job-block { margin: 0; width: 100%; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
           .job-label { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
