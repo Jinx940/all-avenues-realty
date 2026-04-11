@@ -908,10 +908,10 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
 };
 
 const buildAzeInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 13.6;
-  const firstPageLimit = 16.2;
-  const middlePageLimit = 20.8;
-  const lastContinuePageLimit = 17.8;
+  const firstOnlyPageLimit = 14.6;
+  const firstPageLimit = 22.4;
+  const middlePageLimit = 35.6;
+  const lastContinuePageLimit = 25.4;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
