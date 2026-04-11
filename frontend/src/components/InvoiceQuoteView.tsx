@@ -910,8 +910,8 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
 const buildAzeInvoicePageCapacities = (pageCount: number) => {
   const firstOnlyPageLimit = 14;
   const firstPageLimit = 20.4;
-  const middlePageLimit = 24.8;
-  const lastContinuePageLimit = 16.8;
+  const middlePageLimit = 27.6;
+  const lastContinuePageLimit = 19.2;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1256,7 +1256,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           body { background: #d9d9d9 !important; overflow: hidden; }
             .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 14mm 16mm; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
             .page-first { padding: 18mm 16mm 16mm 16mm; }
-            .page-continue { padding: 14mm 16mm 18mm 16mm; }
+            .page-continue { padding: 14mm 16mm 16mm 16mm; }
             .page:last-child { page-break-after: auto; break-after: auto; }
             .page-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
             .page-footer { margin-top: auto; padding-top: 6px; break-inside: avoid; page-break-inside: avoid; }
