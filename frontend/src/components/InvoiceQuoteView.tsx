@@ -52,10 +52,14 @@ type RyanInvoiceDisplayChunk = RyanInvoiceChunk & {
 };
 
 type AzeInvoiceRow = {
+  unit: string;
+  area: string;
   service: string;
   totalPrice: number;
   bullets: string[];
   continuation?: boolean;
+  showUnit?: boolean;
+  showArea?: boolean;
   showService?: boolean;
   showPrice?: boolean;
   showDivider?: boolean;
@@ -740,25 +744,31 @@ const buildAzeInvoiceTableRows = (items: PdfServiceItem[]): AzeInvoiceRow[] =>
     .flatMap((item) => {
       const bullets = splitDescriptionIntoSentences(item.description);
       const baseRow = {
-        service: formatAreaServiceLabel(item.area, item.service).trim(),
+        unit: displayInvoiceCell(item.unit),
+        area: displayInvoiceCell(item.area),
+        service: displayInvoiceCell(item.service, 'General Service'),
         totalPrice: item.unitPrice,
         bullets: bullets.length ? bullets : [''],
+        showUnit: true,
+        showArea: true,
         showService: true,
         showPrice: true,
       };
 
       return splitAzeInvoiceRow(baseRow);
     })
-    .filter((row) => row.service || row.bullets.some(Boolean) || row.totalPrice);
+    .filter((row) => row.unit || row.area || row.service || row.bullets.some(Boolean) || row.totalPrice);
 
 const estimateAzeInvoiceRowUnits = (row: AzeInvoiceRow) => {
-  const serviceLines = Math.max(1, Math.ceil(row.service.length / 15));
+  const unitLines = Math.max(1, Math.ceil(row.unit.length / 12));
+  const areaLines = Math.max(1, Math.ceil(row.area.length / 14));
+  const serviceLines = Math.max(1, Math.ceil(row.service.length / 16));
   const descLines = row.bullets.reduce(
-    (sum, bullet) => sum + Math.max(1, Math.ceil(bullet.length / 26)),
+    (sum, bullet) => sum + Math.max(1, Math.ceil(bullet.length / 30)),
     0,
   );
 
-  return 1.1 + serviceLines * 0.18 + descLines * 0.28;
+  return 1.1 + Math.max(unitLines, areaLines, serviceLines) * 0.18 + descLines * 0.28;
 };
 
 const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
@@ -775,10 +785,14 @@ const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
     if (!chunkBullets.length) return;
 
     chunks.push({
+      unit: row.unit,
+      area: row.area,
       service: row.service,
       totalPrice: row.totalPrice,
       bullets: chunkBullets,
       continuation: chunkIndex > 0,
+      showUnit: chunkIndex === 0,
+      showArea: chunkIndex === 0,
       showService: chunkIndex === 0,
       showPrice: chunkIndex === 0,
       showDivider: true,
@@ -791,10 +805,14 @@ const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
   row.bullets.forEach((bullet) => {
     const candidateBullets = [...chunkBullets, bullet];
     const candidateRow: AzeInvoiceRow = {
+      unit: row.unit,
+      area: row.area,
       service: row.service,
       totalPrice: row.totalPrice,
       bullets: candidateBullets,
       continuation: chunkIndex > 0,
+      showUnit: chunkIndex === 0,
+      showArea: chunkIndex === 0,
       showService: chunkIndex === 0,
       showPrice: chunkIndex === 0,
     };
@@ -898,6 +916,8 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
       const bulletHtml = row.bullets.length
         ? `<ul>${row.bullets.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
         : '<ul><li></li></ul>';
+      const unitHtml = row.showUnit === false ? '&nbsp;' : escapeHtml(row.unit);
+      const areaHtml = row.showArea === false ? '&nbsp;' : escapeHtml(row.area);
       const serviceHtml = row.showService === false ? '&nbsp;' : escapeHtml(row.service);
       const costHtml =
         row.showPrice === false ? '&nbsp;' : escapeHtml(formatPdfMoney(row.totalPrice));
@@ -911,6 +931,8 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
 
       return `
         <div class="${rowClass}">
+          <div class="unit${row.showUnit === false ? ' is-empty' : ''}">${unitHtml}</div>
+          <div class="area${row.showArea === false ? ' is-empty' : ''}">${areaHtml}</div>
           <div class="service${row.showService === false ? ' is-empty' : ''}">${serviceHtml}</div>
           <div class="desc">${bulletHtml}</div>
           <div class="cost${row.showPrice === false ? ' is-empty' : ''}">${costHtml}</div>
@@ -921,9 +943,11 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
 
 const azeInvoiceTableHeadHtml = `
   <div class="thead">
+    <div>Unit</div>
+    <div>Area</div>
     <div>Service</div>
     <div>Description</div>
-    <div>Cost per<br />Unit</div>
+    <div>Unit Price (USD)</div>
   </div>
 `;
 
@@ -1071,7 +1095,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
               <div class="content">
                 <aside class="job-panel">
-                  <div class="job-title">Job<br />Info</div>
+                  <div class="job-title">Job Info</div>
 
                   <div class="job-block">
                     <div class="job-label">Address</div>
@@ -1162,30 +1186,38 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
           .label { font-size: 14px; margin-bottom: 4px; }
           .value { font-size: 16px; font-weight: 800; }
-          .content { display: grid; grid-template-columns: 112px 1fr; gap: 14px; }
-          .job-panel { background: #bfe6e8; min-height: 560px; padding: 16px 10px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-          .job-title { font-size: 27px; line-height: 1.05; font-weight: 500; margin: 0 0 42px; }
-          .job-block { margin-bottom: 30px; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; }
-          .job-label { font-size: 14px; margin-bottom: 8px; }
-          .job-value { font-size: 17px; font-weight: 400; line-height: 1.15; word-break: break-word; }
+          .content { display: flex; flex-direction: column; gap: 14px; }
+          .job-panel { background: #bfe6e8; min-height: 86px; padding: 12px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) 112px 112px; gap: 16px; align-items: center; text-align: left; }
+          .job-title { font-size: 24px; line-height: 1.05; font-weight: 500; margin: 0; text-align: center; }
+          .job-block { margin: 0; width: 100%; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+          .job-label { font-size: 13px; margin-bottom: 6px; }
+          .job-value { font-size: 14px; font-weight: 400; line-height: 1.2; word-break: break-word; }
           .main { display: flex; flex-direction: column; min-height: 0; }
           .table-block { display: flex; flex-direction: column; width: 100%; }
           .table-block-continue { flex: 0 0 auto; }
           .table { width: 100%; }
-            .thead { display: grid; grid-template-columns: 10ch 1fr 8ch; background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 18px; align-items: center; min-height: 68px; padding: 0 14px; column-gap: 10px; }
+            .thead { display: grid; grid-template-columns: 72px 86px 108px minmax(0, 1fr) 108px; background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 13px; align-items: center; min-height: 58px; padding: 0 10px; column-gap: 8px; }
             .thead div { text-align: center; }
-            .row { display: grid; grid-template-columns: 10ch 1fr 8ch; padding: 14px 10px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); align-items: stretch; min-height: 64px; column-gap: 10px; }
+            .row { display: grid; grid-template-columns: 72px 86px 108px minmax(0, 1fr) 108px; padding: 12px 10px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); align-items: stretch; min-height: 58px; column-gap: 8px; }
             .row-continuation { padding-top: 0; min-height: auto; }
             .row-no-divider { border-bottom: none; padding-bottom: 0; min-height: auto; }
-            .service { color: #ff5b5b; font-size: 13px; font-weight: 700; line-height: 1.15; padding: 4px 8px 0 8px; word-break: break-word; display: flex; align-items: center; justify-content: center; text-align: center; }
+            .unit,
+            .area,
+            .service { color: #ff5b5b; font-size: 12px; font-weight: 700; line-height: 1.15; padding: 4px 4px 0 4px; word-break: break-word; display: flex; align-items: center; justify-content: center; text-align: center; }
+            .unit.is-empty,
+            .area.is-empty,
             .service.is-empty { color: transparent; }
             .desc { color: #2f49a7; font-size: 14px; line-height: 1.45; padding-right: 14px; }
             .desc ul { margin: 0; padding-left: 20px; }
             .desc li + li { margin-top: 4px; }
             .cost { color: #2f49a7; font-size: 14px; font-weight: 800; white-space: nowrap; padding: 4px 10px 0 10px; font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: center; text-align: center; }
             .cost.is-empty { color: transparent; }
+            .row-continuation .unit,
+            .row-continuation .area,
             .row-continuation .service,
             .row-continuation .cost { padding-top: 0; }
+            .row-no-divider .unit,
+            .row-no-divider .area,
             .row-no-divider .service,
             .row-no-divider .cost { padding-bottom: 0; }
             .row-continuation .desc ul { margin-top: 0; }
@@ -1724,6 +1756,15 @@ export function InvoiceQuoteView({
   };
 
   const previewDocument = buildGeneratedDocumentContent();
+  const previewDocumentKey = previewDocument
+    ? [
+        ownerKey,
+        documentType,
+        previewDocument.safeDocumentNumber,
+        selectedJobIds.join(','),
+        previewDocument.html.length,
+      ].join(':')
+    : 'empty';
 
   const openDocumentPreview = async () => {
     if (!selectedItems.length) {
@@ -2358,6 +2399,7 @@ export function InvoiceQuoteView({
             <div className="document-preview-body">
               <div className="document-preview-stage">
                 <iframe
+                  key={previewDocumentKey}
                   ref={previewFrameRef}
                   className="document-preview-frame"
                   srcDoc={previewDocument.html}
