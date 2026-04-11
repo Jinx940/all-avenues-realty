@@ -908,10 +908,10 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
 };
 
 const buildAzeInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 10.8;
-  const firstPageLimit = 10.4;
-  const middlePageLimit = 15.8;
-  const lastContinuePageLimit = 13.2;
+  const firstOnlyPageLimit = 13.6;
+  const firstPageLimit = 16.2;
+  const middlePageLimit = 20.8;
+  const lastContinuePageLimit = 17.8;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1019,7 +1019,7 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
     })
     .join('');
 
-const azeInvoiceTableHeadHtml = `
+const azeInvoiceTableColumnsHtml = `
   <colgroup>
     <col class="aze-unit-col" />
     <col class="aze-area-col" />
@@ -1027,6 +1027,9 @@ const azeInvoiceTableHeadHtml = `
     <col class="aze-desc-col" />
     <col class="aze-price-col" />
   </colgroup>
+`;
+
+const azeInvoiceTableHeadHtml = `
   <thead>
     <tr>
       <th>Unit</th>
@@ -1207,6 +1210,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 <section class="main">
                   <div class="table-block">
                     <table class="table aze-invoice-table">
+                      ${azeInvoiceTableColumnsHtml}
                       ${azeInvoiceTableHeadHtml}
                       <tbody>${rowsHtml}</tbody>
                     </table>
@@ -1226,7 +1230,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
               <section class="main main-full continue-main">
                 <div class="table-block table-block-continue">
                   <table class="table aze-invoice-table continue-table">
-                    ${azeInvoiceTableHeadHtml}
+                    ${azeInvoiceTableColumnsHtml}
                     <tbody>${rowsHtml}</tbody>
                   </table>
                   ${isLastPage ? summaryHtml : ''}
