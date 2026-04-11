@@ -911,7 +911,7 @@ const buildAzeInvoicePageCapacities = (pageCount: number) => {
   const firstOnlyPageLimit = 14;
   const firstPageLimit = 20.4;
   const middlePageLimit = 27.6;
-  const lastContinuePageLimit = 19.2;
+  const lastContinuePageLimit = 15.8;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
