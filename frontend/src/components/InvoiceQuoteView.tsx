@@ -1044,7 +1044,6 @@ const azeInvoiceTableHeadHtml = `
 const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
   const renderedPages = paginateAzeInvoiceRows(tableRows);
-  const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
 
   const summaryHtml = `
     <div class="summary-section">
@@ -1191,8 +1190,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                     <div class="job-label">Address</div>
                     <div class="job-value">
                       ${escapeHtml(data.propertyAddress)}
-                      ${data.propertyCityLine ? `<br><br>${escapeHtml(data.propertyCityLine)}` : ''}
-                      ${data.billTo ? `<br><br>${billToHtml}` : ''}
+                      ${data.propertyCityLine ? `<br>${escapeHtml(data.propertyCityLine)}` : ''}
                     </div>
                   </div>
 
@@ -1282,9 +1280,9 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .value { font-size: 16px; font-weight: 800; }
           .content { display: flex; flex-direction: column; gap: 14px; }
           .job-panel { background: #bfe6e8; min-height: 86px; padding: 12px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) 112px 112px; gap: 16px; align-items: center; text-align: left; }
-          .job-title { font-size: 24px; line-height: 1.05; font-weight: 500; margin: 0; text-align: center; }
+          .job-title { font-size: 24px; line-height: 1.05; font-weight: 400; margin: 0; text-align: center; }
           .job-block { margin: 0; width: 100%; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
-          .job-label { font-size: 13px; margin-bottom: 6px; }
+          .job-label { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
           .job-value { font-size: 14px; font-weight: 400; line-height: 1.2; word-break: break-word; }
           .main { display: flex; flex-direction: column; min-height: 0; }
           .table-block { display: flex; flex-direction: column; width: 100%; }
