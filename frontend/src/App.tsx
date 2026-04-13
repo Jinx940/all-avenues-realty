@@ -222,6 +222,7 @@ const createJobFilters = () => ({
   unit: '',
   area: '',
   service: '',
+  paymentStatus: '',
 });
 
 const createUserDraft = (): UserDraftState => ({
@@ -353,6 +354,7 @@ export default function App() {
     if (jobFilters.unit && job.unit !== jobFilters.unit) return false;
     if (jobFilters.area && job.area !== jobFilters.area) return false;
     if (jobFilters.service && job.service !== jobFilters.service) return false;
+    if (jobFilters.paymentStatus && job.paymentStatus !== jobFilters.paymentStatus) return false;
     if (!deferredSearch.trim()) return true;
     const haystack = [
       job.propertyName,
@@ -361,6 +363,8 @@ export default function App() {
       job.unit,
       job.area,
       job.service,
+      job.paymentStatusLabel,
+      job.paymentStatus,
       job.description,
       job.workers.map((worker) => worker.name).join(' '),
     ]
@@ -865,7 +869,7 @@ export default function App() {
   };
 
   const updateJobTrackerFilter = (
-    field: 'search' | 'propertyId' | 'story' | 'unit' | 'area' | 'service',
+    field: 'search' | 'propertyId' | 'story' | 'unit' | 'area' | 'service' | 'paymentStatus',
     value: string,
   ) => {
     setJobFilters((current) =>

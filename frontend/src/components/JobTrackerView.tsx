@@ -104,7 +104,7 @@ const dateRangeFor = (job: JobRow) => {
   return `${start} -> ${due}`;
 };
 
-type TrackerFilterField = 'search' | 'propertyId' | 'story' | 'unit' | 'area' | 'service';
+type TrackerFilterField = 'search' | 'propertyId' | 'story' | 'unit' | 'area' | 'service' | 'paymentStatus';
 
 type TrackerFilters = {
   search: string;
@@ -113,6 +113,7 @@ type TrackerFilters = {
   unit: string;
   area: string;
   service: string;
+  paymentStatus: string;
 };
 
 const trackerValueSort = (left: string, right: string) =>
@@ -543,6 +544,21 @@ export function JobTrackerView({
               {serviceOptions.map((service) => (
                 <option key={service.value} value={service.value}>
                   {service.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Payment Status
+            <select
+              value={filters.paymentStatus}
+              onChange={(event) => onFilterChange('paymentStatus', event.target.value)}
+            >
+              <option value="">All</option>
+              {bootstrap?.paymentStatuses.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
                 </option>
               ))}
             </select>
