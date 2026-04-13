@@ -37,8 +37,10 @@ import { env } from './env.js';
 import { buildInfo, buildSummary } from './lib/buildInfo.js';
 import { recordAuditLog } from './lib/audit.js';
 import {
+  canManageJobs,
   requireAdmin,
   requireDocumentManager,
+  requireJobCreator,
   requireJobManager,
   roleScopeForDocuments,
   roleScopeForJobs,
@@ -1490,11 +1492,11 @@ app.get(
         }),
       ),
       workers:
-        auth.role === UserRole.ADMIN || auth.role === UserRole.OFFICE
+        canManageJobs(auth.role)
           ? workerSummaries.filter((worker) => worker.status === WorkerStatus.ACTIVE)
-          : [],
+          : workerSummaries.filter((worker) => worker.id === auth.workerId),
       inactiveWorkers:
-        auth.role === UserRole.ADMIN || auth.role === UserRole.OFFICE
+        canManageJobs(auth.role)
           ? workerSummaries.filter((worker) => worker.status === WorkerStatus.INACTIVE)
           : [],
     });
@@ -1996,13 +1998,38 @@ app.post(
   '/api/jobs',
   jobUploadFields,
   asyncRoute(async (request, response) => {
-    if (!requireJobManager(request, response)) {
+    const auth = (request as AuthenticatedRequest).auth;
+    if (!auth || !requireJobCreator(request, response)) {
       return;
     }
 
     const payload = jobInputSchema.parse(request.body);
     const filesMap = ((request as Request & { files?: UploadedFilesMap }).files ?? {}) as UploadedFilesMap;
-    const workerIds = await ensureWorkerIdsExist(payload.workerIds);
+    let workerIds: string[];
+
+    if (auth.role === UserRole.WORKER) {
+      if (!auth.workerId) {
+        throw new HttpError(403, 'Your user is not linked to a worker profile.');
+      }
+
+      const assignedProperty = await prisma.property.findFirst({
+        where: {
+          id: payload.propertyId,
+          ...roleScopeForProperties(auth),
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!assignedProperty) {
+        throw new HttpError(403, 'Workers can only create jobs for assigned properties.');
+      }
+
+      workerIds = await ensureWorkerIdsExist([auth.workerId]);
+    } else {
+      workerIds = await ensureWorkerIdsExist(payload.workerIds);
+    }
 
     const createdJob = await prisma.job.create({
       data: {

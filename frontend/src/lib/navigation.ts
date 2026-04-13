@@ -81,7 +81,7 @@ export const roleTabs: Record<AuthUser['role'], TabId[]> = {
     'document-center',
     'settings',
   ],
-  WORKER: ['dashboard', 'property-info', 'job-tracker', 'document-center', 'settings'],
+  WORKER: ['dashboard', 'new-job', 'property-info', 'job-tracker', 'document-center', 'settings'],
   VIEWER: ['dashboard', 'property-info', 'job-tracker', 'document-center', 'settings'],
 };
 

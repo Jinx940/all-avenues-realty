@@ -8,6 +8,9 @@ export const isAdmin = (role: UserRole) => role === UserRole.ADMIN;
 export const canManageJobs = (role: UserRole) =>
   role === UserRole.ADMIN || role === UserRole.OFFICE;
 
+export const canCreateJobs = (role: UserRole) =>
+  canManageJobs(role) || role === UserRole.WORKER;
+
 export const canViewAllJobs = (role: UserRole) =>
   role === UserRole.ADMIN || role === UserRole.OFFICE || role === UserRole.VIEWER;
 
@@ -71,6 +74,12 @@ export const requireJobManager = (
   response: Response,
   message = 'You do not have permission to manage jobs.',
 ) => assertRole(request, response, canManageJobs, message);
+
+export const requireJobCreator = (
+  request: Request,
+  response: Response,
+  message = 'You do not have permission to create jobs.',
+) => assertRole(request, response, canCreateJobs, message);
 
 export const requireDocumentManager = (
   request: Request,

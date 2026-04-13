@@ -57,6 +57,7 @@ export function JobsView({
   workers,
   form,
   isSaving,
+  canAssignWorkers,
   onSubmit,
   onReset,
   onFieldChange,
@@ -68,6 +69,7 @@ export function JobsView({
   workers: WorkerSummary[];
   form: JobFormState;
   isSaving: boolean;
+  canAssignWorkers: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onReset: () => void;
   onFieldChange: (field: keyof Omit<JobFormState, 'id' | 'workerIds' | 'files' | 'currentFiles'>, value: string) => void;
@@ -125,7 +127,7 @@ export function JobsView({
     {
       number: '04',
       title: 'Workers',
-      description: 'Assign the crew.',
+      description: canAssignWorkers ? 'Assign the crew.' : 'Assigned to your worker profile.',
       icon: 'users',
       complete: form.workerIds.length > 0,
     },
@@ -202,7 +204,9 @@ export function JobsView({
                 <label>
                   Property *
                   <select value={form.propertyId} onChange={(event) => onFieldChange('propertyId', event.target.value)} required>
-                    <option value="">Select a property</option>
+                    <option value="">
+                      {bootstrap?.properties.length ? 'Select a property' : 'No assigned properties'}
+                    </option>
                     {bootstrap?.properties.map((property) => (
                       <option key={property.id} value={property.id}>
                         {property.name}
@@ -387,9 +391,13 @@ export function JobsView({
                   <p className="page-kicker">Step 04</p>
                   <h3 className="title-with-icon title-with-icon--sm">
                     <UiIcon name="users" />
-                    <span>Assign workers</span>
+                    <span>{canAssignWorkers ? 'Assign workers' : 'Assigned worker'}</span>
                   </h3>
-                  <p>Choose the crew that will work on this job.</p>
+                  <p>
+                    {canAssignWorkers
+                      ? 'Choose the crew that will work on this job.'
+                      : 'Jobs you create here are assigned to your worker profile.'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -400,7 +408,9 @@ export function JobsView({
                 <small className="job-workers-count">
                   {form.workerIds.length
                     ? `${form.workerIds.length} worker(s) selected`
-                    : 'Select one or more workers'}
+                    : canAssignWorkers
+                      ? 'Select one or more workers'
+                      : 'Your worker profile will be selected automatically'}
                 </small>
               </div>
 
@@ -417,6 +427,7 @@ export function JobsView({
                         <input
                           type="checkbox"
                           checked={checked}
+                          disabled={!canAssignWorkers}
                           onChange={() => onToggleWorker(worker.id)}
                         />
                         <span>{worker.name}</span>
@@ -424,7 +435,11 @@ export function JobsView({
                     );
                   })
                 ) : (
-                  <div className="job-workers-empty">No workers available yet.</div>
+                  <div className="job-workers-empty">
+                    {canAssignWorkers
+                      ? 'No workers available yet.'
+                      : 'Your user is not linked to an available worker profile.'}
+                  </div>
                 )}
               </div>
             </div>
@@ -513,7 +528,7 @@ export function JobsView({
               ) : null}
 
               <div className="actions-row span-3">
-                <button type="submit" disabled={isSaving}>
+                <button type="submit" disabled={isSaving || !bootstrap?.properties.length}>
                   <UiIcon name="plus" />
                   {isSaving ? 'Saving...' : 'Save Job'}
                 </button>

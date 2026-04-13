@@ -127,7 +127,10 @@ const emptyRemoteFiles = (): JobFileMap => ({
   quote: [],
 });
 
-const createJobForm = (bootstrap?: BootstrapPayload | null): JobFormState => ({
+const workerIdsForNewJob = (user?: AuthUser | null) =>
+  user?.role === 'WORKER' && user.workerId ? [user.workerId] : [];
+
+const createJobForm = (bootstrap?: BootstrapPayload | null, user?: AuthUser | null): JobFormState => ({
   id: null,
   propertyId: bootstrap?.properties[0]?.id ?? '',
   story: '',
@@ -144,7 +147,7 @@ const createJobForm = (bootstrap?: BootstrapPayload | null): JobFormState => ({
   advanceCashApp: '0',
   startDate: '',
   dueDate: '',
-  workerIds: [],
+  workerIds: workerIdsForNewJob(user),
   files: emptyLocalFiles(),
   currentFiles: emptyRemoteFiles(),
 });
@@ -257,6 +260,8 @@ const serializePasswordChangeDraft = (draft: PasswordChangeState) =>
 const canAdmin = (user: AuthUser | null) => user?.role === 'ADMIN';
 const canManageJobs = (user: AuthUser | null) =>
   user?.role === 'ADMIN' || user?.role === 'OFFICE';
+const canCreateJobs = (user: AuthUser | null) =>
+  canManageJobs(user) || (user?.role === 'WORKER' && Boolean(user.workerId));
 const documentDataTabs = new Set<TabId>(['generate-invoice-quote', 'document-center']);
 const adminDataTabs = new Set<TabId>(['workers', 'settings']);
 
@@ -334,6 +339,13 @@ export default function App() {
     () => (bootstrap ? [...bootstrap.workers, ...bootstrap.inactiveWorkers] : []),
     [bootstrap],
   );
+  const jobFormWorkers = useMemo(
+    () =>
+      canManageJobs(currentUser)
+        ? allWorkers
+        : allWorkers.filter((worker) => worker.id === currentUser?.workerId),
+    [allWorkers, currentUser],
+  );
   const availableUserWorkers = useMemo(() => {
     const linkedWorkerIds = new Set(
       users
@@ -384,8 +396,8 @@ export default function App() {
         : serializeJobFormDraft(jobForm);
     }
 
-    return serializeJobFormDraft(createJobForm(bootstrap));
-  }, [bootstrap, jobForm, jobs]);
+    return serializeJobFormDraft(createJobForm(bootstrap, currentUser));
+  }, [bootstrap, currentUser, jobForm, jobs]);
   const currentPropertyDraftSignature = useMemo(
     () => serializePropertyFormDraft(propertyForm),
     [propertyForm],
@@ -667,8 +679,8 @@ export default function App() {
         ? current
         : bootstrap.properties[0]?.id ?? '',
     );
-    setJobForm((current) => (current.id ? current : createJobForm(bootstrap)));
-  }, [bootstrap]);
+    setJobForm((current) => (current.id ? current : createJobForm(bootstrap, currentUser)));
+  }, [bootstrap, currentUser]);
 
   useEffect(() => {
     if (propertyEditorMode === 'edit') {
@@ -857,7 +869,7 @@ export default function App() {
   };
 
   const applyResetJobForm = () => {
-    setJobForm(createJobForm(bootstrap));
+    setJobForm(createJobForm(bootstrap, currentUser));
   };
 
   const resetJobForm = async () => {
@@ -1042,7 +1054,21 @@ export default function App() {
 
   const submitJob = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!requireRole(canManageJobs, 'Only admins and office users can save jobs.')) return;
+    if (
+      !requireRole(
+        (user) => (jobForm.id ? canManageJobs(user) : canCreateJobs(user)),
+        jobForm.id
+          ? 'Only admins and office users can update jobs.'
+          : 'Only admins, office users and linked workers can create jobs.',
+      )
+    ) return;
+    if (
+      currentUser?.role === 'WORKER' &&
+      !bootstrap?.properties.some((property) => property.id === jobForm.propertyId)
+    ) {
+      setMessage({ type: 'error', text: 'Workers can only create jobs for assigned properties.' });
+      return;
+    }
     if (jobForm.paymentStatus === 'PARTIAL_PAYMENT' && Number(jobForm.advanceCashApp || '0') <= 0) {
       setMessage({ type: 'error', text: 'Advance Cash App ($) is required when payment status is Partial Payment.' });
       return;
@@ -1069,7 +1095,14 @@ export default function App() {
       formData.append('advanceCashApp', jobForm.advanceCashApp);
       formData.append('startDate', jobForm.startDate);
       formData.append('dueDate', jobForm.dueDate);
-      formData.append('workerIds', JSON.stringify(jobForm.workerIds));
+      formData.append(
+        'workerIds',
+        JSON.stringify(
+          currentUser?.role === 'WORKER' && currentUser.workerId
+            ? [currentUser.workerId]
+            : jobForm.workerIds,
+        ),
+      );
       (Object.keys(jobForm.files) as JobFileField[]).forEach((field) => {
         jobForm.files[field].forEach((file) => formData.append(field, file));
       });
@@ -1789,7 +1822,7 @@ export default function App() {
             jobs={jobs}
             onCreateJob={() => void handleTabSelection('new-job')}
             onOpenSettings={() => void handleTabSelection('settings')}
-            canCreateJob={canManageJobs(currentUser)}
+            canCreateJob={canCreateJobs(currentUser)}
             canOpenSettings={Boolean(currentUser)}
           />
         ) : null}
@@ -1797,9 +1830,10 @@ export default function App() {
         {activeTab === 'new-job' ? (
           <JobsView
             bootstrap={bootstrap}
-            workers={allWorkers}
+            workers={jobFormWorkers}
             form={jobForm}
             isSaving={isSavingJob}
+            canAssignWorkers={canManageJobs(currentUser)}
             onSubmit={submitJob}
             onReset={() => void resetJobForm()}
             onFieldChange={(field, value) =>
@@ -1827,9 +1861,12 @@ export default function App() {
             onToggleWorker={(workerId) =>
               setJobForm((current) => ({
                 ...current,
-                workerIds: current.workerIds.includes(workerId)
-                  ? current.workerIds.filter((item) => item !== workerId)
-                  : [...current.workerIds, workerId],
+                workerIds:
+                  currentUser?.role === 'WORKER'
+                    ? workerIdsForNewJob(currentUser)
+                    : current.workerIds.includes(workerId)
+                      ? current.workerIds.filter((item) => item !== workerId)
+                      : [...current.workerIds, workerId],
               }))
             }
           />
