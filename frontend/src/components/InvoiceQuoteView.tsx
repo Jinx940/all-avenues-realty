@@ -320,14 +320,62 @@ const buildRyanInvoiceGroups = (items: PdfServiceItem[]): RyanInvoiceGroup[] =>
     invoiceCellCollator.compare(left.sentences.join(' '), right.sentences.join(' ')),
   );
 
+const normalizeRyanInvoiceArea = (value: string) =>
+  value
+    .replace(/\r?\n+/g, ' ')
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const isRyanInvoiceAddressArea = (value: string) => {
+  const normalized = normalizeRyanInvoiceArea(value);
+  if (!normalized || normalized === '-') return false;
+
+  const parts = normalized.split(',').map((part) => part.trim()).filter(Boolean);
+  return parts.length >= 2 && /\d/.test(parts[0] ?? '');
+};
+
+const buildRyanInvoiceAreaHtml = (value: string) => {
+  const normalized = normalizeRyanInvoiceArea(value);
+  if (!normalized || normalized === '-') {
+    return escapeHtml(value);
+  }
+
+  if (!isRyanInvoiceAddressArea(normalized)) {
+    return escapeHtml(normalized);
+  }
+
+  const parts = normalized.split(',').map((part) => part.trim()).filter(Boolean);
+  const [street = normalized, ...rest] = parts;
+  const cityLine = rest.join(', ');
+  const streetLine = street.endsWith(',') ? street : `${street},`;
+
+  return `
+    <span class="ryan-area-address">
+      <span class="ryan-area-line">${escapeHtml(streetLine)}</span>
+      <span class="ryan-area-line ryan-area-line--city">${escapeHtml(cityLine)}</span>
+    </span>
+  `;
+};
+
 const buildRyanInvoiceColumnLayout = (groups: RyanInvoiceGroup[]): RyanInvoiceColumnLayout => {
   const hasUnitData = groups.some((group) => group.unit !== '-');
   const hasAreaData = groups.some((group) => group.area !== '-');
+  const hasAddressLikeAreas = groups.some((group) => isRyanInvoiceAddressArea(group.area));
+  const longestDescription = groups.reduce(
+    (max, group) => Math.max(max, ...group.sentences.map((sentence) => sentence.length), 0),
+    0,
+  );
+  const compactDescriptions = longestDescription <= 48;
 
-  const unit = hasUnitData ? 12 : 6;
-  const area = hasAreaData ? 14 : 8;
-  const service = 18;
+  const unit = hasUnitData ? 10 : 6;
+  let area = hasAreaData ? (hasAddressLikeAreas ? 18 : 14) : 8;
+  const service = 16;
   const price = 18;
+  if (hasAddressLikeAreas && compactDescriptions) {
+    area += 4;
+  }
+
   const description = 100 - unit - area - service - price;
 
   return {
@@ -612,7 +660,7 @@ const buildRyanInvoiceRowsHtml = (chunks: RyanInvoiceChunk[]) =>
               }
               ${
                 chunk.showArea
-                  ? `<td class="ryan-area-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.areaRowSpan}">${escapeHtml(
+                  ? `<td class="ryan-area-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.areaRowSpan}">${buildRyanInvoiceAreaHtml(
                       chunk.area,
                     )}</td>`
                   : ''
@@ -1363,6 +1411,9 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     td.ryan-service-cell,
     td.ryan-price-cell { text-align: center; vertical-align: middle; font-weight: 800; font-size: 10px; line-height: 1.3; }
     td.ryan-desc-cell { font-size: 10px; line-height: 1.35; }
+    .ryan-area-address { display: grid; gap: 1px; }
+    .ryan-area-line { display: block; line-height: 1.12; }
+    .ryan-area-line--city { font-size: 9px; }
     .ryan-desc-stack { display: grid; gap: 3px; }
     .ryan-desc-line { display: block; }
     td.ryan-service-cell { word-break: break-word; }
