@@ -1384,6 +1384,10 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .invoice-body--continue { padding-top: 0; }
     .legacy-table-shell { flex: 1 1 auto; min-height: 0; padding-bottom: 12mm; box-sizing: border-box; }
     .legacy-table-shell--last { padding-bottom: 16mm; }
+    .ryan-page-header-gap { flex: 0 0 8mm; }
+    .ryan-page-footer-gap { flex: 0 0 10mm; }
+    .ryan-table-shell { padding-bottom: 0; }
+    .ryan-table-shell--last { padding-bottom: 0; }
     table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
     th, td { border: 1px solid #1f4dbb; padding: 5px; word-wrap: break-word; color: #1f4dbb; }
     th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
@@ -1436,9 +1440,10 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
   ) => `
     <div class="page legacy-page ${options.isFirstPage ? '' : 'legacy-page--continue'} ${options.includeSummary ? 'legacy-page--last' : ''}">
       ${options.isFirstPage ? headerHtml : ''}
+      ${options.isFirstPage ? '' : '<div class="ryan-page-header-gap" aria-hidden="true"></div>'}
       <div class="invoice-body${options.isFirstPage ? '' : ' invoice-body--continue'}">
         ${options.isFirstPage ? paymentDetailsHtml : ''}
-        <div class="legacy-table-shell ${options.includeSummary ? 'legacy-table-shell--last' : ''}">
+        <div class="legacy-table-shell ryan-table-shell ${options.includeSummary ? 'legacy-table-shell--last ryan-table-shell--last' : ''}">
           <table class="ryan-invoice-table">
             ${options.isFirstPage ? ryanInvoiceTableHeadHtml : ''}
             ${buildRyanInvoiceRowsHtml(chunks)}
@@ -1446,6 +1451,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           </table>
         </div>
       </div>
+      <div class="ryan-page-footer-gap" aria-hidden="true"></div>
     </div>
   `;
 
@@ -1481,15 +1487,15 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
       measurementHost.innerHTML = `<style>${legacySterlingPdfStyles}</style>${buildRyanPageHtml(chunks, options)}`;
       const page = measurementHost.querySelector<HTMLElement>('.page');
       const table = measurementHost.querySelector<HTMLElement>('.ryan-invoice-table');
+      const footerGap = measurementHost.querySelector<HTMLElement>('.ryan-page-footer-gap');
 
-      if (!page || !table) {
+      if (!page || !table || !footerGap) {
         return true;
       }
 
-      const pageRect = page.getBoundingClientRect();
+      const footerGapRect = footerGap.getBoundingClientRect();
       const tableRect = table.getBoundingClientRect();
-      const footerGapPx = options.includeSummary ? 28 : 22;
-      return tableRect.bottom <= pageRect.bottom - footerGapPx;
+      return tableRect.bottom <= footerGapRect.top;
     };
 
     const pages: RyanInvoiceChunk[][] = [[]];
