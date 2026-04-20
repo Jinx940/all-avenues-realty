@@ -399,6 +399,9 @@ const estimateRyanInvoiceChunkUnits = (chunk: RyanInvoiceChunk) =>
   0.34 +
   chunk.sentences.reduce((sum, sentence) => sum + estimateRyanInvoiceSentenceUnits(sentence), 0);
 
+const calculateRyanInvoicePageUsage = (chunks: RyanInvoiceChunk[]) =>
+  chunks.reduce((sum, chunk) => sum + estimateRyanInvoiceChunkUnits(chunk), 0);
+
 const buildRyanInvoicePageCapacities = (pageCount: number) => {
   // Keep extra room for the totals block and a visible bottom safe area on A4.
   const firstOnlyPageLimit = 14.8;
@@ -418,6 +421,48 @@ const buildRyanInvoicePageCapacities = (pageCount: number) => {
 
   capacities.push(lastContinuePageLimit);
   return capacities;
+};
+
+const rebalanceTrailingEmptyRyanPages = (
+  pages: RyanInvoiceChunk[][],
+  capacities: number[],
+) => {
+  const rebalancedPages = pages.map((page) => [...page]);
+
+  for (let pageIndex = rebalancedPages.length - 1; pageIndex > 0; pageIndex -= 1) {
+    if (rebalancedPages[pageIndex].length > 0) {
+      continue;
+    }
+
+    const previousPage = rebalancedPages[pageIndex - 1];
+    if (!previousPage.length) {
+      return null;
+    }
+
+    let targetUsage = calculateRyanInvoicePageUsage(rebalancedPages[pageIndex]);
+    let movedChunk = false;
+
+    while (previousPage.length) {
+      const candidateChunk = previousPage[previousPage.length - 1];
+      const candidateUnits = estimateRyanInvoiceChunkUnits(candidateChunk);
+
+      if (targetUsage + candidateUnits > capacities[pageIndex]) {
+        break;
+      }
+
+      previousPage.pop();
+      rebalancedPages[pageIndex].unshift(candidateChunk);
+      targetUsage += candidateUnits;
+      movedChunk = true;
+      break;
+    }
+
+    if (!movedChunk) {
+      return null;
+    }
+  }
+
+  return rebalancedPages;
 };
 
 const fitRyanInvoiceChunk = (
@@ -516,8 +561,15 @@ const paginateRyanInvoiceGroups = (groups: RyanInvoiceGroup[]) => {
     }
 
     if (fitsAll) {
-      while (pages.length > 1 && pages[pages.length - 1].length === 0) {
-        pages.pop();
+      const hasTrailingEmptyPage =
+        pages.length > 1 && pages.some((page, index) => index > 0 && page.length === 0);
+
+      if (hasTrailingEmptyPage) {
+        const rebalancedPages = rebalanceTrailingEmptyRyanPages(pages, capacities);
+
+        if (rebalancedPages) {
+          return rebalancedPages;
+        }
       }
 
       return pages.length ? pages : [[]];
