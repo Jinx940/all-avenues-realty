@@ -384,23 +384,26 @@ const estimateRyanInvoiceSentenceUnits = (sentence: string) => {
   return 0.28 + Math.max(1, Math.ceil(normalized.length / 68)) * 0.28;
 };
 
-const estimateRyanInvoiceMetaUnits = (chunk: Pick<RyanInvoiceChunk, 'unit' | 'area' | 'service'>) =>
-  Math.max(
-    Math.max(1, Math.ceil(chunk.unit.length / 14)),
-    Math.max(1, Math.ceil(chunk.area.length / 16)),
-    Math.max(1, Math.ceil(chunk.service.length / 18)),
-  ) * 0.12;
+const estimateRyanInvoiceMetaUnits = (chunk: Pick<RyanInvoiceChunk, 'unit' | 'area' | 'service'>) => {
+  // Address-like values in the Area column wrap much earlier than the raw character count suggests.
+  // A stricter estimate keeps the last page inside the A4 boundary and forces overflow onto a new page.
+  const unitLines = Math.max(1, Math.ceil(chunk.unit.length / 10));
+  const areaLines = Math.max(1, Math.ceil(chunk.area.length / 9));
+  const serviceLines = Math.max(1, Math.ceil(chunk.service.length / 12));
+
+  return 0.18 + Math.max(unitLines, areaLines, serviceLines) * 0.18;
+};
 
 const estimateRyanInvoiceChunkUnits = (chunk: RyanInvoiceChunk) =>
   estimateRyanInvoiceMetaUnits(chunk) +
-  0.26 +
+  0.34 +
   chunk.sentences.reduce((sum, sentence) => sum + estimateRyanInvoiceSentenceUnits(sentence), 0);
 
 const buildRyanInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 20.8;
+  const firstOnlyPageLimit = 19.4;
   const firstPageLimit = 24.2;
   const middlePageLimit = 29.6;
-  const lastContinuePageLimit = 26.2;
+  const lastContinuePageLimit = 24.8;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
