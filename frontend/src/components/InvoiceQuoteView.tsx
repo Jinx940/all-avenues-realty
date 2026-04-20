@@ -400,10 +400,11 @@ const estimateRyanInvoiceChunkUnits = (chunk: RyanInvoiceChunk) =>
   chunk.sentences.reduce((sum, sentence) => sum + estimateRyanInvoiceSentenceUnits(sentence), 0);
 
 const buildRyanInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 19.4;
+  // Keep extra room for the totals block and a visible bottom safe area on A4.
+  const firstOnlyPageLimit = 14.8;
   const firstPageLimit = 24.2;
   const middlePageLimit = 29.6;
-  const lastContinuePageLimit = 24.8;
+  const lastContinuePageLimit = 21.8;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1440,7 +1441,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
                 </div>
               </div>
 
-              <div class="legacy-table-shell">
+              <div class="legacy-table-shell ${isLastPage ? 'legacy-table-shell--last' : ''}">
                 <table class="${tableClassName}">
                   ${tableHeadHtml}
                   ${rowsHtml}
@@ -1455,7 +1456,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
       return `
         <div class="page legacy-page legacy-page--continue ${isLastPage ? 'legacy-page--last' : ''}">
           <div class="invoice-body invoice-body--continue">
-            <div class="legacy-table-shell">
+            <div class="legacy-table-shell ${isLastPage ? 'legacy-table-shell--last' : ''}">
               <table class="${tableClassName}">
                 ${tableHeadHtml}
                 ${rowsHtml}
@@ -1497,6 +1498,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           .invoice-body { padding: 8px 16px 0 16px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
           .invoice-body--continue { padding-top: 0; }
           .legacy-table-shell { flex: 1 1 auto; min-height: 0; }
+          .legacy-table-shell--last { padding-bottom: 12mm; box-sizing: border-box; }
           table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
           th, td { border: 1px solid #1f4dbb; padding: 5px; word-wrap: break-word; color: #1f4dbb; }
           th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
