@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, buildAssetUrl, requestJson } from '../lib/api';
 import { buildGeneratedPdfBlob, downloadPdfBlob } from '../lib/generatedPdf';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
@@ -383,212 +383,6 @@ const fitLegacyChunk = (
     continuation,
     showPrice: !continuation,
   };
-};
-
-const estimateRyanInvoiceSentenceUnits = (sentence: string) => {
-  const normalized = sentence.trim();
-  if (!normalized || normalized === '-') return 0.42;
-
-  return 0.42 + Math.max(1, Math.ceil(normalized.length / 34)) * 0.4;
-};
-
-const estimateRyanInvoiceMetaUnits = (chunk: Pick<RyanInvoiceChunk, 'unit' | 'area' | 'service'>) => {
-  // Address-like values in the Area column wrap much earlier than the raw character count suggests.
-  // A stricter estimate keeps the last page inside the A4 boundary and forces overflow onto a new page.
-  const unitLines = Math.max(1, Math.ceil(chunk.unit.length / 10));
-  const areaLines = Math.max(1, Math.ceil(chunk.area.length / 9));
-  const serviceLines = Math.max(1, Math.ceil(chunk.service.length / 12));
-
-  return 0.18 + Math.max(unitLines, areaLines, serviceLines) * 0.18;
-};
-
-const estimateRyanInvoiceChunkUnits = (chunk: RyanInvoiceChunk) =>
-  estimateRyanInvoiceMetaUnits(chunk) +
-  0.34 +
-  chunk.sentences.reduce((sum, sentence) => sum + estimateRyanInvoiceSentenceUnits(sentence), 0);
-
-const calculateRyanInvoicePageUsage = (chunks: RyanInvoiceChunk[]) =>
-  chunks.reduce((sum, chunk) => sum + estimateRyanInvoiceChunkUnits(chunk), 0);
-
-const buildRyanInvoicePageCapacities = (pageCount: number) => {
-  // Reserve a visible footer gap on every A4 page so the table never reaches the page edge.
-  const firstOnlyPageLimit = 12.8;
-  const firstPageLimit = 19.8;
-  const middlePageLimit = 24.8;
-  const lastContinuePageLimit = 18.4;
-
-  if (pageCount <= 1) {
-    return [firstOnlyPageLimit];
-  }
-
-  const capacities = [firstPageLimit];
-
-  for (let index = 0; index < pageCount - 2; index += 1) {
-    capacities.push(middlePageLimit);
-  }
-
-  capacities.push(lastContinuePageLimit);
-  return capacities;
-};
-
-const rebalanceTrailingEmptyRyanPages = (
-  pages: RyanInvoiceChunk[][],
-  capacities: number[],
-) => {
-  const rebalancedPages = pages.map((page) => [...page]);
-
-  for (let pageIndex = rebalancedPages.length - 1; pageIndex > 0; pageIndex -= 1) {
-    if (rebalancedPages[pageIndex].length > 0) {
-      continue;
-    }
-
-    const previousPage = rebalancedPages[pageIndex - 1];
-    if (!previousPage.length) {
-      return null;
-    }
-
-    let targetUsage = calculateRyanInvoicePageUsage(rebalancedPages[pageIndex]);
-    let movedChunk = false;
-
-    while (previousPage.length) {
-      const candidateChunk = previousPage[previousPage.length - 1];
-      const candidateUnits = estimateRyanInvoiceChunkUnits(candidateChunk);
-
-      if (targetUsage + candidateUnits > capacities[pageIndex]) {
-        break;
-      }
-
-      previousPage.pop();
-      rebalancedPages[pageIndex].unshift(candidateChunk);
-      targetUsage += candidateUnits;
-      movedChunk = true;
-      break;
-    }
-
-    if (!movedChunk) {
-      return null;
-    }
-  }
-
-  return rebalancedPages;
-};
-
-const fitRyanInvoiceChunk = (
-  group: RyanInvoiceGroup,
-  startIndex: number,
-  availableUnits: number,
-  continuation: boolean,
-): RyanInvoiceChunk | null => {
-  if (availableUnits <= 0.5) {
-    return null;
-  }
-
-  const sentences: string[] = [];
-  let usedUnits = estimateRyanInvoiceMetaUnits(group);
-
-  for (let index = startIndex; index < group.sentences.length; index += 1) {
-    const sentence = group.sentences[index];
-    const rowUnits = estimateRyanInvoiceSentenceUnits(sentence);
-
-    if (sentences.length && usedUnits + rowUnits > availableUnits) {
-      break;
-    }
-
-    sentences.push(sentence);
-    usedUnits += rowUnits;
-
-    if (usedUnits >= availableUnits) {
-      break;
-    }
-  }
-
-  if (!sentences.length) {
-    return null;
-  }
-
-  return {
-    ...group,
-    sentences,
-    continuation,
-    showPrice: !continuation,
-  };
-};
-
-const paginateRyanInvoiceGroups = (groups: RyanInvoiceGroup[]) => {
-  if (!groups.length) return [[]];
-
-  const maxPageCount = groups.reduce((total, group) => total + group.sentences.length, 0) + 1;
-
-  for (let pageCount = 1; pageCount <= maxPageCount; pageCount += 1) {
-    const capacities = buildRyanInvoicePageCapacities(pageCount);
-    const pages = capacities.map(() => [] as RyanInvoiceChunk[]);
-    let pageIndex = 0;
-    let usedUnits = 0;
-    let fitsAll = true;
-
-    for (const group of groups) {
-      let sentenceIndex = 0;
-      let continuation = false;
-
-      while (sentenceIndex < group.sentences.length) {
-        if (pageIndex >= capacities.length) {
-          fitsAll = false;
-          break;
-        }
-
-        const availableUnits = capacities[pageIndex] - usedUnits;
-        const chunk = fitRyanInvoiceChunk(group, sentenceIndex, availableUnits, continuation);
-
-        if (!chunk) {
-          pageIndex += 1;
-          usedUnits = 0;
-          continue;
-        }
-
-        const chunkUnits = estimateRyanInvoiceChunkUnits(chunk);
-
-        if (chunkUnits > capacities[pageIndex] && usedUnits === 0) {
-          fitsAll = false;
-          break;
-        }
-
-        pages[pageIndex].push(chunk);
-        usedUnits += chunkUnits;
-        sentenceIndex += chunk.sentences.length;
-        continuation = true;
-
-        if (sentenceIndex < group.sentences.length) {
-          pageIndex += 1;
-          usedUnits = 0;
-        }
-      }
-
-      if (!fitsAll) {
-        break;
-      }
-    }
-
-    if (fitsAll) {
-      const hasTrailingEmptyPage =
-        pages.length > 1 && pages.some((page, index) => index > 0 && page.length === 0);
-
-      if (hasTrailingEmptyPage) {
-        const rebalancedPages = rebalanceTrailingEmptyRyanPages(pages, capacities);
-
-        if (rebalancedPages) {
-          return rebalancedPages;
-        }
-      }
-
-      return pages.length ? pages : [[]];
-    }
-  }
-
-  return [groups.map((group) => ({
-    ...group,
-    continuation: false,
-    showPrice: true,
-  }))];
 };
 
 const paginateLegacyServiceGroups = (groups: LegacyServiceGroup[]) => {
@@ -1418,13 +1212,6 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         ].join('<br>');
 
   const isRyanInvoice = data.ownerKey === 'ryan' && data.documentType === 'Invoice';
-  const renderedPageRows = isRyanInvoice
-    ? paginateRyanInvoiceGroups(buildRyanInvoiceGroups(data.selectedItems)).map((pageChunks) =>
-        buildRyanInvoiceRowsHtml(pageChunks),
-      )
-    : paginateLegacyServiceGroups(buildLegacyServiceGroups(data.selectedItems)).map((pageChunks) =>
-        buildLegacyRowsHtml(pageChunks),
-      );
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const docDateHtml = escapeHtml(data.docDate);
   const headerClass = data.ownerKey === 'ryan' ? 'invoice-header ryan' : 'invoice-header aze';
@@ -1444,6 +1231,34 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           <div><span class="label-blue">Bill to:</span> <span class="value-black">${billToHtml || '-'}</span></div>
           <div><span class="label-blue">Date:</span> <span class="value-black">${docDateHtml}</span></div>
         `;
+
+  const headerHtml = `
+    <div class="${headerClass}">
+      <div class="header-inner">
+        <div class="header-left">
+          <span class="invoice-title">${escapeHtml(data.documentType)}</span>
+          <span class="invoice-number">No. ${escapeHtml(data.invoiceNumber)}</span>
+        </div>
+        <div class="header-right">
+          <span class="company-name">Sterling<br>Mechanical</span>
+          <div class="company-info">${companyInfoHtml}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const paymentDetailsHtml = `
+    <div class="top-details-wrap">
+      <div class="payment-grid">
+        <div class="payment-title-row"><span class="payment-title">Payment Details:</span></div>
+        <div class="p-left">
+          <div><span class="label-blue">Ship to:</span> <span class="value-black">All Avenues Realty LLC.</span></div>
+          <div class="value-black">crystalsarich@allavenuesrealty.com</div>
+        </div>
+        <div class="p-right">${rightDetailsHtml}</div>
+      </div>
+    </div>
+  `;
 
   const summaryRowsHtml = `
     <tr>
@@ -1468,66 +1283,281 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     </tr>
   `;
 
-  const pagesHtml = renderedPageRows
-    .map((rowsHtml, pageIndex) => {
-      const isFirstPage = pageIndex === 0;
-      const isLastPage = pageIndex === renderedPageRows.length - 1;
+  const legacySterlingPdfStyles = `
+    @page { size: A4; margin: 0; }
+    html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #ffffff; font-family: Montserrat, Arial, sans-serif; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { overflow: auto; }
+    .page { width: 210mm; height: 297mm; margin: 0; padding: 14mm 12mm 10mm 12mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
+    .page:last-child { page-break-after: auto; break-after: auto; }
+    .legacy-page { display: flex; flex-direction: column; }
+    .legacy-page--continue { padding: 12mm 12mm 10mm 12mm; }
+    .legacy-page--last { padding-bottom: 10mm; }
+    .invoice-header { width: 100%; padding: 18px 0; margin: 0; color: #ffffff; }
+    .invoice-header.aze { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
+    .invoice-header.ryan { background-color: #24c6dc; background-image: linear-gradient(to bottom, #24c6dc, #c471ed); }
+    .header-inner { width: 100%; margin: 0 auto; padding: 0 24px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; }
+    .header-left { line-height: 0.9; }
+    .invoice-title { display: block; font-size: 58px; font-weight: 800; letter-spacing: 1px; color: #ffffff; }
+    .invoice-number { display: block; font-size: 58px; font-weight: 800; color: #ffffff; }
+    .header-right { text-align: right; font-size: 12px; line-height: 1.5; }
+    .company-name { display: block; font-size: 30px; font-weight: 700; margin-bottom: 8px; }
+    .company-info { font-size: 13px; }
+    .company-info strong { font-weight: 800; }
+    .invoice-body { padding: 8px 16px 0 16px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+    .invoice-body--continue { padding-top: 0; }
+    .legacy-table-shell { flex: 1 1 auto; min-height: 0; padding-bottom: 12mm; box-sizing: border-box; }
+    .legacy-table-shell--last { padding-bottom: 16mm; }
+    table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
+    th, td { border: 1px solid #1f4dbb; padding: 5px; word-wrap: break-word; color: #1f4dbb; }
+    th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
+    td.desc-cell { text-align: left; }
+    table.ryan-invoice-table { table-layout: fixed; }
+    table.ryan-invoice-table th { font-size: 10px; padding: 8px 6px; }
+    th.ryan-unit-head, td.ryan-unit-cell { width: 12%; }
+    th.ryan-area-head, td.ryan-area-cell { width: 14%; }
+    th.ryan-service-head, td.ryan-service-cell { width: 18%; }
+    th.ryan-desc-head, td.ryan-desc-cell { width: 38%; }
+    th.ryan-price-head, td.ryan-price-cell { width: 18%; }
+    .legacy-group-row td { break-inside: avoid; page-break-inside: avoid; }
+    td.service-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 22%; }
+    td.service-cell--continuation { font-size: 11px; }
+    td.price-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 18%; }
+    td.ryan-unit-cell,
+    td.ryan-area-cell,
+    td.ryan-service-cell,
+    td.ryan-price-cell { text-align: center; vertical-align: middle; font-weight: 800; font-size: 10px; line-height: 1.3; }
+    td.ryan-desc-cell { font-size: 10px; line-height: 1.35; }
+    .ryan-desc-stack { display: grid; gap: 3px; }
+    .ryan-desc-line { display: block; }
+    td.ryan-service-cell { word-break: break-word; }
+    td.ryan-meta-cell--continuation { font-size: 9px; }
+    .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
+    .amount-blue { text-align: center; color: #1f4dbb; font-weight: 800; font-size: 11px; vertical-align: middle; }
+    td.is-empty { color: transparent; }
+    .top-details-wrap { border-top: 3px solid #1f4dbb; margin-top: 4px; padding-top: 6px; margin-bottom: 8px; }
+    .payment-title { color: #1f4dbb; font-weight: 800; font-size: 14px; display: block; margin-bottom: 6px; }
+    .payment-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; }
+    .payment-title-row { grid-column: 1 / -1; }
+    .p-left, .p-right { font-size: 12px; line-height: 1.6; color: #000000; }
+    .label-blue { color: #1f4dbb; font-weight: 800; }
+    .value-black { color: #000000; font-weight: 400; }
+  `;
 
-      if (isFirstPage) {
-        return `
-          <div class="page legacy-page ${isLastPage ? 'legacy-page--last' : ''}">
-            <div class="${headerClass}">
-              <div class="header-inner">
-                <div class="header-left">
-                  <span class="invoice-title">${escapeHtml(data.documentType)}</span>
-                  <span class="invoice-number">No. ${escapeHtml(data.invoiceNumber)}</span>
-                </div>
-                <div class="header-right">
-                  <span class="company-name">Sterling<br>Mechanical</span>
-                  <div class="company-info">${companyInfoHtml}</div>
-                </div>
-              </div>
-            </div>
+  const buildRyanPageHtml = (
+    chunks: RyanInvoiceChunk[],
+    options: { isFirstPage: boolean; includeSummary: boolean },
+  ) => `
+    <div class="page legacy-page ${options.isFirstPage ? '' : 'legacy-page--continue'} ${options.includeSummary ? 'legacy-page--last' : ''}">
+      ${headerHtml}
+      <div class="invoice-body">
+        ${options.isFirstPage ? paymentDetailsHtml : ''}
+        <div class="legacy-table-shell ${options.includeSummary ? 'legacy-table-shell--last' : ''}">
+          <table class="ryan-invoice-table">
+            ${ryanInvoiceTableHeadHtml}
+            ${buildRyanInvoiceRowsHtml(chunks)}
+            ${options.includeSummary ? summaryRowsHtml : ''}
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
 
-            <div class="invoice-body">
-              <div class="top-details-wrap">
-                <div class="payment-grid">
-                  <div class="payment-title-row"><span class="payment-title">Payment Details:</span></div>
-                  <div class="p-left">
-                    <div><span class="label-blue">Ship to:</span> <span class="value-black">All Avenues Realty LLC.</span></div>
-                    <div class="value-black">crystalsarich@allavenuesrealty.com</div>
-                  </div>
-                  <div class="p-right">${rightDetailsHtml}</div>
-                </div>
-              </div>
+  const renderRyanPagesHtml = () => {
+    const groups = buildRyanInvoiceGroups(data.selectedItems);
+    const fallbackPage: RyanInvoiceChunk[] = groups.map((group) => ({
+      ...group,
+      continuation: false,
+      showPrice: true,
+    }));
 
-              <div class="legacy-table-shell ${isLastPage ? 'legacy-table-shell--last' : ''}">
-                <table class="${tableClassName}">
-                  ${tableHeadHtml}
-                  ${rowsHtml}
-                  ${isLastPage ? summaryRowsHtml : ''}
-                </table>
-              </div>
-            </div>
-          </div>
-        `;
+    if (typeof document === 'undefined') {
+      return buildRyanPageHtml(fallbackPage, {
+        isFirstPage: true,
+        includeSummary: true,
+      });
+    }
+
+    const measurementHost = document.createElement('div');
+    Object.assign(measurementHost.style, {
+      position: 'fixed',
+      left: '-250vw',
+      top: '0',
+      width: '210mm',
+      minHeight: '297mm',
+      visibility: 'hidden',
+      pointerEvents: 'none',
+      zIndex: '-1',
+    });
+    document.body.appendChild(measurementHost);
+
+    const pageFits = (chunks: RyanInvoiceChunk[], options: { isFirstPage: boolean; includeSummary: boolean }) => {
+      measurementHost.innerHTML = `<style>${legacySterlingPdfStyles}</style>${buildRyanPageHtml(chunks, options)}`;
+      const page = measurementHost.querySelector<HTMLElement>('.page');
+
+      if (!page) {
+        return true;
       }
 
-      return `
-        <div class="page legacy-page legacy-page--continue ${isLastPage ? 'legacy-page--last' : ''}">
-          <div class="invoice-body invoice-body--continue">
-            <div class="legacy-table-shell ${isLastPage ? 'legacy-table-shell--last' : ''}">
-              <table class="${tableClassName}">
-                ${tableHeadHtml}
-                ${rowsHtml}
-                ${isLastPage ? summaryRowsHtml : ''}
-              </table>
+      return page.scrollHeight <= page.clientHeight + 1;
+    };
+
+    const pages: RyanInvoiceChunk[][] = [[]];
+
+    try {
+      let pageIndex = 0;
+
+      for (const group of groups) {
+        let sentenceIndex = 0;
+
+        while (sentenceIndex < group.sentences.length) {
+          const currentPage = pages[pageIndex];
+          const isFirstPage = pageIndex === 0;
+          let bestSentenceCount = 0;
+          let low = 1;
+          let high = group.sentences.length - sentenceIndex;
+
+          while (low <= high) {
+            const mid = Math.floor((low + high) / 2);
+            const candidateChunk: RyanInvoiceChunk = {
+              ...group,
+              sentences: group.sentences.slice(sentenceIndex, sentenceIndex + mid),
+              continuation: sentenceIndex > 0,
+              showPrice: sentenceIndex === 0,
+            };
+
+            if (pageFits([...currentPage, candidateChunk], { isFirstPage, includeSummary: false })) {
+              bestSentenceCount = mid;
+              low = mid + 1;
+            } else {
+              high = mid - 1;
+            }
+          }
+
+          if (bestSentenceCount === 0) {
+            if (currentPage.length === 0) {
+              currentPage.push({
+                ...group,
+                sentences: [group.sentences[sentenceIndex]],
+                continuation: sentenceIndex > 0,
+                showPrice: sentenceIndex === 0,
+              });
+              sentenceIndex += 1;
+            }
+
+            pages.push([]);
+            pageIndex += 1;
+            continue;
+          }
+
+          currentPage.push({
+            ...group,
+            sentences: group.sentences.slice(sentenceIndex, sentenceIndex + bestSentenceCount),
+            continuation: sentenceIndex > 0,
+            showPrice: sentenceIndex === 0,
+          });
+          sentenceIndex += bestSentenceCount;
+
+          if (sentenceIndex < group.sentences.length) {
+            pages.push([]);
+            pageIndex += 1;
+          }
+        }
+      }
+
+      while (pages.length > 1 && pages[pages.length - 1].length === 0) {
+        pages.pop();
+      }
+
+      const lastContentPageIndex = pages.length - 1;
+
+      if (!pageFits(pages[lastContentPageIndex], { isFirstPage: lastContentPageIndex === 0, includeSummary: true })) {
+        const summaryPageChunks: RyanInvoiceChunk[] = [];
+
+        for (let sourcePageIndex = pages.length - 1; sourcePageIndex >= 0; sourcePageIndex -= 1) {
+          const sourcePage = pages[sourcePageIndex];
+
+          while (sourcePage.length > 0) {
+            const candidateChunk = sourcePage[sourcePage.length - 1];
+            const candidateSummaryPage = [candidateChunk, ...summaryPageChunks];
+
+            if (!pageFits(candidateSummaryPage, { isFirstPage: false, includeSummary: true })) {
+              break;
+            }
+
+            summaryPageChunks.unshift(sourcePage.pop() as RyanInvoiceChunk);
+          }
+
+          if (sourcePage.length > 0) {
+            break;
+          }
+        }
+
+        while (pages.length > 1 && pages[pages.length - 1].length === 0) {
+          pages.pop();
+        }
+
+        pages.push(summaryPageChunks);
+      }
+
+      return pages
+        .map((pageChunks, pageIndex) =>
+          buildRyanPageHtml(pageChunks, {
+            isFirstPage: pageIndex === 0,
+            includeSummary: pageIndex === pages.length - 1,
+          }),
+        )
+        .join('');
+    } finally {
+      measurementHost.remove();
+    }
+  };
+
+  const renderedPageRows = isRyanInvoice
+    ? []
+    : paginateLegacyServiceGroups(buildLegacyServiceGroups(data.selectedItems)).map((pageChunks) =>
+        buildLegacyRowsHtml(pageChunks),
+      );
+
+  const pagesHtml = isRyanInvoice
+    ? renderRyanPagesHtml()
+    : renderedPageRows
+        .map((rowsHtml, pageIndex) => {
+          const isFirstPage = pageIndex === 0;
+          const isLastPage = pageIndex === renderedPageRows.length - 1;
+
+          if (isFirstPage) {
+            return `
+              <div class="page legacy-page ${isLastPage ? 'legacy-page--last' : ''}">
+                ${headerHtml}
+                <div class="invoice-body">
+                  ${paymentDetailsHtml}
+                  <div class="legacy-table-shell ${isLastPage ? 'legacy-table-shell--last' : ''}">
+                    <table class="${tableClassName}">
+                      ${tableHeadHtml}
+                      ${rowsHtml}
+                      ${isLastPage ? summaryRowsHtml : ''}
+                    </table>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="page legacy-page legacy-page--continue ${isLastPage ? 'legacy-page--last' : ''}">
+              <div class="invoice-body invoice-body--continue">
+                <div class="legacy-table-shell ${isLastPage ? 'legacy-table-shell--last' : ''}">
+                  <table class="${tableClassName}">
+                    ${tableHeadHtml}
+                    ${rowsHtml}
+                    ${isLastPage ? summaryRowsHtml : ''}
+                  </table>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      `;
-    })
-    .join('');
+          `;
+        })
+        .join('');
 
   return `
     <!doctype html>
@@ -1535,65 +1565,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
       <head>
         <meta charset="UTF-8">
         <title>${escapeHtml(data.documentType)} ${escapeHtml(data.invoiceNumber)}</title>
-        <style>
-          @page { size: A4; margin: 0; }
-          html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #ffffff; font-family: Montserrat, Arial, sans-serif; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          body { overflow: auto; }
-          .page { width: 210mm; height: 297mm; margin: 0; padding: 14mm 12mm 10mm 12mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
-          .page:last-child { page-break-after: auto; break-after: auto; }
-          .legacy-page { display: flex; flex-direction: column; }
-          .legacy-page--continue { padding: 12mm 12mm 10mm 12mm; }
-          .legacy-page--last { padding-bottom: 10mm; }
-          .invoice-header { width: 100%; padding: 18px 0; margin: 0; color: #ffffff; }
-          .invoice-header.aze { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
-          .invoice-header.ryan { background-color: #24c6dc; background-image: linear-gradient(to bottom, #24c6dc, #c471ed); }
-          .header-inner { width: 100%; margin: 0 auto; padding: 0 24px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; }
-          .header-left { line-height: 0.9; }
-          .invoice-title { display: block; font-size: 58px; font-weight: 800; letter-spacing: 1px; color: #ffffff; }
-          .invoice-number { display: block; font-size: 58px; font-weight: 800; color: #ffffff; }
-          .header-right { text-align: right; font-size: 12px; line-height: 1.5; }
-          .company-name { display: block; font-size: 30px; font-weight: 700; margin-bottom: 8px; }
-          .company-info { font-size: 13px; }
-          .company-info strong { font-weight: 800; }
-          .invoice-body { padding: 8px 16px 0 16px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-          .invoice-body--continue { padding-top: 0; }
-          .legacy-table-shell { flex: 1 1 auto; min-height: 0; padding-bottom: 12mm; box-sizing: border-box; }
-          .legacy-table-shell--last { padding-bottom: 16mm; }
-          table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
-          th, td { border: 1px solid #1f4dbb; padding: 5px; word-wrap: break-word; color: #1f4dbb; }
-          th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
-          td.desc-cell { text-align: left; }
-          table.ryan-invoice-table { table-layout: fixed; }
-          table.ryan-invoice-table th { font-size: 10px; padding: 8px 6px; }
-          th.ryan-unit-head, td.ryan-unit-cell { width: 12%; }
-          th.ryan-area-head, td.ryan-area-cell { width: 14%; }
-          th.ryan-service-head, td.ryan-service-cell { width: 18%; }
-          th.ryan-desc-head, td.ryan-desc-cell { width: 38%; }
-          th.ryan-price-head, td.ryan-price-cell { width: 18%; }
-          .legacy-group-row td { break-inside: avoid; page-break-inside: avoid; }
-          td.service-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 22%; }
-          td.service-cell--continuation { font-size: 11px; }
-          td.price-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 18%; }
-          td.ryan-unit-cell,
-          td.ryan-area-cell,
-          td.ryan-service-cell,
-          td.ryan-price-cell { text-align: center; vertical-align: middle; font-weight: 800; font-size: 10px; line-height: 1.3; }
-          td.ryan-desc-cell { font-size: 10px; line-height: 1.35; }
-          .ryan-desc-stack { display: grid; gap: 3px; }
-          .ryan-desc-line { display: block; }
-          td.ryan-service-cell { word-break: break-word; }
-          td.ryan-meta-cell--continuation { font-size: 9px; }
-          .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
-          .amount-blue { text-align: center; color: #1f4dbb; font-weight: 800; font-size: 11px; vertical-align: middle; }
-          td.is-empty { color: transparent; }
-          .top-details-wrap { border-top: 3px solid #1f4dbb; margin-top: 4px; padding-top: 6px; margin-bottom: 8px; }
-          .payment-title { color: #1f4dbb; font-weight: 800; font-size: 14px; display: block; margin-bottom: 6px; }
-          .payment-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; }
-          .payment-title-row { grid-column: 1 / -1; }
-          .p-left, .p-right { font-size: 12px; line-height: 1.6; color: #000000; }
-          .label-blue { color: #1f4dbb; font-weight: 800; }
-          .value-black { color: #000000; font-weight: 400; }
-        </style>
+        <style>${legacySterlingPdfStyles}</style>
       </head>
       <body>${pagesHtml}</body>
     </html>
@@ -1642,6 +1614,7 @@ export function InvoiceQuoteView({
   const [isServicesOpen, setIsServicesOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<GeneratedDocumentContent | null>(null);
   const [generatePdfConfirmOpen, setGeneratePdfConfirmOpen] = useState(false);
   const [generatePdfBusy, setGeneratePdfBusy] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
@@ -1857,7 +1830,7 @@ export function InvoiceQuoteView({
   const isDocumentNumberConflict = (error: unknown) =>
     error instanceof ApiError && error.status === 409;
 
-  const buildGeneratedDocumentContent = (
+  const buildGeneratedDocumentContent = useCallback((
     documentNumberOverride?: string,
   ): GeneratedDocumentContent | null => {
     if (!selectedItems.length) {
@@ -1912,9 +1885,39 @@ export function InvoiceQuoteView({
       pdfFileName,
       safeDocumentNumber,
     };
-  };
+  }, [
+    activeProperty?.name,
+    billTo,
+    clientCompany,
+    clientName,
+    documentType,
+    effectiveDocumentNumber,
+    firstJobDate,
+    issueDate,
+    jobTotal,
+    juanLaborValue,
+    materialExpenseValue,
+    ownerKey,
+    propertyAddress,
+    propertyCityLine,
+    ryanLaborValue,
+    selectedItems,
+    timeFrame,
+    totalDue,
+    expenses,
+    lastJobDate,
+  ]);
 
-  const previewDocument = buildGeneratedDocumentContent();
+  useEffect(() => {
+    if (!documentPreviewOpen) {
+      return;
+    }
+
+    startTransition(() => {
+      setPreviewDocument(buildGeneratedDocumentContent());
+    });
+  }, [buildGeneratedDocumentContent, documentPreviewOpen]);
+
   const previewDocumentKey = previewDocument
     ? [
         ownerKey,
@@ -1931,6 +1934,7 @@ export function InvoiceQuoteView({
       return;
     }
 
+    setPreviewDocument(buildGeneratedDocumentContent());
     setDocumentPreviewOpen(true);
   };
 
