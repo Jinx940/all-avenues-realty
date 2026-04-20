@@ -1348,8 +1348,8 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     options: { isFirstPage: boolean; includeSummary: boolean },
   ) => `
     <div class="page legacy-page ${options.isFirstPage ? '' : 'legacy-page--continue'} ${options.includeSummary ? 'legacy-page--last' : ''}">
-      ${headerHtml}
-      <div class="invoice-body">
+      ${options.isFirstPage ? headerHtml : ''}
+      <div class="invoice-body${options.isFirstPage ? '' : ' invoice-body--continue'}">
         ${options.isFirstPage ? paymentDetailsHtml : ''}
         <div class="legacy-table-shell ${options.includeSummary ? 'legacy-table-shell--last' : ''}">
           <table class="ryan-invoice-table">
@@ -1398,7 +1398,9 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         return true;
       }
 
-      return page.scrollHeight <= page.clientHeight + 1;
+      const footerSafetyPx = options.includeSummary ? 18 : 12;
+      const firstPageSafetyPx = options.isFirstPage ? 8 : 0;
+      return page.scrollHeight <= page.clientHeight - footerSafetyPx - firstPageSafetyPx;
     };
 
     const pages: RyanInvoiceChunk[][] = [[]];
