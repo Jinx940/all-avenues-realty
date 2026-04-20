@@ -1353,7 +1353,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         ${options.isFirstPage ? paymentDetailsHtml : ''}
         <div class="legacy-table-shell ${options.includeSummary ? 'legacy-table-shell--last' : ''}">
           <table class="ryan-invoice-table">
-            ${ryanInvoiceTableHeadHtml}
+            ${options.isFirstPage ? ryanInvoiceTableHeadHtml : ''}
             ${buildRyanInvoiceRowsHtml(chunks)}
             ${options.includeSummary ? summaryRowsHtml : ''}
           </table>
