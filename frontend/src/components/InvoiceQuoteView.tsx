@@ -211,11 +211,19 @@ const cleanSentenceForPdf = (value: string) =>
 const isMeaningfulPdfSentence = (value: string) => /[A-Za-zÀ-ÿ0-9]/.test(value);
 
 const splitDescriptionIntoSentences = (value: string) => {
-  const raw = value.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!raw) return [];
+  const segments = value
+    .split(/\r?\n+/)
+    .map((segment) => segment.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
 
-  const matches = raw.match(/[^.!?;]+[.!?;]+["']?|[^.!?;]+$/g) ?? [raw];
-  return matches.map(cleanSentenceForPdf).filter(isMeaningfulPdfSentence);
+  const sourceSegments = segments.length ? segments : [value.replace(/\s+/g, ' ').trim()];
+
+  return sourceSegments.flatMap((segment) => {
+    if (!segment) return [];
+
+    const matches = segment.match(/[^.!?;]+[.!?;]+["']?|[^.!?;]+$/g) ?? [segment];
+    return matches.map(cleanSentenceForPdf).filter(isMeaningfulPdfSentence);
+  });
 };
 
 const normalizeInvoiceDescriptionLine = (value: string) => {
@@ -381,7 +389,7 @@ const estimateRyanInvoiceSentenceUnits = (sentence: string) => {
   const normalized = sentence.trim();
   if (!normalized || normalized === '-') return 0.42;
 
-  return 0.28 + Math.max(1, Math.ceil(normalized.length / 68)) * 0.28;
+  return 0.42 + Math.max(1, Math.ceil(normalized.length / 34)) * 0.4;
 };
 
 const estimateRyanInvoiceMetaUnits = (chunk: Pick<RyanInvoiceChunk, 'unit' | 'area' | 'service'>) => {
@@ -403,11 +411,11 @@ const calculateRyanInvoicePageUsage = (chunks: RyanInvoiceChunk[]) =>
   chunks.reduce((sum, chunk) => sum + estimateRyanInvoiceChunkUnits(chunk), 0);
 
 const buildRyanInvoicePageCapacities = (pageCount: number) => {
-  // Keep extra room for the totals block and a visible bottom safe area on A4.
-  const firstOnlyPageLimit = 14.8;
-  const firstPageLimit = 24.2;
-  const middlePageLimit = 29.6;
-  const lastContinuePageLimit = 21.8;
+  // Reserve a visible footer gap on every A4 page so the table never reaches the page edge.
+  const firstOnlyPageLimit = 12.8;
+  const firstPageLimit = 19.8;
+  const middlePageLimit = 24.8;
+  const lastContinuePageLimit = 18.4;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1549,8 +1557,8 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           .company-info strong { font-weight: 800; }
           .invoice-body { padding: 8px 16px 0 16px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
           .invoice-body--continue { padding-top: 0; }
-          .legacy-table-shell { flex: 1 1 auto; min-height: 0; }
-          .legacy-table-shell--last { padding-bottom: 12mm; box-sizing: border-box; }
+          .legacy-table-shell { flex: 1 1 auto; min-height: 0; padding-bottom: 12mm; box-sizing: border-box; }
+          .legacy-table-shell--last { padding-bottom: 16mm; }
           table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
           th, td { border: 1px solid #1f4dbb; padding: 5px; word-wrap: break-word; color: #1f4dbb; }
           th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
