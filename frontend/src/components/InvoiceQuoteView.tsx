@@ -1393,14 +1393,16 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     const pageFits = (chunks: RyanInvoiceChunk[], options: { isFirstPage: boolean; includeSummary: boolean }) => {
       measurementHost.innerHTML = `<style>${legacySterlingPdfStyles}</style>${buildRyanPageHtml(chunks, options)}`;
       const page = measurementHost.querySelector<HTMLElement>('.page');
+      const table = measurementHost.querySelector<HTMLElement>('.ryan-invoice-table');
 
-      if (!page) {
+      if (!page || !table) {
         return true;
       }
 
-      const footerSafetyPx = options.includeSummary ? 18 : 12;
-      const firstPageSafetyPx = options.isFirstPage ? 8 : 0;
-      return page.scrollHeight <= page.clientHeight - footerSafetyPx - firstPageSafetyPx;
+      const pageRect = page.getBoundingClientRect();
+      const tableRect = table.getBoundingClientRect();
+      const footerGapPx = options.includeSummary ? 28 : 22;
+      return tableRect.bottom <= pageRect.bottom - footerGapPx;
     };
 
     const pages: RyanInvoiceChunk[][] = [[]];
