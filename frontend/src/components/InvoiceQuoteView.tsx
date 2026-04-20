@@ -128,7 +128,7 @@ type JobSelectionState = {
   mode: 'auto' | 'manual';
 };
 
-const headerOwnerOptions = ['Sterling Mechanical (AZE)', 'Sterling Mechanical (Ryan)'] as const;
+const headerOwnerOptions = ['Juan Azabache (AZE)', 'Ryan Goertler'] as const;
 
 const formatUsd = (value: number) => `$${value.toFixed(2)}`;
 const formatPdfNumber = (value: number) =>
