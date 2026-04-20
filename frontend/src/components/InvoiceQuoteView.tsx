@@ -1503,6 +1503,10 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         pages.push(summaryPageChunks);
       }
 
+      while (pages.length > 1 && pages[0].length === 0) {
+        pages.shift();
+      }
+
       return pages
         .map((pageChunks, pageIndex) =>
           buildRyanPageHtml(pageChunks, {
