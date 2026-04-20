@@ -52,6 +52,14 @@ type RyanInvoiceDisplayChunk = RyanInvoiceChunk & {
   areaRowSpan: number;
 };
 
+type RyanInvoiceColumnLayout = {
+  unit: number;
+  area: number;
+  service: number;
+  description: number;
+  price: number;
+};
+
 type AzeInvoiceRow = {
   story: string;
   unit: string;
@@ -311,6 +319,25 @@ const buildRyanInvoiceGroups = (items: PdfServiceItem[]): RyanInvoiceGroup[] =>
     compareInvoiceCells(left.service, right.service) ||
     invoiceCellCollator.compare(left.sentences.join(' '), right.sentences.join(' ')),
   );
+
+const buildRyanInvoiceColumnLayout = (groups: RyanInvoiceGroup[]): RyanInvoiceColumnLayout => {
+  const hasUnitData = groups.some((group) => group.unit !== '-');
+  const hasAreaData = groups.some((group) => group.area !== '-');
+
+  const unit = hasUnitData ? 12 : 6;
+  const area = hasAreaData ? 14 : 8;
+  const service = 18;
+  const price = 18;
+  const description = 100 - unit - area - service - price;
+
+  return {
+    unit,
+    area,
+    service,
+    description,
+    price,
+  };
+};
 
 const estimateLegacySentenceUnits = (sentence: string) => {
   const normalized = sentence.trim();
@@ -1212,6 +1239,8 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         ].join('<br>');
 
   const isRyanInvoice = data.ownerKey === 'ryan' && data.documentType === 'Invoice';
+  const ryanGroups = isRyanInvoice ? buildRyanInvoiceGroups(data.selectedItems) : [];
+  const ryanColumnLayout = buildRyanInvoiceColumnLayout(ryanGroups);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const docDateHtml = escapeHtml(data.docDate);
   const headerClass = data.ownerKey === 'ryan' ? 'invoice-header ryan' : 'invoice-header aze';
@@ -1311,13 +1340,20 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     th, td { border: 1px solid #1f4dbb; padding: 5px; word-wrap: break-word; color: #1f4dbb; }
     th { background-color: #f2f2f2; color: #1f4dbb; text-align: center; }
     td.desc-cell { text-align: left; }
-    table.ryan-invoice-table { table-layout: fixed; }
+    table.ryan-invoice-table {
+      table-layout: fixed;
+      --ryan-unit-col: ${ryanColumnLayout.unit}%;
+      --ryan-area-col: ${ryanColumnLayout.area}%;
+      --ryan-service-col: ${ryanColumnLayout.service}%;
+      --ryan-desc-col: ${ryanColumnLayout.description}%;
+      --ryan-price-col: ${ryanColumnLayout.price}%;
+    }
     table.ryan-invoice-table th { font-size: 10px; padding: 8px 6px; }
-    th.ryan-unit-head, td.ryan-unit-cell { width: 12%; }
-    th.ryan-area-head, td.ryan-area-cell { width: 14%; }
-    th.ryan-service-head, td.ryan-service-cell { width: 18%; }
-    th.ryan-desc-head, td.ryan-desc-cell { width: 38%; }
-    th.ryan-price-head, td.ryan-price-cell { width: 18%; }
+    th.ryan-unit-head, td.ryan-unit-cell { width: var(--ryan-unit-col); }
+    th.ryan-area-head, td.ryan-area-cell { width: var(--ryan-area-col); }
+    th.ryan-service-head, td.ryan-service-cell { width: var(--ryan-service-col); }
+    th.ryan-desc-head, td.ryan-desc-cell { width: var(--ryan-desc-col); }
+    th.ryan-price-head, td.ryan-price-cell { width: var(--ryan-price-col); }
     .legacy-group-row td { break-inside: avoid; page-break-inside: avoid; }
     td.service-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 22%; }
     td.service-cell--continuation { font-size: 11px; }
@@ -1363,7 +1399,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
   `;
 
   const renderRyanPagesHtml = () => {
-    const groups = buildRyanInvoiceGroups(data.selectedItems);
+    const groups = ryanGroups;
     const fallbackPage: RyanInvoiceChunk[] = groups.map((group) => ({
       ...group,
       continuation: false,
