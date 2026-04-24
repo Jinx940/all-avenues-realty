@@ -503,23 +503,58 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
-.invoice-attachment-toggle {
+.invoice-attachment-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.invoice-attachment-trigger {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  grid-template-columns: auto minmax(0, 1fr);
   gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--line);
   background: var(--panel-soft);
+  color: var(--ink);
+  text-align: left;
 }
 
-.invoice-attachment-toggle input {
+.invoice-attachment-trigger span:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.invoice-attachment-trigger small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.invoice-attachment-menu {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.invoice-attachment-option {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  background: var(--panel-soft);
+}
+
+.invoice-attachment-option input {
   width: 18px;
   height: 18px;
 }
 
-.invoice-attachment-toggle span {
-  display: grid;
-  gap: 4px;
+.invoice-attachment-option small {
+  color: var(--muted);
+  font-weight: 700;
 }
 
 label,

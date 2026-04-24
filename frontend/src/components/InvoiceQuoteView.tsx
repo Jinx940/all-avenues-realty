@@ -140,6 +140,8 @@ type GeneratedDocumentContent = {
   safeDocumentNumber: string;
 };
 
+type AttachmentSelection = Record<PdfAttachmentFile['kind'], boolean>;
+
 type JobSelectionState = {
   propertyId: string;
   ids: string[];
@@ -160,6 +162,11 @@ const invoiceCellCollator = new Intl.Collator('en-US', {
   sensitivity: 'base',
 });
 const isPdfImageMimeType = (mimeType: string) => mimeType.toLowerCase().startsWith('image/');
+const defaultAttachmentSelection: AttachmentSelection = {
+  before: true,
+  after: true,
+  receipt: true,
+};
 
 const toAmount = (value: string) => {
   const parsed = Number(value);
@@ -1830,7 +1837,8 @@ export function InvoiceQuoteView({
   const [juanLabor, setJuanLabor] = useState('0');
   const [advancePayment, setAdvancePayment] = useState('0');
   const [materialExpense, setMaterialExpense] = useState('0');
-  const [includeJobFiles, setIncludeJobFiles] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [attachmentSelection, setAttachmentSelection] = useState<AttachmentSelection>(defaultAttachmentSelection);
   const [descriptionEdits, setDescriptionEdits] = useState<Record<string, string>>({});
   const [jobSelection, setJobSelection] = useState<JobSelectionState>({
     propertyId: '',
@@ -1939,8 +1947,20 @@ export function InvoiceQuoteView({
       ...job.files.receipt.map((file) => buildAttachment('receipt', file)),
     ];
   });
+  const selectableAttachmentKinds: Array<PdfAttachmentFile['kind']> = ['before', 'after', 'receipt'];
+  const attachmentCounts = selectableAttachmentKinds.reduce((counts, kind) => ({
+    ...counts,
+    [kind]: selectedJobAttachments.filter((attachment) => attachment.kind === kind).length,
+  }), {} as Record<PdfAttachmentFile['kind'], number>);
+  const selectedAttachments = selectedJobAttachments.filter(
+    (attachment) => attachmentSelection[attachment.kind],
+  );
   const includeAttachmentsInPdf =
-    includeJobFiles && documentType === 'Invoice' && ownerKey === 'aze' && selectedJobAttachments.length > 0;
+    documentType === 'Invoice' && ownerKey === 'aze' && selectedAttachments.length > 0;
+  const selectedAttachmentSummary = selectableAttachmentKinds
+    .filter((kind) => attachmentSelection[kind] && attachmentCounts[kind] > 0)
+    .map((kind) => `${attachmentKindLabels[kind]} (${attachmentCounts[kind]})`)
+    .join(', ');
 
   const servicesTotal = selectedItems.reduce((sum, item) => sum + item.unitPrice, 0);
   const ryanLaborValue = toAmount(ryanLabor);
@@ -2114,7 +2134,7 @@ export function InvoiceQuoteView({
           jobTotal,
           expenses,
           totalDue,
-          attachments: includeAttachmentsInPdf ? selectedJobAttachments : [],
+          attachments: includeAttachmentsInPdf ? selectedAttachments : [],
         })
       : buildLegacySterlingPdfHtml({
           ownerKey,
@@ -2154,7 +2174,7 @@ export function InvoiceQuoteView({
     propertyAddress,
     propertyCityLine,
     ryanLaborValue,
-    selectedJobAttachments,
+    selectedAttachments,
     selectedItems,
     timeFrame,
     totalDue,
@@ -2390,22 +2410,49 @@ export function InvoiceQuoteView({
               />
             </label>
 
-            <label className="invoice-attachment-toggle span-2">
-              <input
-                type="checkbox"
-                checked={includeJobFiles}
-                onChange={(event) => setIncludeJobFiles(event.target.checked)}
+            <div className="invoice-attachment-picker span-2">
+              <button
+                type="button"
+                className="invoice-attachment-trigger"
+                onClick={() => setAttachmentsOpen((current) => !current)}
                 disabled={documentType !== 'Invoice' || ownerKey !== 'aze' || !selectedJobAttachments.length}
-              />
-              <span>
-                Include Before / After photos and Receipts in the PDF
-                <small className="muted-copy">
-                  {selectedJobAttachments.length
-                    ? `${selectedJobAttachments.length} file(s) from selected jobs will be added after the final footer.`
-                    : 'Select jobs with before, after or receipt files to enable this.'}
-                </small>
-              </span>
-            </label>
+              >
+                <span>
+                  Add PDF attachments
+                  <small>
+                    {selectedAttachmentSummary ||
+                      (selectedJobAttachments.length
+                        ? 'Choose Before, After or Receipts'
+                        : 'Select jobs with before, after or receipt files to enable this.')}
+                  </small>
+                </span>
+                <span className={`invoice-services-caret ${attachmentsOpen ? 'is-open' : ''}`}>
+                  v
+                </span>
+              </button>
+
+              {attachmentsOpen ? (
+                <div className="invoice-attachment-menu">
+                  {selectableAttachmentKinds.map((kind) => (
+                    <label key={kind} className="invoice-attachment-option">
+                      <input
+                        type="checkbox"
+                        checked={attachmentSelection[kind]}
+                        onChange={(event) =>
+                          setAttachmentSelection((current) => ({
+                            ...current,
+                            [kind]: event.target.checked,
+                          }))
+                        }
+                        disabled={!attachmentCounts[kind]}
+                      />
+                      <span>{attachmentKindLabels[kind]}</span>
+                      <small>{attachmentCounts[kind]} file(s)</small>
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
