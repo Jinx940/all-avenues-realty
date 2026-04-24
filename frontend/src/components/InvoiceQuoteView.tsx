@@ -841,10 +841,10 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
 };
 
 const buildAzeInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 5.8;
-  const firstPageLimit = 7.2;
-  const middlePageLimit = 13.2;
-  const lastContinuePageLimit = 7.2;
+  const firstOnlyPageLimit = 9.8;
+  const firstPageLimit = 12.6;
+  const middlePageLimit = 18.4;
+  const lastContinuePageLimit = 11.8;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1155,7 +1155,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 </section>
               </div>
             </div>
-            <div class="page-footer">${footerHtml}</div>
+            ${isLastPage ? `<div class="page-footer">${footerHtml}</div>` : ''}
           </div>
         `;
       }
@@ -1173,7 +1173,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 </div>
               </section>
           </div>
-          <div class="page-footer">${footerHtml}</div>
+          ${isLastPage ? `<div class="page-footer">${footerHtml}</div>` : ''}
         </div>
       `;
     })
