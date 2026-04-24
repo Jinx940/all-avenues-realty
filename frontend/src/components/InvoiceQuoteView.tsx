@@ -18,6 +18,15 @@ type PdfServiceItem = {
   unitPrice: number;
 };
 
+type PdfAttachmentFile = {
+  kind: 'before' | 'after' | 'receipt';
+  label: string;
+  fileName: string;
+  url: string;
+  mimeType: string;
+  createdAt: string;
+};
+
 type LegacyServiceGroup = {
   service: string;
   totalPrice: number;
@@ -98,6 +107,7 @@ type AzeInvoiceData = {
   jobTotal: number;
   expenses: number;
   totalDue: number;
+  attachments: PdfAttachmentFile[];
 };
 
 type LegacyPdfData = {
@@ -149,6 +159,7 @@ const invoiceCellCollator = new Intl.Collator('en-US', {
   numeric: true,
   sensitivity: 'base',
 });
+const isPdfImageMimeType = (mimeType: string) => mimeType.toLowerCase().startsWith('image/');
 
 const toAmount = (value: string) => {
   const parsed = Number(value);
@@ -974,6 +985,101 @@ const azeInvoiceTableHeadHtml = `
   </thead>
 `;
 
+const attachmentKindLabels: Record<PdfAttachmentFile['kind'], string> = {
+  before: 'Before',
+  after: 'After',
+  receipt: 'Receipt',
+};
+
+const buildAttachmentCardsHtml = (attachments: PdfAttachmentFile[]) =>
+  attachments
+    .map((attachment) => {
+      const fileName = escapeHtml(attachment.fileName);
+      const label = escapeHtml(attachment.label);
+      const kindLabel = attachmentKindLabels[attachment.kind];
+
+      return `
+        <article class="attachment-card">
+          <div class="attachment-frame">
+            ${
+              isPdfImageMimeType(attachment.mimeType)
+                ? `<img src="${escapeHtml(attachment.url)}" alt="${kindLabel} - ${fileName}" />`
+                : `
+                  <div class="attachment-file-fallback">
+                    <strong>${escapeHtml(kindLabel)}</strong>
+                    <span>${fileName}</span>
+                  </div>
+                `
+            }
+          </div>
+          <div class="attachment-caption">
+            <span>${escapeHtml(kindLabel)}</span>
+            <strong>${label}</strong>
+            <small>${fileName}</small>
+          </div>
+        </article>
+      `;
+    })
+    .join('');
+
+const chunkAttachments = (attachments: PdfAttachmentFile[], size: number) => {
+  const chunks: PdfAttachmentFile[][] = [];
+
+  for (let index = 0; index < attachments.length; index += size) {
+    chunks.push(attachments.slice(index, index + size));
+  }
+
+  return chunks;
+};
+
+const buildAttachmentPagesHtml = (attachments: PdfAttachmentFile[]) => {
+  if (!attachments.length) return '';
+
+  const evidenceAttachments = attachments.filter((attachment) =>
+    attachment.kind === 'before' || attachment.kind === 'after',
+  );
+  const receiptAttachments = attachments.filter((attachment) => attachment.kind === 'receipt');
+  const pages: string[] = [];
+
+  if (evidenceAttachments.length) {
+    chunkAttachments(evidenceAttachments, 4).forEach((chunk, index, chunks) => {
+      pages.push(`
+        <div class="page attachment-page">
+          <div class="attachment-section">
+            <div class="attachment-head">
+              <span>Job Evidence</span>
+              <strong>Before / After Photos${chunks.length > 1 ? ` ${index + 1}` : ''}</strong>
+            </div>
+            <div class="attachment-grid attachment-grid--photos">
+              ${buildAttachmentCardsHtml(chunk)}
+            </div>
+          </div>
+        </div>
+      `);
+    });
+  }
+
+  if (receiptAttachments.length) {
+    chunkAttachments(receiptAttachments, 4).forEach((chunk, index, chunks) => {
+      pages.push(`
+        <div class="page attachment-page">
+          <div class="attachment-section">
+            <div class="attachment-head">
+              <span>Job Evidence</span>
+              <strong>Receipts${chunks.length > 1 ? ` ${index + 1}` : ''}</strong>
+            </div>
+            <div class="attachment-grid attachment-grid--receipts">
+              ${buildAttachmentCardsHtml(chunk)}
+            </div>
+          </div>
+        </div>
+      `);
+    });
+  }
+
+  return pages.join('');
+};
+
 const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
   const renderedPages = paginateAzeInvoiceRows(tableRows);
@@ -1178,6 +1284,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       `;
     })
     .join('');
+  const attachmentsHtml = buildAttachmentPagesHtml(data.attachments);
 
   return `
     <!doctype html>
@@ -1261,9 +1368,26 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
           .footer-text { color: #ff5b5b; font-size: 16px; line-height: 1.35; font-weight: 700; }
           .phone-text { display: flex; align-items: center; }
+          .attachment-page { padding: 16mm; }
+          .attachment-section { height: 100%; display: flex; flex-direction: column; gap: 16px; }
+          .attachment-head { display: flex; align-items: end; justify-content: space-between; border-bottom: 3px solid #ff5b5b; padding-bottom: 10px; }
+          .attachment-head span { color: #ff5b5b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
+          .attachment-head strong { color: #111111; font-size: 24px; }
+          .attachment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-content: start; }
+          .attachment-grid--receipts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .attachment-card { background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(58, 58, 58, 0.28); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+          .attachment-frame { height: 88mm; background: #efefef; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          .attachment-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+          .attachment-file-fallback { padding: 18px; color: #2f49a7; text-align: center; display: grid; gap: 8px; }
+          .attachment-file-fallback strong { font-size: 18px; }
+          .attachment-file-fallback span { font-size: 12px; word-break: break-word; }
+          .attachment-caption { display: grid; gap: 3px; padding: 10px 12px 12px; color: #111111; }
+          .attachment-caption span { color: #ff5b5b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+          .attachment-caption strong { color: #2f49a7; font-size: 13px; line-height: 1.25; }
+          .attachment-caption small { color: #555555; font-size: 10px; line-height: 1.25; word-break: break-word; }
         </style>
       </head>
-      <body>${pagesHtml}</body>
+      <body>${pagesHtml}${attachmentsHtml}</body>
     </html>
   `;
 };
@@ -1706,6 +1830,7 @@ export function InvoiceQuoteView({
   const [juanLabor, setJuanLabor] = useState('0');
   const [advancePayment, setAdvancePayment] = useState('0');
   const [materialExpense, setMaterialExpense] = useState('0');
+  const [includeJobFiles, setIncludeJobFiles] = useState(false);
   const [descriptionEdits, setDescriptionEdits] = useState<Record<string, string>>({});
   const [jobSelection, setJobSelection] = useState<JobSelectionState>({
     propertyId: '',
@@ -1791,6 +1916,31 @@ export function InvoiceQuoteView({
     description: normalizeInvoiceDescription(descriptionValueFor(job)),
     unitPrice: job.totalCost,
   }));
+  const selectedJobAttachments: PdfAttachmentFile[] = selectedJobs.flatMap((job) => {
+    const label = [
+      displayInvoiceCell(job.unit),
+      displayInvoiceCell(job.area),
+      displayInvoiceCell(job.service, 'General Service'),
+    ]
+      .filter((value) => value && value !== '-')
+      .join(' - ');
+    const buildAttachment = (kind: PdfAttachmentFile['kind'], file: JobRow['files']['before'][number]) => ({
+      kind,
+      label: label || job.propertyName,
+      fileName: file.name,
+      url: buildAssetUrl(file.url),
+      mimeType: file.mimeType,
+      createdAt: file.createdAt,
+    });
+
+    return [
+      ...job.files.before.map((file) => buildAttachment('before', file)),
+      ...job.files.after.map((file) => buildAttachment('after', file)),
+      ...job.files.receipt.map((file) => buildAttachment('receipt', file)),
+    ];
+  });
+  const includeAttachmentsInPdf =
+    includeJobFiles && documentType === 'Invoice' && ownerKey === 'aze' && selectedJobAttachments.length > 0;
 
   const servicesTotal = selectedItems.reduce((sum, item) => sum + item.unitPrice, 0);
   const ryanLaborValue = toAmount(ryanLabor);
@@ -1964,6 +2114,7 @@ export function InvoiceQuoteView({
           jobTotal,
           expenses,
           totalDue,
+          attachments: includeAttachmentsInPdf ? selectedJobAttachments : [],
         })
       : buildLegacySterlingPdfHtml({
           ownerKey,
@@ -1994,6 +2145,7 @@ export function InvoiceQuoteView({
     documentType,
     effectiveDocumentNumber,
     firstJobDate,
+    includeAttachmentsInPdf,
     issueDate,
     jobTotal,
     juanLaborValue,
@@ -2002,6 +2154,7 @@ export function InvoiceQuoteView({
     propertyAddress,
     propertyCityLine,
     ryanLaborValue,
+    selectedJobAttachments,
     selectedItems,
     timeFrame,
     totalDue,
@@ -2235,6 +2388,23 @@ export function InvoiceQuoteView({
                 onChange={(event) => setBillTo(event.target.value)}
                 placeholder="Customer name and address"
               />
+            </label>
+
+            <label className="invoice-attachment-toggle span-2">
+              <input
+                type="checkbox"
+                checked={includeJobFiles}
+                onChange={(event) => setIncludeJobFiles(event.target.checked)}
+                disabled={documentType !== 'Invoice' || ownerKey !== 'aze' || !selectedJobAttachments.length}
+              />
+              <span>
+                Include Before / After photos and Receipts in the PDF
+                <small className="muted-copy">
+                  {selectedJobAttachments.length
+                    ? `${selectedJobAttachments.length} file(s) from selected jobs will be added after the final footer.`
+                    : 'Select jobs with before, after or receipt files to enable this.'}
+                </small>
+              </span>
             </label>
           </div>
         </div>

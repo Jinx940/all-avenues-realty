@@ -60,6 +60,20 @@ const waitForExportLayout = async () => {
   });
 };
 
+const waitForExportImages = async (root: HTMLElement) => {
+  const images = Array.from(root.querySelectorAll('img'));
+
+  await Promise.all(
+    images.map(async (image) => {
+      if (image.complete && image.naturalWidth > 0) {
+        return;
+      }
+
+      await image.decode().catch(() => undefined);
+    }),
+  );
+};
+
 export async function buildGeneratedPdfBlob({ html }: { html: string }) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import('html2canvas'),
@@ -69,6 +83,7 @@ export async function buildGeneratedPdfBlob({ html }: { html: string }) {
 
   try {
     await waitForExportLayout();
+    await waitForExportImages(exportRoot);
     const pageElements = Array.from(exportRoot.querySelectorAll<HTMLElement>('.page'));
     const pages = pageElements.length ? pageElements : [exportRoot];
     const pdf = new jsPDF({

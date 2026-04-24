@@ -503,6 +503,25 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+.invoice-attachment-toggle {
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.invoice-attachment-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.invoice-attachment-toggle span {
+  display: grid;
+  gap: 4px;
+}
+
 label,
 .field-label,
 .file-card,
