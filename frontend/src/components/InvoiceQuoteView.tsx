@@ -1,5 +1,5 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ApiError, buildAssetUrl, requestJson } from '../lib/api';
+import { ApiError, buildAssetUrl, fetchAssetBlob, requestJson } from '../lib/api';
 import { buildGeneratedPdfBlob, downloadPdfBlob } from '../lib/generatedPdf';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
@@ -161,12 +161,23 @@ const invoiceCellCollator = new Intl.Collator('en-US', {
   numeric: true,
   sensitivity: 'base',
 });
-const isPdfImageMimeType = (mimeType: string) => mimeType.toLowerCase().startsWith('image/');
+const pdfImageExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const getPdfFileExtension = (value: string) => {
+  const cleanValue = value.split(/[?#]/)[0] ?? '';
+  const match = cleanValue.match(/\.([A-Za-z0-9]+)$/);
+  return match ? `.${match[1].toLowerCase()}` : '';
+};
+const isPdfImageFile = (fileName: string) =>
+  pdfImageExtensions.has(getPdfFileExtension(fileName));
+const isPdfEmbeddableAttachment = (
+  attachment: Pick<PdfAttachmentFile, 'fileName'>,
+) => isPdfImageFile(attachment.fileName);
 const defaultAttachmentSelection: AttachmentSelection = {
   before: true,
   after: true,
   receipt: true,
 };
+const selectableAttachmentKinds: Array<PdfAttachmentFile['kind']> = ['before', 'after', 'receipt'];
 
 const toAmount = (value: string) => {
   const parsed = Number(value);
@@ -183,6 +194,71 @@ const blobToBase64 = async (blob: Blob) => {
   }
 
   return window.btoa(binary);
+};
+
+const blobToDataUrl = async (blob: Blob, mimeType: string) =>
+  `data:${mimeType};base64,${await blobToBase64(blob)}`;
+
+const sniffImageBlobMimeType = async (blob: Blob) => {
+  const header = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+
+  if (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) {
+    return 'image/jpeg';
+  }
+
+  if (
+    header[0] === 0x89 &&
+    header[1] === 0x50 &&
+    header[2] === 0x4e &&
+    header[3] === 0x47 &&
+    header[4] === 0x0d &&
+    header[5] === 0x0a &&
+    header[6] === 0x1a &&
+    header[7] === 0x0a
+  ) {
+    return 'image/png';
+  }
+
+  if (
+    header[0] === 0x52 &&
+    header[1] === 0x49 &&
+    header[2] === 0x46 &&
+    header[3] === 0x46 &&
+    header[8] === 0x57 &&
+    header[9] === 0x45 &&
+    header[10] === 0x42 &&
+    header[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+
+  return null;
+};
+
+const inlinePdfAttachmentImages = async (attachments: PdfAttachmentFile[]) => {
+  const embedded = await Promise.all(
+    attachments
+      .filter(isPdfEmbeddableAttachment)
+      .map(async (attachment) => {
+        try {
+          const blob = await fetchAssetBlob(attachment.url);
+          const detectedMimeType = await sniffImageBlobMimeType(blob);
+          if (!detectedMimeType) {
+            return null;
+          }
+
+          return {
+            ...attachment,
+            url: await blobToDataUrl(blob, detectedMimeType),
+            mimeType: detectedMimeType,
+          };
+        } catch {
+          return null;
+        }
+      }),
+  );
+
+  return embedded.filter((attachment): attachment is PdfAttachmentFile => Boolean(attachment));
 };
 
 const escapeHtml = (value: string) =>
@@ -230,11 +306,11 @@ const cleanSentenceForPdf = (value: string) =>
   value
     .replace(/\r?\n/g, ' ')
     .replace(/\s+/g, ' ')
-    .replace(/^[\s"'`*•-]+/g, '')
+    .replace(/^[\s"'`*â€¢-]+/g, '')
     .replace(/[\s"'`]+$/g, '')
     .trim();
 
-const isMeaningfulPdfSentence = (value: string) => /[A-Za-zÀ-ÿ0-9]/.test(value);
+const isMeaningfulPdfSentence = (value: string) => /[A-Za-zÃ€-Ã¿0-9]/.test(value);
 
 const splitDescriptionIntoSentences = (value: string) => {
   const segments = value
@@ -740,7 +816,7 @@ const estimateAzeInvoiceRowUnits = (row: AzeInvoiceRow) => {
 };
 
 const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
-  const maxChunkUnits = 9.4;
+  const maxChunkUnits = 11.2;
   if (estimateAzeInvoiceRowUnits(row) <= maxChunkUnits || row.bullets.length <= 1) {
     return [row];
   }
@@ -859,10 +935,10 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
 };
 
 const buildAzeInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 9.8;
-  const firstPageLimit = 12.6;
-  const middlePageLimit = 18.4;
-  const lastContinuePageLimit = 11.8;
+  const firstOnlyPageLimit = 10.8;
+  const firstPageLimit = 14.4;
+  const middlePageLimit = 21.2;
+  const lastContinuePageLimit = 13.6;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1000,29 +1076,20 @@ const attachmentKindLabels: Record<PdfAttachmentFile['kind'], string> = {
 
 const buildAttachmentCardsHtml = (attachments: PdfAttachmentFile[]) =>
   attachments
+    .filter(isPdfEmbeddableAttachment)
     .map((attachment) => {
-      const fileName = escapeHtml(attachment.fileName);
       const label = escapeHtml(attachment.label);
       const kindLabel = attachmentKindLabels[attachment.kind];
+      const crossOriginAttribute = attachment.url.startsWith('data:') ? '' : ' crossorigin="use-credentials"';
 
       return `
         <article class="attachment-card">
           <div class="attachment-frame">
-            ${
-              isPdfImageMimeType(attachment.mimeType)
-                ? `<img src="${escapeHtml(attachment.url)}" alt="${kindLabel} - ${fileName}" />`
-                : `
-                  <div class="attachment-file-fallback">
-                    <strong>${escapeHtml(kindLabel)}</strong>
-                    <span>${fileName}</span>
-                  </div>
-                `
-            }
+            <img src="${escapeHtml(attachment.url)}" alt="${escapeHtml(kindLabel)}"${crossOriginAttribute} />
           </div>
           <div class="attachment-caption">
             <span>${escapeHtml(kindLabel)}</span>
             <strong>${label}</strong>
-            <small>${fileName}</small>
           </div>
         </article>
       `;
@@ -1043,9 +1110,11 @@ const buildAttachmentPagesHtml = (attachments: PdfAttachmentFile[]) => {
   if (!attachments.length) return '';
 
   const evidenceAttachments = attachments.filter((attachment) =>
-    attachment.kind === 'before' || attachment.kind === 'after',
+    (attachment.kind === 'before' || attachment.kind === 'after') && isPdfEmbeddableAttachment(attachment),
   );
-  const receiptAttachments = attachments.filter((attachment) => attachment.kind === 'receipt');
+  const receiptAttachments = attachments.filter((attachment) =>
+    attachment.kind === 'receipt' && isPdfEmbeddableAttachment(attachment),
+  );
   const pages: string[] = [];
 
   if (evidenceAttachments.length) {
@@ -1268,7 +1337,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 </section>
               </div>
             </div>
-            ${isLastPage ? `<div class="page-footer">${footerHtml}</div>` : ''}
+            <div class="page-footer">${footerHtml}</div>
           </div>
         `;
       }
@@ -1286,7 +1355,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 </div>
               </section>
           </div>
-          ${isLastPage ? `<div class="page-footer">${footerHtml}</div>` : ''}
+          <div class="page-footer">${footerHtml}</div>
         </div>
       `;
     })
@@ -1306,10 +1375,10 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           body { background: #d9d9d9 !important; overflow: hidden; }
             .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 14mm 16mm; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
             .page-first { padding: 18mm 16mm 16mm 16mm; }
-            .page-continue { padding: 14mm 16mm 22mm 16mm; }
+            .page-continue { padding: 14mm 16mm 14mm 16mm; }
             .page:last-child { page-break-after: auto; break-after: auto; }
-            .page-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
-            .page-footer { margin-top: auto; padding-top: 6px; break-inside: avoid; page-break-inside: avoid; }
+            .page-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+            .page-footer { flex: 0 0 auto; margin-top: auto; padding-top: 6px; break-inside: avoid; page-break-inside: avoid; }
             .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
             .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
             .continue-main { justify-content: flex-start; }
@@ -1330,14 +1399,14 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
           .label { font-size: 14px; margin-bottom: 4px; }
           .value { font-size: 16px; font-weight: 800; }
-          .content { display: flex; flex-direction: column; gap: 14px; }
+          .content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
           .job-panel { background: #bfe6e8; min-height: 86px; padding: 12px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 16px; align-items: center; text-align: center; }
           .job-title { font-size: 24px; line-height: 1.05; font-weight: 400; margin: 0; text-align: center; }
           .job-block { margin: 0; width: 100%; min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
           .job-label { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
           .job-value { font-size: 14px; font-weight: 400; line-height: 1.2; word-break: break-word; }
-          .main { display: flex; flex-direction: column; min-height: 0; }
-          .table-block { display: flex; flex-direction: column; width: 100%; }
+          .main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+          .table-block { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; width: 100%; overflow: hidden; }
           .table-block-continue { flex: 0 0 auto; }
           .table { width: 100%; }
           .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
@@ -1380,18 +1449,14 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .attachment-head { display: flex; align-items: end; justify-content: space-between; border-bottom: 3px solid #ff5b5b; padding-bottom: 10px; }
           .attachment-head span { color: #ff5b5b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
           .attachment-head strong { color: #111111; font-size: 24px; }
-          .attachment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-content: start; }
+          .attachment-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 14px; align-content: stretch; }
           .attachment-grid--receipts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .attachment-card { background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(58, 58, 58, 0.28); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-          .attachment-frame { height: 88mm; background: #efefef; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          .attachment-frame { flex: 1 1 auto; min-height: 0; background: #efefef; display: flex; align-items: center; justify-content: center; overflow: hidden; }
           .attachment-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
-          .attachment-file-fallback { padding: 18px; color: #2f49a7; text-align: center; display: grid; gap: 8px; }
-          .attachment-file-fallback strong { font-size: 18px; }
-          .attachment-file-fallback span { font-size: 12px; word-break: break-word; }
           .attachment-caption { display: grid; gap: 3px; padding: 10px 12px 12px; color: #111111; }
           .attachment-caption span { color: #ff5b5b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
           .attachment-caption strong { color: #2f49a7; font-size: 13px; line-height: 1.25; }
-          .attachment-caption small { color: #555555; font-size: 10px; line-height: 1.25; word-break: break-word; }
         </style>
       </head>
       <body>${pagesHtml}${attachmentsHtml}</body>
@@ -1860,14 +1925,21 @@ export function InvoiceQuoteView({
 
   const normalizedPropertyId =
     propertyId && properties.some((property) => property.id === propertyId) ? propertyId : '';
-  const propertyJobs = normalizedPropertyId
-    ? jobs.filter((job) => job.propertyId === normalizedPropertyId)
-    : [];
-  const selectedJobIds =
-    jobSelection.mode === 'manual' && jobSelection.propertyId === normalizedPropertyId
-      ? propertyJobs.filter((job) => jobSelection.ids.includes(job.id)).map((job) => job.id)
-      : propertyJobs.map((job) => job.id);
-  const selectedJobs = propertyJobs.filter((job) => selectedJobIds.includes(job.id));
+  const propertyJobs = useMemo(
+    () => (normalizedPropertyId ? jobs.filter((job) => job.propertyId === normalizedPropertyId) : []),
+    [jobs, normalizedPropertyId],
+  );
+  const selectedJobIds = useMemo(
+    () =>
+      jobSelection.mode === 'manual' && jobSelection.propertyId === normalizedPropertyId
+        ? propertyJobs.filter((job) => jobSelection.ids.includes(job.id)).map((job) => job.id)
+        : propertyJobs.map((job) => job.id),
+    [jobSelection.ids, jobSelection.mode, jobSelection.propertyId, normalizedPropertyId, propertyJobs],
+  );
+  const selectedJobs = useMemo(
+    () => propertyJobs.filter((job) => selectedJobIds.includes(job.id)),
+    [propertyJobs, selectedJobIds],
+  );
   const allSelected = propertyJobs.length > 0 && selectedJobIds.length === propertyJobs.length;
   const activeProperty = properties.find((property) => property.id === normalizedPropertyId) ?? null;
   const ownerKey = ownerKeyFor(headerOwner);
@@ -1916,44 +1988,62 @@ export function InvoiceQuoteView({
     };
   }, [documentPreviewOpen]);
 
-  const selectedItems: PdfServiceItem[] = selectedJobs.map((job) => ({
-    story: job.story,
-    unit: job.unit,
-    area: job.area,
-    service: job.service,
-    description: normalizeInvoiceDescription(descriptionValueFor(job)),
-    unitPrice: job.totalCost,
-  }));
-  const selectedJobAttachments: PdfAttachmentFile[] = selectedJobs.flatMap((job) => {
-    const label = [
-      displayInvoiceCell(job.unit),
-      displayInvoiceCell(job.area),
-      displayInvoiceCell(job.service, 'General Service'),
-    ]
-      .filter((value) => value && value !== '-')
-      .join(' - ');
-    const buildAttachment = (kind: PdfAttachmentFile['kind'], file: JobRow['files']['before'][number]) => ({
-      kind,
-      label: label || job.propertyName,
-      fileName: file.name,
-      url: buildAssetUrl(file.url),
-      mimeType: file.mimeType,
-      createdAt: file.createdAt,
-    });
+  const selectedItems: PdfServiceItem[] = useMemo(
+    () =>
+      selectedJobs.map((job) => ({
+        story: job.story,
+        unit: job.unit,
+        area: job.area,
+        service: job.service,
+        description: normalizeInvoiceDescription(descriptionEdits[job.id] ?? normalizeInvoiceDescription(job.description)),
+        unitPrice: job.totalCost,
+      })),
+    [descriptionEdits, selectedJobs],
+  );
+  const selectedJobAttachments: PdfAttachmentFile[] = useMemo(
+    () =>
+      selectedJobs.flatMap((job) => {
+        const label = [
+          displayInvoiceCell(job.unit),
+          displayInvoiceCell(job.area),
+          displayInvoiceCell(job.service, 'General Service'),
+        ]
+          .filter((value) => value && value !== '-')
+          .join(' - ');
+        const buildAttachment = (kind: PdfAttachmentFile['kind'], file: JobRow['files']['before'][number]) => ({
+          kind,
+          label: label || job.propertyName,
+          fileName: file.name,
+          url: buildAssetUrl(file.url),
+          mimeType: file.mimeType,
+          createdAt: file.createdAt,
+        });
 
-    return [
-      ...job.files.before.map((file) => buildAttachment('before', file)),
-      ...job.files.after.map((file) => buildAttachment('after', file)),
-      ...job.files.receipt.map((file) => buildAttachment('receipt', file)),
-    ];
-  });
-  const selectableAttachmentKinds: Array<PdfAttachmentFile['kind']> = ['before', 'after', 'receipt'];
-  const attachmentCounts = selectableAttachmentKinds.reduce((counts, kind) => ({
-    ...counts,
-    [kind]: selectedJobAttachments.filter((attachment) => attachment.kind === kind).length,
-  }), {} as Record<PdfAttachmentFile['kind'], number>);
-  const selectedAttachments = selectedJobAttachments.filter(
-    (attachment) => attachmentSelection[attachment.kind],
+        return [
+          ...job.files.before
+            .filter((file) => isPdfImageFile(file.name))
+            .map((file) => buildAttachment('before', file)),
+          ...job.files.after
+            .filter((file) => isPdfImageFile(file.name))
+            .map((file) => buildAttachment('after', file)),
+          ...job.files.receipt
+            .filter((file) => isPdfImageFile(file.name))
+            .map((file) => buildAttachment('receipt', file)),
+        ];
+      }),
+    [selectedJobs],
+  );
+  const attachmentCounts = useMemo(
+    () =>
+      selectableAttachmentKinds.reduce((counts, kind) => ({
+        ...counts,
+        [kind]: selectedJobAttachments.filter((attachment) => attachment.kind === kind).length,
+      }), {} as Record<PdfAttachmentFile['kind'], number>),
+    [selectedJobAttachments],
+  );
+  const selectedAttachments = useMemo(
+    () => selectedJobAttachments.filter((attachment) => attachmentSelection[attachment.kind]),
+    [attachmentSelection, selectedJobAttachments],
   );
   const includeAttachmentsInPdf =
     documentType === 'Invoice' && ownerKey === 'aze' && selectedAttachments.length > 0;
@@ -2103,6 +2193,7 @@ export function InvoiceQuoteView({
 
   const buildGeneratedDocumentContent = useCallback((
     documentNumberOverride?: string,
+    attachmentsOverride?: PdfAttachmentFile[],
   ): GeneratedDocumentContent | null => {
     if (!selectedItems.length) {
       return null;
@@ -2134,7 +2225,7 @@ export function InvoiceQuoteView({
           jobTotal,
           expenses,
           totalDue,
-          attachments: includeAttachmentsInPdf ? selectedAttachments : [],
+          attachments: includeAttachmentsInPdf ? attachmentsOverride ?? selectedAttachments : [],
         })
       : buildLegacySterlingPdfHtml({
           ownerKey,
@@ -2182,15 +2273,35 @@ export function InvoiceQuoteView({
     lastJobDate,
   ]);
 
+  const buildGeneratedDocumentContentForPdf = useCallback(async (
+    documentNumberOverride?: string,
+  ): Promise<GeneratedDocumentContent | null> => {
+    if (!includeAttachmentsInPdf) {
+      return buildGeneratedDocumentContent(documentNumberOverride);
+    }
+
+    const embeddedAttachments = await inlinePdfAttachmentImages(selectedAttachments);
+    return buildGeneratedDocumentContent(documentNumberOverride, embeddedAttachments);
+  }, [buildGeneratedDocumentContent, includeAttachmentsInPdf, selectedAttachments]);
+
   useEffect(() => {
     if (!documentPreviewOpen) {
       return;
     }
 
-    startTransition(() => {
-      setPreviewDocument(buildGeneratedDocumentContent());
+    let cancelled = false;
+
+    void buildGeneratedDocumentContentForPdf().then((documentContent) => {
+      if (cancelled) return;
+      startTransition(() => {
+        setPreviewDocument(documentContent);
+      });
     });
-  }, [buildGeneratedDocumentContent, documentPreviewOpen]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [buildGeneratedDocumentContentForPdf, documentPreviewOpen]);
 
   const previewDocumentKey = previewDocument
     ? [
@@ -2208,7 +2319,7 @@ export function InvoiceQuoteView({
       return;
     }
 
-    setPreviewDocument(buildGeneratedDocumentContent());
+    setPreviewDocument(null);
     setDocumentPreviewOpen(true);
   };
 
@@ -2242,7 +2353,7 @@ export function InvoiceQuoteView({
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const activeDocumentNumber = manualDocumentNumber || await fetchNextDocumentNumber();
-        const generated = buildGeneratedDocumentContent(activeDocumentNumber);
+        const generated = await buildGeneratedDocumentContentForPdf(activeDocumentNumber);
 
         if (!generated) {
           setGeneratePdfConfirmOpen(false);
@@ -2418,12 +2529,12 @@ export function InvoiceQuoteView({
                 disabled={documentType !== 'Invoice' || ownerKey !== 'aze' || !selectedJobAttachments.length}
               >
                 <span>
-                  Add PDF attachments
+                  Add image attachments to PDF
                   <small>
                     {selectedAttachmentSummary ||
                       (selectedJobAttachments.length
-                        ? 'Choose Before, After or Receipts'
-                        : 'Select jobs with before, after or receipt files to enable this.')}
+                        ? 'Choose Before, After or image Receipts'
+                        : 'Select jobs with before, after or image receipt files to enable this.')}
                   </small>
                 </span>
                 <span className={`invoice-services-caret ${attachmentsOpen ? 'is-open' : ''}`}>
