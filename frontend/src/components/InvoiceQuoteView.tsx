@@ -20,6 +20,7 @@ type PdfServiceItem = {
 
 type PdfAttachmentFile = {
   kind: 'before' | 'after' | 'receipt';
+  jobId: string;
   label: string;
   fileName: string;
   url: string;
@@ -141,6 +142,11 @@ type GeneratedDocumentContent = {
 };
 
 type AttachmentSelection = Record<PdfAttachmentFile['kind'], boolean>;
+
+type EvidenceAttachmentPair = {
+  before: PdfAttachmentFile | null;
+  after: PdfAttachmentFile | null;
+};
 
 type JobSelectionState = {
   propertyId: string;
@@ -937,8 +943,8 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
 const buildAzeInvoicePageCapacities = (pageCount: number) => {
   const firstOnlyPageLimit = 10.8;
   const firstPageLimit = 14.4;
-  const middlePageLimit = 21.2;
-  const lastContinuePageLimit = 13.6;
+  const middlePageLimit = 26.8;
+  const lastContinuePageLimit = 19.4;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1077,27 +1083,65 @@ const attachmentKindLabels: Record<PdfAttachmentFile['kind'], string> = {
 const buildAttachmentCardsHtml = (attachments: PdfAttachmentFile[]) =>
   attachments
     .filter(isPdfEmbeddableAttachment)
-    .map((attachment) => {
-      const label = escapeHtml(attachment.label);
-      const kindLabel = attachmentKindLabels[attachment.kind];
-      const crossOriginAttribute = attachment.url.startsWith('data:') ? '' : ' crossorigin="use-credentials"';
-
-      return `
-        <article class="attachment-card">
-          <div class="attachment-frame">
-            <img src="${escapeHtml(attachment.url)}" alt="${escapeHtml(kindLabel)}"${crossOriginAttribute} />
-          </div>
-          <div class="attachment-caption">
-            <span>${escapeHtml(kindLabel)}</span>
-            <strong>${label}</strong>
-          </div>
-        </article>
-      `;
-    })
+    .map((attachment) => buildAttachmentCardHtml(attachment))
     .join('');
 
-const chunkAttachments = (attachments: PdfAttachmentFile[], size: number) => {
-  const chunks: PdfAttachmentFile[][] = [];
+const buildAttachmentCardHtml = (attachment: PdfAttachmentFile | null) => {
+  if (!attachment) {
+    return `
+      <article class="attachment-card attachment-card--empty" aria-hidden="true">
+        <div class="attachment-frame attachment-frame--empty"></div>
+        <div class="attachment-caption attachment-caption--empty"></div>
+      </article>
+    `;
+  }
+
+  const label = escapeHtml(attachment.label);
+  const kindLabel = attachmentKindLabels[attachment.kind];
+  const crossOriginAttribute = attachment.url.startsWith('data:') ? '' : ' crossorigin="use-credentials"';
+
+  return `
+    <article class="attachment-card">
+      <div class="attachment-frame">
+        <img src="${escapeHtml(attachment.url)}" alt="${escapeHtml(kindLabel)}"${crossOriginAttribute} />
+      </div>
+      <div class="attachment-caption">
+        <span>${escapeHtml(kindLabel)}</span>
+        <strong>${label}</strong>
+      </div>
+    </article>
+  `;
+};
+
+const buildEvidencePairs = (attachments: PdfAttachmentFile[]) => {
+  const groupedAttachments = new Map<string, { before: PdfAttachmentFile[]; after: PdfAttachmentFile[] }>();
+
+  attachments.forEach((attachment) => {
+    if ((attachment.kind !== 'before' && attachment.kind !== 'after') || !isPdfEmbeddableAttachment(attachment)) {
+      return;
+    }
+
+      const group = groupedAttachments.get(attachment.jobId) ?? { before: [], after: [] };
+      group[attachment.kind].push(attachment);
+      groupedAttachments.set(attachment.jobId, group);
+  });
+
+  return [...groupedAttachments.values()].flatMap<EvidenceAttachmentPair>((group) => {
+    const pairCount = Math.max(group.before.length, group.after.length);
+    return Array.from({ length: pairCount }, (_, index) => ({
+      before: group.before[index] ?? null,
+      after: group.after[index] ?? null,
+    }));
+  });
+};
+
+const buildEvidencePairCardsHtml = (pairs: EvidenceAttachmentPair[]) =>
+  pairs
+    .map((pair) => `${buildAttachmentCardHtml(pair.before)}${buildAttachmentCardHtml(pair.after)}`)
+    .join('');
+
+const chunkAttachments = <T,>(attachments: T[], size: number) => {
+  const chunks: T[][] = [];
 
   for (let index = 0; index < attachments.length; index += size) {
     chunks.push(attachments.slice(index, index + size));
@@ -1109,16 +1153,14 @@ const chunkAttachments = (attachments: PdfAttachmentFile[], size: number) => {
 const buildAttachmentPagesHtml = (attachments: PdfAttachmentFile[]) => {
   if (!attachments.length) return '';
 
-  const evidenceAttachments = attachments.filter((attachment) =>
-    (attachment.kind === 'before' || attachment.kind === 'after') && isPdfEmbeddableAttachment(attachment),
-  );
+  const evidencePairs = buildEvidencePairs(attachments);
   const receiptAttachments = attachments.filter((attachment) =>
     attachment.kind === 'receipt' && isPdfEmbeddableAttachment(attachment),
   );
   const pages: string[] = [];
 
-  if (evidenceAttachments.length) {
-    chunkAttachments(evidenceAttachments, 4).forEach((chunk, index, chunks) => {
+  if (evidencePairs.length) {
+    chunkAttachments(evidencePairs, 2).forEach((chunk, index, chunks) => {
       pages.push(`
         <div class="page attachment-page">
           <div class="attachment-section">
@@ -1127,7 +1169,7 @@ const buildAttachmentPagesHtml = (attachments: PdfAttachmentFile[]) => {
               <strong>Before / After Photos${chunks.length > 1 ? ` ${index + 1}` : ''}</strong>
             </div>
             <div class="attachment-grid attachment-grid--photos">
-              ${buildAttachmentCardsHtml(chunk)}
+              ${buildEvidencePairCardsHtml(chunk)}
             </div>
           </div>
         </div>
@@ -1337,7 +1379,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 </section>
               </div>
             </div>
-            <div class="page-footer">${footerHtml}</div>
+            ${isLastPage ? `<div class="page-footer">${footerHtml}</div>` : ''}
           </div>
         `;
       }
@@ -1355,7 +1397,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 </div>
               </section>
           </div>
-          <div class="page-footer">${footerHtml}</div>
+          ${isLastPage ? `<div class="page-footer">${footerHtml}</div>` : ''}
         </div>
       `;
     })
@@ -1452,9 +1494,12 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .attachment-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 14px; align-content: stretch; }
           .attachment-grid--receipts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .attachment-card { background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(58, 58, 58, 0.28); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+          .attachment-card--empty { background: transparent; border-color: transparent; }
           .attachment-frame { flex: 1 1 auto; min-height: 0; background: #efefef; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          .attachment-frame--empty { background: transparent; }
           .attachment-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
           .attachment-caption { display: grid; gap: 3px; padding: 10px 12px 12px; color: #111111; }
+          .attachment-caption--empty { min-height: 48px; padding: 10px 12px 12px; }
           .attachment-caption span { color: #ff5b5b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
           .attachment-caption strong { color: #2f49a7; font-size: 13px; line-height: 1.25; }
         </style>
@@ -2012,6 +2057,7 @@ export function InvoiceQuoteView({
           .join(' - ');
         const buildAttachment = (kind: PdfAttachmentFile['kind'], file: JobRow['files']['before'][number]) => ({
           kind,
+          jobId: job.id,
           label: label || job.propertyName,
           fileName: file.name,
           url: buildAssetUrl(file.url),

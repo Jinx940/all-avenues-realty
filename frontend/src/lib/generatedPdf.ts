@@ -77,6 +77,15 @@ const waitForExportImages = async (root: HTMLElement) => {
 
       const attachmentCard = image.closest('.attachment-card');
       if (attachmentCard instanceof HTMLElement) {
+        if (attachmentCard.closest('.attachment-grid--photos')) {
+          attachmentCard.classList.add('attachment-card--empty');
+          attachmentCard.innerHTML = `
+            <div class="attachment-frame attachment-frame--empty"></div>
+            <div class="attachment-caption attachment-caption--empty"></div>
+          `;
+          return;
+        }
+
         attachmentCard.remove();
         return;
       }
@@ -86,7 +95,7 @@ const waitForExportImages = async (root: HTMLElement) => {
   );
 
   root.querySelectorAll('.attachment-page').forEach((page) => {
-    if (page instanceof HTMLElement && !page.querySelector('.attachment-card')) {
+    if (page instanceof HTMLElement && !page.querySelector('.attachment-card img')) {
       page.remove();
     }
   });
