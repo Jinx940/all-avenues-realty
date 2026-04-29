@@ -1168,9 +1168,12 @@ const buildAttachmentPagesHtml = (attachments: PdfAttachmentFile[]) => {
               <span>Job Evidence</span>
               <strong>Before / After Photos${chunks.length > 1 ? ` ${index + 1}` : ''}</strong>
             </div>
-            <div class="attachment-grid attachment-grid--photos">
-              ${buildEvidencePairCardsHtml(chunk)}
+            <div class="attachment-body">
+              <div class="attachment-grid attachment-grid--photos">
+                ${buildEvidencePairCardsHtml(chunk)}
+              </div>
             </div>
+            <div class="attachment-footer-space" aria-hidden="true"></div>
           </div>
         </div>
       `);
@@ -1186,9 +1189,12 @@ const buildAttachmentPagesHtml = (attachments: PdfAttachmentFile[]) => {
               <span>Job Evidence</span>
               <strong>Receipts${chunks.length > 1 ? ` ${index + 1}` : ''}</strong>
             </div>
-            <div class="attachment-grid attachment-grid--receipts">
-              ${buildAttachmentCardsHtml(chunk)}
+            <div class="attachment-body">
+              <div class="attachment-grid attachment-grid--receipts">
+                ${buildAttachmentCardsHtml(chunk)}
+              </div>
             </div>
+            <div class="attachment-footer-space" aria-hidden="true"></div>
           </div>
         </div>
       `);
@@ -1486,13 +1492,15 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
           .footer-text { color: #ff5b5b; font-size: 16px; line-height: 1.35; font-weight: 700; }
           .phone-text { display: flex; align-items: center; }
-          .attachment-page { padding: 16mm; }
-          .attachment-section { height: 100%; display: flex; flex-direction: column; gap: 16px; }
-          .attachment-head { display: flex; align-items: end; justify-content: space-between; border-bottom: 3px solid #ff5b5b; padding-bottom: 10px; }
+          .attachment-page { padding: 14mm 16mm 12mm 16mm; }
+          .attachment-section { height: 100%; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+          .attachment-head { flex: 0 0 auto; display: flex; align-items: end; justify-content: space-between; border-bottom: 3px solid #ff5b5b; padding-bottom: 9px; }
           .attachment-head span { color: #ff5b5b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
           .attachment-head strong { color: #111111; font-size: 24px; }
-          .attachment-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 14px; align-content: stretch; }
+          .attachment-body { flex: 1 1 auto; min-height: 0; display: flex; overflow: hidden; }
+          .attachment-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 12px; align-content: stretch; overflow: hidden; }
           .attachment-grid--receipts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .attachment-footer-space { flex: 0 0 10mm; }
           .attachment-card { background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(58, 58, 58, 0.28); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
           .attachment-card--empty { background: transparent; border-color: transparent; }
           .attachment-frame { flex: 1 1 auto; min-height: 0; background: #efefef; display: flex; align-items: center; justify-content: center; overflow: hidden; }
