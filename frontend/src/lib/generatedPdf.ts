@@ -70,8 +70,26 @@ const waitForExportImages = async (root: HTMLElement) => {
       }
 
       await image.decode().catch(() => undefined);
+
+      if (image.naturalWidth > 0) {
+        return;
+      }
+
+      const attachmentCard = image.closest('.attachment-card');
+      if (attachmentCard instanceof HTMLElement) {
+        attachmentCard.remove();
+        return;
+      }
+
+      image.style.display = 'none';
     }),
   );
+
+  root.querySelectorAll('.attachment-page').forEach((page) => {
+    if (page instanceof HTMLElement && !page.querySelector('.attachment-card')) {
+      page.remove();
+    }
+  });
 };
 
 export async function buildGeneratedPdfBlob({ html }: { html: string }) {

@@ -306,11 +306,11 @@ const cleanSentenceForPdf = (value: string) =>
   value
     .replace(/\r?\n/g, ' ')
     .replace(/\s+/g, ' ')
-    .replace(/^[\s"'`*â€¢-]+/g, '')
+    .replace(/^[\s"'`*•-]+/g, '')
     .replace(/[\s"'`]+$/g, '')
     .trim();
 
-const isMeaningfulPdfSentence = (value: string) => /[A-Za-zÃ€-Ã¿0-9]/.test(value);
+const isMeaningfulPdfSentence = (value: string) => /[A-Za-zÀ-ÿ0-9]/.test(value);
 
 const splitDescriptionIntoSentences = (value: string) => {
   const segments = value
