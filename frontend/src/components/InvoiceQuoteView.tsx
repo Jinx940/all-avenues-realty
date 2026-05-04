@@ -1434,7 +1434,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       .filter(Boolean)
       .join(' ');
     const summarySlot = options.includeSummary ? summaryHtml : '';
-    const footerSlot = `<div class="page-footer">${footerHtml}</div>`;
+    const footerSlot = options.includeSummary ? `<div class="page-footer">${footerHtml}</div>` : '';
 
     if (options.isFirstPage) {
       return `
