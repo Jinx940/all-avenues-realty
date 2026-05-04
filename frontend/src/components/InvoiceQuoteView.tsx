@@ -1652,24 +1652,11 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         pages.pop();
       }
 
-      for (let guard = 0; guard <= tableRows.length + 1; guard += 1) {
-        const lastPageIndex = pages.length - 1;
-        const lastPage = pages[lastPageIndex];
+      const lastPageIndex = pages.length - 1;
+      const lastPage = pages[lastPageIndex];
 
-        if (pageFits(lastPage, { isFirstPage: lastPageIndex === 0, includeSummary: true })) {
-          break;
-        }
-
-        if (lastPage.length <= 1) {
-          pages.push([]);
-          break;
-        }
-
-        const movedRow = lastPage.pop();
-
-        if (movedRow) {
-          pages.push([movedRow]);
-        }
+      if (!pageFits(lastPage, { isFirstPage: lastPageIndex === 0, includeSummary: true })) {
+        pages.push([]);
       }
 
       return pages.length ? pages : [[]];
