@@ -1545,7 +1545,6 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
             <div class="table-block table-block-continue">
               <table class="table aze-invoice-table continue-table">
                 ${azeInvoiceTableColumnsHtml}
-                ${azeInvoiceTableHeadHtml}
                 <tbody>${rowsHtml}</tbody>
               </table>
               ${summarySlot}
