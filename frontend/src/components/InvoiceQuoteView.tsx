@@ -1182,6 +1182,13 @@ const buildAttachmentRowHtml = (cardsHtml: string) => `
   </div>
 `;
 
+const buildAttachmentSectionStartHtml = (firstRowHtml: string) => `
+  <div class="attachment-section-start">
+    <div class="attachment-heading">Project Photos</div>
+    ${firstRowHtml}
+  </div>
+`;
+
 const buildEvidencePairs = (attachments: PdfAttachmentFile[]) => {
   const groupedAttachments = new Map<string, { before: PdfAttachmentFile[]; after: PdfAttachmentFile[] }>();
 
@@ -1226,10 +1233,10 @@ const buildAttachmentTailBlocks = (attachments: PdfAttachmentFile[]) => {
   const receiptAttachments = attachments.filter((attachment) =>
     attachment.kind === 'receipt' && isPdfEmbeddableAttachment(attachment),
   );
-  const blocks: string[] = [];
+  const rows: string[] = [];
 
   evidencePairs.forEach((pair) => {
-    blocks.push(buildAttachmentRowHtml(buildEvidencePairCardsHtml([pair])));
+    rows.push(buildAttachmentRowHtml(buildEvidencePairCardsHtml([pair])));
   });
 
   chunkAttachments(receiptAttachments, 2).forEach((chunk) => {
@@ -1238,10 +1245,15 @@ const buildAttachmentTailBlocks = (attachments: PdfAttachmentFile[]) => {
       ...(chunk.length === 1 ? [buildAttachmentCardHtml(null)] : []),
     ].join('');
 
-    blocks.push(buildAttachmentRowHtml(cardsHtml));
+    rows.push(buildAttachmentRowHtml(cardsHtml));
   });
 
-  return blocks;
+  if (!rows.length) return [];
+
+  const firstRow = rows[0] as string;
+  const remainingRows = rows.slice(1);
+
+  return [buildAttachmentSectionStartHtml(firstRow), ...remainingRows];
 };
 
 const azeModernInvoiceLayoutStyles = `
@@ -1320,6 +1332,8 @@ const azeModernInvoiceLayoutStyles = `
   .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
   .footer-text { color: #ff5b5b; font-size: 16px; line-height: 1.35; font-weight: 700; }
   .phone-text { display: flex; align-items: center; }
+  .attachment-section-start { break-inside: avoid; page-break-inside: avoid; }
+  .attachment-heading { margin-top: 12px; padding: 0 0 7px 0; border-bottom: 2px solid #ff5b5b; color: #111111; font-size: 16px; line-height: 1.2; font-weight: 800; break-inside: avoid; page-break-inside: avoid; }
   .attachment-row { flex: 0 0 74mm; height: 74mm; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
   .attachment-card { height: 100%; background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(58, 58, 58, 0.28); display: flex; flex-direction: column; min-height: 0; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
   .attachment-card--empty { background: transparent; border-color: transparent; }
@@ -1590,7 +1604,9 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
       const measuredElements = [
         table,
-        ...Array.from(measurementRoot.querySelectorAll<HTMLElement>('.summary-section, .attachment-row')),
+        ...Array.from(
+          measurementRoot.querySelectorAll<HTMLElement>('.summary-section, .attachment-section-start, .attachment-row'),
+        ),
       ];
       const pageMainBottom = pageMain.getBoundingClientRect().bottom;
       const contentBottom = Math.max(
@@ -1774,6 +1790,8 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
           .footer-text { color: #ff5b5b; font-size: 16px; line-height: 1.35; font-weight: 700; }
           .phone-text { display: flex; align-items: center; }
+          .attachment-section-start { break-inside: avoid; page-break-inside: avoid; }
+          .attachment-heading { margin-top: 12px; padding: 0 0 7px 0; border-bottom: 2px solid #ff5b5b; color: #111111; font-size: 16px; line-height: 1.2; font-weight: 800; break-inside: avoid; page-break-inside: avoid; }
           .attachment-row { flex: 0 0 74mm; height: 74mm; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
           .attachment-page { padding: 14mm 16mm 12mm 16mm; }
           .attachment-section { height: 100%; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
