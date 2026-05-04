@@ -821,10 +821,62 @@ const estimateAzeInvoiceRowUnits = (row: AzeInvoiceRow) => {
   return 1.1 + Math.max(unitLines, areaLines, serviceLines) * 0.18 + descLines * 0.28;
 };
 
+const splitLongAzeInvoiceBullet = (value: string) => {
+  const maxLength = 220;
+
+  if (value.length <= maxLength) {
+    return [value];
+  }
+
+  const words = value.split(/\s+/).filter(Boolean);
+
+  if (!words.length) {
+    return [value];
+  }
+
+  const chunks: string[] = [];
+  let currentChunk = '';
+
+  words.forEach((word) => {
+    if (word.length > maxLength) {
+      if (currentChunk) {
+        chunks.push(currentChunk);
+        currentChunk = '';
+      }
+
+      for (let index = 0; index < word.length; index += maxLength) {
+        chunks.push(word.slice(index, index + maxLength));
+      }
+
+      return;
+    }
+
+    const candidateChunk = currentChunk ? `${currentChunk} ${word}` : word;
+
+    if (candidateChunk.length > maxLength && currentChunk) {
+      chunks.push(currentChunk);
+      currentChunk = word;
+      return;
+    }
+
+    currentChunk = candidateChunk;
+  });
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks.length ? chunks : [value];
+};
+
 const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
+  const normalizedRow = {
+    ...row,
+    bullets: row.bullets.flatMap(splitLongAzeInvoiceBullet),
+  };
   const maxChunkUnits = 11.2;
-  if (estimateAzeInvoiceRowUnits(row) <= maxChunkUnits || row.bullets.length <= 1) {
-    return [row];
+  if (estimateAzeInvoiceRowUnits(normalizedRow) <= maxChunkUnits || normalizedRow.bullets.length <= 1) {
+    return [normalizedRow];
   }
 
   const chunks: AzeInvoiceRow[] = [];
@@ -835,11 +887,11 @@ const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
     if (!chunkBullets.length) return;
 
     chunks.push({
-      story: row.story,
-      unit: row.unit,
-      area: row.area,
-      service: row.service,
-      totalPrice: row.totalPrice,
+      story: normalizedRow.story,
+      unit: normalizedRow.unit,
+      area: normalizedRow.area,
+      service: normalizedRow.service,
+      totalPrice: normalizedRow.totalPrice,
       bullets: chunkBullets,
       continuation: chunkIndex > 0,
       showUnit: chunkIndex === 0,
@@ -853,14 +905,14 @@ const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
     chunkIndex += 1;
   };
 
-  row.bullets.forEach((bullet) => {
+  normalizedRow.bullets.forEach((bullet) => {
     const candidateBullets = [...chunkBullets, bullet];
     const candidateRow: AzeInvoiceRow = {
-      story: row.story,
-      unit: row.unit,
-      area: row.area,
-      service: row.service,
-      totalPrice: row.totalPrice,
+      story: normalizedRow.story,
+      unit: normalizedRow.unit,
+      area: normalizedRow.area,
+      service: normalizedRow.service,
+      totalPrice: normalizedRow.totalPrice,
       bullets: candidateBullets,
       continuation: chunkIndex > 0,
       showUnit: chunkIndex === 0,
@@ -884,7 +936,24 @@ const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
     chunk.showDivider = index === chunks.length - 1;
   });
 
-  return chunks.length ? chunks : [row];
+  return chunks.length ? chunks : [normalizedRow];
+};
+
+const splitAzeInvoiceRowByBullet = (row: AzeInvoiceRow) => {
+  if (row.bullets.length <= 1) {
+    return [row];
+  }
+
+  return row.bullets.map<AzeInvoiceRow>((bullet, index) => ({
+    ...row,
+    bullets: [bullet],
+    continuation: row.continuation || index > 0,
+    showUnit: index === 0 ? row.showUnit : false,
+    showArea: index === 0 ? row.showArea : false,
+    showService: index === 0 ? row.showService : false,
+    showPrice: index === 0 ? row.showPrice : false,
+    showDivider: index === row.bullets.length - 1 ? row.showDivider : false,
+  }));
 };
 
 const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow[] => {
@@ -960,7 +1029,7 @@ const buildAzeInvoicePageCapacities = (pageCount: number) => {
   return capacities;
 };
 
-const paginateAzeInvoiceRows = (rows: AzeInvoiceRow[]) => {
+const paginateAzeInvoiceRowsByEstimate = (rows: AzeInvoiceRow[]) => {
   if (!rows.length) return [[]];
 
   const measuredRows = rows.map((row) => ({
@@ -1204,9 +1273,86 @@ const buildAttachmentPagesHtml = (attachments: PdfAttachmentFile[]) => {
   return pages.join('');
 };
 
+const azeModernInvoiceLayoutStyles = `
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: Arial, Helvetica, sans-serif; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: #d9d9d9 !important; overflow: auto; }
+  .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 14mm 16mm; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+  .page-first { padding: 18mm 16mm 16mm 16mm; }
+  .page-continue { padding: 14mm 16mm 14mm 16mm; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .page-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .page-footer { flex: 0 0 auto; margin-top: auto; padding-top: 6px; break-inside: avoid; page-break-inside: avoid; }
+  .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
+  .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
+  .continue-main { justify-content: flex-start; }
+  .continue-table { flex: 0 0 auto; margin-top: 0; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+  .brand-area { position: relative; width: 280px; height: 120px; }
+  .brand { position: relative; display: flex; align-items: flex-start; gap: 18px; }
+  .brand-text { display: flex; flex-direction: column; font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: 6px; }
+  .brand-text .line-2 { margin-left: 10px; }
+  .brand-mark { width: 74px; height: 74px; display: flex; margin-top: -14px; margin-left: 6px; }
+  .invoice-mark { width: 100%; height: 100%; display: block; }
+  .invoice-no { position: absolute; left: 96px; top: 59px; font-size: 30px; font-weight: 800; line-height: 1; display: flex; align-items: center; gap: 6px; }
+  .logo-area { position: relative; width: 196px; height: 95px; display: flex; flex-direction: column; align-items: center; }
+  .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
+  .az-logo { width: 128px; height: 56px; display: block; margin: 0; }
+  .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin-bottom: 22px; padding: 0 6px 0 84px; }
+  .client-col { position: relative; padding-left: 10px; }
+  .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
+  .label { font-size: 14px; margin-bottom: 4px; }
+  .value { font-size: 16px; font-weight: 800; }
+  .content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .job-panel { background: #bfe6e8; min-height: 86px; padding: 12px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 16px; align-items: center; text-align: center; }
+  .job-title { font-size: 24px; line-height: 1.05; font-weight: 400; margin: 0; text-align: center; }
+  .job-block { margin: 0; width: 100%; min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .job-label { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
+  .job-value { font-size: 14px; font-weight: 400; line-height: 1.2; word-break: break-word; }
+  .main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .table-block { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; width: 100%; overflow: hidden; }
+  .table-block-continue { flex: 0 0 auto; }
+  .table { width: 100%; }
+  .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
+  .aze-unit-col { width: 72px; }
+  .aze-area-col { width: 86px; }
+  .aze-service-col { width: 108px; }
+  .aze-price-col { width: 108px; }
+  .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 13px; line-height: 1.2; text-align: center; height: 58px; padding: 0 10px; }
+  .aze-invoice-table td { min-height: 58px; padding: 12px 8px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
+  .aze-invoice-table .unit,
+  .aze-invoice-table .area,
+  .aze-invoice-table .service { color: #ff5b5b; font-size: 12px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
+  .aze-invoice-table .service.is-empty { color: transparent; }
+  .aze-invoice-table .desc { color: #2f49a7; font-size: 14px; line-height: 1.45; padding-right: 14px; }
+  .aze-invoice-table .desc ul { margin: 0; padding-left: 20px; }
+  .aze-invoice-table .desc li + li { margin-top: 4px; }
+  .aze-invoice-table .cost { color: #2f49a7; font-size: 14px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+  .aze-invoice-table .cost.is-empty { color: transparent; }
+  .aze-invoice-table .row-continuation .service,
+  .aze-invoice-table .row-continuation .cost { padding-top: 0; }
+  .aze-invoice-table .row-no-divider .service,
+  .aze-invoice-table .row-no-divider .cost { padding-bottom: 0; }
+  .aze-invoice-table .row-continuation .desc ul { margin-top: 0; }
+  .summary-section { width: 100%; margin-top: 2px; display: flex; justify-content: flex-end; break-inside: avoid; page-break-inside: avoid; }
+  .summary { width: 320px; margin: 0; align-self: flex-end; break-inside: avoid; page-break-inside: avoid; }
+  .sum-row { display: grid; grid-template-columns: 1fr 130px; align-items: center; min-height: 54px; padding: 0 0 0 16px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); font-size: 16px; }
+  .sum-row.teal { background: #bfe6e8; color: #2f49a7; }
+  .sum-row.light { color: #2f49a7; }
+  .sum-row.expenses { color: #ff5b5b; }
+  .sum-row.total { background: #2f49a7; color: #ffffff; border-bottom: none; font-weight: 800; }
+  .sum-row span:first-child { padding-right: 12px; }
+  .sum-row span:last-child { width: 130px; display: flex; align-items: center; justify-content: flex-end; padding-right: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .footer { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; align-items: center; padding: 12px 4px 0 4px; break-inside: avoid; page-break-inside: avoid; }
+  .footer-item { display: flex; align-items: center; gap: 14px; }
+  .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
+  .footer-text { color: #ff5b5b; font-size: 16px; line-height: 1.35; font-weight: 700; }
+  .phone-text { display: flex; align-items: center; }
+`;
+
 const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
-  const renderedPages = paginateAzeInvoiceRows(tableRows);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
 
   const summaryHtml = `
@@ -1275,138 +1421,275 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
     </div>
   `;
 
-  const pagesHtml = renderedPages
-    .map((pageRows, pageIndex) => {
-      const isFirstPage = pageIndex === 0;
-      const isLastPage = pageIndex === renderedPages.length - 1;
-      const rowsHtml = buildAzeInvoiceRowsHtml(pageRows);
-      const pageClassName = [
-        'page',
-        isFirstPage ? 'page-first' : 'page-continue',
-        isLastPage ? 'page-last' : '',
-      ]
-        .filter(Boolean)
-        .join(' ');
+  const buildAzeInvoicePageHtml = (
+    pageRows: AzeInvoiceRow[],
+    options: { isFirstPage: boolean; isLastPage: boolean; includeSummary: boolean },
+  ) => {
+    const rowsHtml = buildAzeInvoiceRowsHtml(pageRows);
+    const pageClassName = [
+      'page',
+      options.isFirstPage ? 'page-first' : 'page-continue',
+      options.isLastPage ? 'page-last' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const summarySlot = options.includeSummary ? summaryHtml : '';
+    const footerSlot = `<div class="page-footer">${footerHtml}</div>`;
 
-      if (isFirstPage) {
-        return `
-          <div class="${pageClassName}">
-            <div class="page-main">
-              <div class="top">
-                <div class="brand-area">
-                  <div class="brand">
-                    <div class="brand-text">
-                      <span class="line-1">IN</span>
-                      <span class="line-2">VOI</span>
-                      <span class="line-3">CE</span>
-                    </div>
-
-                    <div class="brand-mark">
-                      <svg viewBox="0 0 140 140" class="invoice-mark" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M20 110 L20 35 A75 75 0 0 1 95 110 Z" fill="#969490" stroke="#ff5b5b" stroke-width="4" stroke-linejoin="miter" />
-                        <rect x="96" y="18" width="22" height="22" fill="#969490" stroke="#ff5b5b" stroke-width="4" />
-                      </svg>
-                    </div>
+    if (options.isFirstPage) {
+      return `
+        <div class="${pageClassName}">
+          <div class="page-main">
+            <div class="top">
+              <div class="brand-area">
+                <div class="brand">
+                  <div class="brand-text">
+                    <span class="line-1">IN</span>
+                    <span class="line-2">VOI</span>
+                    <span class="line-3">CE</span>
                   </div>
 
-                  <div class="invoice-no">
-                    <span class="invoice-prefix">N&deg;</span>
-                    <span class="invoice-number-value">${escapeHtml(data.invoiceNumber)}</span>
+                  <div class="brand-mark">
+                    <svg viewBox="0 0 140 140" class="invoice-mark" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M20 110 L20 35 A75 75 0 0 1 95 110 Z" fill="#969490" stroke="#ff5b5b" stroke-width="4" stroke-linejoin="miter" />
+                      <rect x="96" y="18" width="22" height="22" fill="#969490" stroke="#ff5b5b" stroke-width="4" />
+                    </svg>
                   </div>
                 </div>
 
-                <div class="logo-area">
-                  <div class="logo-bar"></div>
-                  <svg class="az-logo" viewBox="0 0 512 208" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M60 170 L148 18" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M148 18 L210 126" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M116 128 H208" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
-                    <path d="M214 40 L352 40" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
-                    <path d="M352 40 L272 163" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M218 185 L358 185" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
-                    <path d="M297 69 L218 185" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
-                    <path d="M346 104 L402 104" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
-                    <path d="M328 131 L383 131" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
-                  </svg>
+                <div class="invoice-no">
+                  <span class="invoice-prefix">N&deg;</span>
+                  <span class="invoice-number-value">${escapeHtml(data.invoiceNumber)}</span>
                 </div>
               </div>
 
-              <div class="client-strip">
-                <div class="client-col">
-                  <div class="label">Client's Name</div>
-                  <div class="value">${escapeHtml(data.clientName)}</div>
-                </div>
-                <div class="client-col">
-                  <div class="label">Client's Company</div>
-                  <div class="value">${escapeHtml(data.clientCompany)}</div>
-                </div>
-                <div class="client-col">
-                  <div class="label">Date</div>
-                  <div class="value">${escapeHtml(formatPdfDate(data.docDate))}</div>
-                </div>
-              </div>
-
-              <div class="content">
-                <aside class="job-panel">
-                  <div class="job-title">Job Info</div>
-
-                  <div class="job-block">
-                    <div class="job-label">Address</div>
-                    <div class="job-value">
-                      ${escapeHtml(data.propertyAddress)}
-                      ${data.propertyCityLine ? `<br>${escapeHtml(data.propertyCityLine)}` : ''}
-                    </div>
-                  </div>
-
-                  <div class="job-block">
-                    <div class="job-value">${billToHtml || '-'}</div>
-                  </div>
-
-                  <div class="job-block">
-                    <div class="job-label">Start date</div>
-                    <div class="job-value">${escapeHtml(formatPdfDate(data.startDate))}</div>
-                  </div>
-
-                  <div class="job-block">
-                    <div class="job-label">Finish date</div>
-                    <div class="job-value">${escapeHtml(formatPdfDate(data.finishDate))}</div>
-                  </div>
-                </aside>
-
-                <section class="main">
-                  <div class="table-block">
-                    <table class="table aze-invoice-table">
-                      ${azeInvoiceTableColumnsHtml}
-                      ${azeInvoiceTableHeadHtml}
-                      <tbody>${rowsHtml}</tbody>
-                    </table>
-                    ${isLastPage ? summaryHtml : ''}
-                  </div>
-                </section>
+              <div class="logo-area">
+                <div class="logo-bar"></div>
+                <svg class="az-logo" viewBox="0 0 512 208" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M60 170 L148 18" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M148 18 L210 126" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M116 128 H208" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
+                  <path d="M214 40 L352 40" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
+                  <path d="M352 40 L272 163" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M218 185 L358 185" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
+                  <path d="M297 69 L218 185" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
+                  <path d="M346 104 L402 104" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
+                  <path d="M328 131 L383 131" stroke="#ff5b5b" stroke-width="12" stroke-linecap="round"/>
+                </svg>
               </div>
             </div>
-            ${isLastPage ? `<div class="page-footer">${footerHtml}</div>` : ''}
-          </div>
-        `;
-      }
 
-      return `
-          <div class="${pageClassName}">
-            <div class="page-main continue-wrap">
-              <section class="main main-full continue-main">
-                <div class="table-block table-block-continue">
-                  <table class="table aze-invoice-table continue-table">
+            <div class="client-strip">
+              <div class="client-col">
+                <div class="label">Client's Name</div>
+                <div class="value">${escapeHtml(data.clientName)}</div>
+              </div>
+              <div class="client-col">
+                <div class="label">Client's Company</div>
+                <div class="value">${escapeHtml(data.clientCompany)}</div>
+              </div>
+              <div class="client-col">
+                <div class="label">Date</div>
+                <div class="value">${escapeHtml(formatPdfDate(data.docDate))}</div>
+              </div>
+            </div>
+
+            <div class="content">
+              <aside class="job-panel">
+                <div class="job-title">Job Info</div>
+
+                <div class="job-block">
+                  <div class="job-label">Address</div>
+                  <div class="job-value">
+                    ${escapeHtml(data.propertyAddress)}
+                    ${data.propertyCityLine ? `<br>${escapeHtml(data.propertyCityLine)}` : ''}
+                  </div>
+                </div>
+
+                <div class="job-block">
+                  <div class="job-value">${billToHtml || '-'}</div>
+                </div>
+
+                <div class="job-block">
+                  <div class="job-label">Start date</div>
+                  <div class="job-value">${escapeHtml(formatPdfDate(data.startDate))}</div>
+                </div>
+
+                <div class="job-block">
+                  <div class="job-label">Finish date</div>
+                  <div class="job-value">${escapeHtml(formatPdfDate(data.finishDate))}</div>
+                </div>
+              </aside>
+
+              <section class="main">
+                <div class="table-block">
+                  <table class="table aze-invoice-table">
                     ${azeInvoiceTableColumnsHtml}
+                    ${azeInvoiceTableHeadHtml}
                     <tbody>${rowsHtml}</tbody>
                   </table>
-                  ${isLastPage ? summaryHtml : ''}
+                  ${summarySlot}
                 </div>
               </section>
+            </div>
           </div>
-          ${isLastPage ? `<div class="page-footer">${footerHtml}</div>` : ''}
+          ${footerSlot}
         </div>
       `;
-    })
+    }
+
+    return `
+      <div class="${pageClassName}">
+        <div class="page-main continue-wrap">
+          <section class="main main-full continue-main">
+            <div class="table-block table-block-continue">
+              <table class="table aze-invoice-table continue-table">
+                ${azeInvoiceTableColumnsHtml}
+                ${azeInvoiceTableHeadHtml}
+                <tbody>${rowsHtml}</tbody>
+              </table>
+              ${summarySlot}
+            </div>
+          </section>
+        </div>
+        ${footerSlot}
+      </div>
+    `;
+  };
+
+  const paginateAzeInvoiceRowsByLayout = () => {
+    if (!tableRows.length) {
+      return [[]];
+    }
+
+    const fallbackPages = paginateAzeInvoiceRowsByEstimate(tableRows);
+
+    if (typeof document === 'undefined') {
+      return fallbackPages;
+    }
+
+    const measurementHost = document.createElement('div');
+    Object.assign(measurementHost.style, {
+      position: 'fixed',
+      left: '-250vw',
+      top: '0',
+      width: '210mm',
+      minHeight: '297mm',
+      visibility: 'hidden',
+      pointerEvents: 'none',
+      zIndex: '-1',
+    });
+    document.body.appendChild(measurementHost);
+    const measurementRoot = measurementHost.attachShadow({ mode: 'open' });
+
+    const pageFits = (
+      pageRows: AzeInvoiceRow[],
+      options: { isFirstPage: boolean; includeSummary: boolean },
+    ) => {
+      measurementRoot.innerHTML = `
+        <style>${azeModernInvoiceLayoutStyles}</style>
+        ${buildAzeInvoicePageHtml(pageRows, {
+          isFirstPage: options.isFirstPage,
+          isLastPage: options.includeSummary,
+          includeSummary: options.includeSummary,
+        })}
+      `;
+
+      const pageMain = measurementRoot.querySelector<HTMLElement>('.page-main');
+      const table = measurementRoot.querySelector<HTMLElement>('.aze-invoice-table');
+      const summary = measurementRoot.querySelector<HTMLElement>('.summary-section');
+
+      if (!pageMain || !table) {
+        return true;
+      }
+
+      const pageMainBottom = pageMain.getBoundingClientRect().bottom;
+      const tableBottom = table.getBoundingClientRect().bottom;
+      const summaryBottom = summary?.getBoundingClientRect().bottom ?? tableBottom;
+
+      return Math.max(tableBottom, summaryBottom) <= pageMainBottom + 0.5;
+    };
+
+    try {
+      const pages: AzeInvoiceRow[][] = [[]];
+      let pageIndex = 0;
+      const pendingRows = [...tableRows];
+
+      while (pendingRows.length) {
+        const row = pendingRows.shift() as AzeInvoiceRow;
+        const currentPage = pages[pageIndex];
+        const candidatePage = [...currentPage, row];
+
+        if (pageFits(candidatePage, { isFirstPage: pageIndex === 0, includeSummary: false })) {
+          currentPage.push(row);
+          continue;
+        }
+
+        const splitRows = splitAzeInvoiceRowByBullet(row);
+
+        if (currentPage.length === 0 && splitRows.length > 1) {
+          pendingRows.unshift(...splitRows);
+          continue;
+        }
+
+        if (currentPage.length === 0) {
+          if (pageIndex === 0) {
+            pages.push([]);
+            pageIndex += 1;
+            pendingRows.unshift(row);
+            continue;
+          }
+
+          currentPage.push(row);
+          continue;
+        }
+
+        pages.push([]);
+        pageIndex += 1;
+        pendingRows.unshift(row);
+      }
+
+      while (pages.length > 1 && pages[pages.length - 1].length === 0) {
+        pages.pop();
+      }
+
+      for (let guard = 0; guard <= tableRows.length + 1; guard += 1) {
+        const lastPageIndex = pages.length - 1;
+        const lastPage = pages[lastPageIndex];
+
+        if (pageFits(lastPage, { isFirstPage: lastPageIndex === 0, includeSummary: true })) {
+          break;
+        }
+
+        if (lastPage.length <= 1) {
+          pages.push([]);
+          break;
+        }
+
+        const movedRow = lastPage.pop();
+
+        if (movedRow) {
+          pages.push([movedRow]);
+        }
+      }
+
+      return pages.length ? pages : [[]];
+    } catch {
+      return fallbackPages;
+    } finally {
+      measurementHost.remove();
+    }
+  };
+
+  const renderedPages = paginateAzeInvoiceRowsByLayout();
+  const pagesHtml = renderedPages
+    .map((pageRows, pageIndex) =>
+      buildAzeInvoicePageHtml(pageRows, {
+        isFirstPage: pageIndex === 0,
+        isLastPage: pageIndex === renderedPages.length - 1,
+        includeSummary: pageIndex === renderedPages.length - 1,
+      }),
+    )
     .join('');
   const attachmentsHtml = buildAttachmentPagesHtml(data.attachments);
 
@@ -1420,7 +1703,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           @page { size: A4; margin: 0; }
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: Arial, Helvetica, sans-serif; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          body { background: #d9d9d9 !important; overflow: hidden; }
+          body { background: #d9d9d9 !important; overflow: auto; }
             .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 14mm 16mm; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
             .page-first { padding: 18mm 16mm 16mm 16mm; }
             .page-continue { padding: 14mm 16mm 14mm 16mm; }
