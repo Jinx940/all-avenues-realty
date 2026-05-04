@@ -1,6 +1,6 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, buildAssetUrl, fetchAssetBlob, requestJson } from '../lib/api';
-import { buildGeneratedPdfBlob, downloadPdfBlob } from '../lib/generatedPdf';
+import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendix } from '../lib/generatedPdf';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -178,6 +178,11 @@ const isPdfImageFile = (fileName: string) =>
 const isPdfEmbeddableAttachment = (
   attachment: Pick<PdfAttachmentFile, 'fileName'>,
 ) => isPdfImageFile(attachment.fileName);
+const isPdfDocumentFile = (fileName: string) => getPdfFileExtension(fileName) === '.pdf';
+const isPdfReceiptFile = (file: Pick<JobRow['files']['receipt'][number], 'name' | 'mimeType'>) =>
+  isPdfImageFile(file.name) ||
+  isPdfDocumentFile(file.name) ||
+  file.mimeType.toLowerCase().includes('pdf');
 const defaultAttachmentSelection: AttachmentSelection = {
   before: true,
   after: true,
@@ -1216,36 +1221,14 @@ const buildEvidencePairCardsHtml = (pairs: EvidenceAttachmentPair[]) =>
     .map((pair) => `${buildAttachmentCardHtml(pair.before)}${buildAttachmentCardHtml(pair.after)}`)
     .join('');
 
-const chunkAttachments = <T,>(attachments: T[], size: number) => {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < attachments.length; index += size) {
-    chunks.push(attachments.slice(index, index + size));
-  }
-
-  return chunks;
-};
-
 const buildAttachmentTailBlocks = (attachments: PdfAttachmentFile[]) => {
   if (!attachments.length) return [];
 
   const evidencePairs = buildEvidencePairs(attachments);
-  const receiptAttachments = attachments.filter((attachment) =>
-    attachment.kind === 'receipt' && isPdfEmbeddableAttachment(attachment),
-  );
   const rows: string[] = [];
 
   evidencePairs.forEach((pair) => {
     rows.push(buildAttachmentRowHtml(buildEvidencePairCardsHtml([pair])));
-  });
-
-  chunkAttachments(receiptAttachments, 2).forEach((chunk) => {
-    const cardsHtml = [
-      ...chunk.map((attachment) => buildAttachmentCardHtml(attachment)),
-      ...(chunk.length === 1 ? [buildAttachmentCardHtml(null)] : []),
-    ].join('');
-
-    rows.push(buildAttachmentRowHtml(cardsHtml));
   });
 
   if (!rows.length) return [];
@@ -2382,7 +2365,7 @@ export function InvoiceQuoteView({
             .filter((file) => isPdfImageFile(file.name))
             .map((file) => buildAttachment('after', file)),
           ...job.files.receipt
-            .filter((file) => isPdfImageFile(file.name))
+            .filter(isPdfReceiptFile)
             .map((file) => buildAttachment('receipt', file)),
         ];
       }),
@@ -2399,6 +2382,14 @@ export function InvoiceQuoteView({
   const selectedAttachments = useMemo(
     () => selectedJobAttachments.filter((attachment) => attachmentSelection[attachment.kind]),
     [attachmentSelection, selectedJobAttachments],
+  );
+  const selectedInvoicePhotoAttachments = useMemo(
+    () => selectedAttachments.filter((attachment) => attachment.kind !== 'receipt'),
+    [selectedAttachments],
+  );
+  const selectedReceiptAttachments = useMemo(
+    () => selectedAttachments.filter((attachment) => attachment.kind === 'receipt'),
+    [selectedAttachments],
   );
   const includeAttachmentsInPdf =
     documentType === 'Invoice' && ownerKey === 'aze' && selectedAttachments.length > 0;
@@ -2580,7 +2571,7 @@ export function InvoiceQuoteView({
           jobTotal,
           expenses,
           totalDue,
-          attachments: includeAttachmentsInPdf ? attachmentsOverride ?? selectedAttachments : [],
+          attachments: includeAttachmentsInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
         })
       : buildLegacySterlingPdfHtml({
           ownerKey,
@@ -2620,7 +2611,7 @@ export function InvoiceQuoteView({
     propertyAddress,
     propertyCityLine,
     ryanLaborValue,
-    selectedAttachments,
+    selectedInvoicePhotoAttachments,
     selectedItems,
     timeFrame,
     totalDue,
@@ -2635,9 +2626,31 @@ export function InvoiceQuoteView({
       return buildGeneratedDocumentContent(documentNumberOverride);
     }
 
-    const embeddedAttachments = await inlinePdfAttachmentImages(selectedAttachments);
+    const embeddedAttachments = await inlinePdfAttachmentImages(selectedInvoicePhotoAttachments);
     return buildGeneratedDocumentContent(documentNumberOverride, embeddedAttachments);
-  }, [buildGeneratedDocumentContent, includeAttachmentsInPdf, selectedAttachments]);
+  }, [buildGeneratedDocumentContent, includeAttachmentsInPdf, selectedInvoicePhotoAttachments]);
+
+  const buildReceiptAppendicesForPdf = useCallback(async (): Promise<GeneratedPdfReceiptAppendix[]> => {
+    if (!includeAttachmentsInPdf || !selectedReceiptAttachments.length) {
+      return [];
+    }
+
+    const appendices = await Promise.all(
+      selectedReceiptAttachments.map(async (attachment) => {
+        try {
+          return {
+            fileName: attachment.fileName,
+            mimeType: attachment.mimeType,
+            blob: await fetchAssetBlob(attachment.url),
+          };
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    return appendices.filter((appendix): appendix is GeneratedPdfReceiptAppendix => Boolean(appendix));
+  }, [includeAttachmentsInPdf, selectedReceiptAttachments]);
 
   useEffect(() => {
     if (!documentPreviewOpen) {
@@ -2716,8 +2729,10 @@ export function InvoiceQuoteView({
           return;
         }
 
+        const receiptAppendices = await buildReceiptAppendicesForPdf();
         const pdfBlob = await buildGeneratedPdfBlob({
           html: generated.html,
+          receiptAppendices,
         });
         const pdfBase64 = await blobToBase64(pdfBlob);
         let saved: SaveGeneratedDocumentResponse | null = null;
@@ -2884,12 +2899,12 @@ export function InvoiceQuoteView({
                 disabled={documentType !== 'Invoice' || ownerKey !== 'aze' || !selectedJobAttachments.length}
               >
                 <span>
-                  Add image attachments to PDF
+                  Add attachments to PDF
                   <small>
                     {selectedAttachmentSummary ||
                       (selectedJobAttachments.length
-                        ? 'Choose Before, After or image Receipts'
-                        : 'Select jobs with before, after or image receipt files to enable this.')}
+                        ? 'Choose Before, After or Receipts'
+                        : 'Select jobs with before, after or receipt files to enable this.')}
                   </small>
                 </span>
                 <span className={`invoice-services-caret ${attachmentsOpen ? 'is-open' : ''}`}>
