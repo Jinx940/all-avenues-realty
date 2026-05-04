@@ -1149,12 +1149,6 @@ const attachmentKindLabels: Record<PdfAttachmentFile['kind'], string> = {
   receipt: 'Receipt',
 };
 
-const buildAttachmentCardsHtml = (attachments: PdfAttachmentFile[]) =>
-  attachments
-    .filter(isPdfEmbeddableAttachment)
-    .map((attachment) => buildAttachmentCardHtml(attachment))
-    .join('');
-
 const buildAttachmentCardHtml = (attachment: PdfAttachmentFile | null) => {
   if (!attachment) {
     return `
@@ -1181,6 +1175,12 @@ const buildAttachmentCardHtml = (attachment: PdfAttachmentFile | null) => {
     </article>
   `;
 };
+
+const buildAttachmentRowHtml = (cardsHtml: string) => `
+  <div class="attachment-row">
+    ${cardsHtml}
+  </div>
+`;
 
 const buildEvidencePairs = (attachments: PdfAttachmentFile[]) => {
   const groupedAttachments = new Map<string, { before: PdfAttachmentFile[]; after: PdfAttachmentFile[] }>();
@@ -1219,58 +1219,29 @@ const chunkAttachments = <T,>(attachments: T[], size: number) => {
   return chunks;
 };
 
-const buildAttachmentPagesHtml = (attachments: PdfAttachmentFile[]) => {
-  if (!attachments.length) return '';
+const buildAttachmentTailBlocks = (attachments: PdfAttachmentFile[]) => {
+  if (!attachments.length) return [];
 
   const evidencePairs = buildEvidencePairs(attachments);
   const receiptAttachments = attachments.filter((attachment) =>
     attachment.kind === 'receipt' && isPdfEmbeddableAttachment(attachment),
   );
-  const pages: string[] = [];
+  const blocks: string[] = [];
 
-  if (evidencePairs.length) {
-    chunkAttachments(evidencePairs, 2).forEach((chunk, index, chunks) => {
-      pages.push(`
-        <div class="page attachment-page">
-          <div class="attachment-section">
-            <div class="attachment-head">
-              <span>Job Evidence</span>
-              <strong>Before / After Photos${chunks.length > 1 ? ` ${index + 1}` : ''}</strong>
-            </div>
-            <div class="attachment-body">
-              <div class="attachment-grid attachment-grid--photos">
-                ${buildEvidencePairCardsHtml(chunk)}
-              </div>
-            </div>
-            <div class="attachment-footer-space" aria-hidden="true"></div>
-          </div>
-        </div>
-      `);
-    });
-  }
+  evidencePairs.forEach((pair) => {
+    blocks.push(buildAttachmentRowHtml(buildEvidencePairCardsHtml([pair])));
+  });
 
-  if (receiptAttachments.length) {
-    chunkAttachments(receiptAttachments, 4).forEach((chunk, index, chunks) => {
-      pages.push(`
-        <div class="page attachment-page">
-          <div class="attachment-section">
-            <div class="attachment-head">
-              <span>Job Evidence</span>
-              <strong>Receipts${chunks.length > 1 ? ` ${index + 1}` : ''}</strong>
-            </div>
-            <div class="attachment-body">
-              <div class="attachment-grid attachment-grid--receipts">
-                ${buildAttachmentCardsHtml(chunk)}
-              </div>
-            </div>
-            <div class="attachment-footer-space" aria-hidden="true"></div>
-          </div>
-        </div>
-      `);
-    });
-  }
+  chunkAttachments(receiptAttachments, 2).forEach((chunk) => {
+    const cardsHtml = [
+      ...chunk.map((attachment) => buildAttachmentCardHtml(attachment)),
+      ...(chunk.length === 1 ? [buildAttachmentCardHtml(null)] : []),
+    ].join('');
 
-  return pages.join('');
+    blocks.push(buildAttachmentRowHtml(cardsHtml));
+  });
+
+  return blocks;
 };
 
 const azeModernInvoiceLayoutStyles = `
@@ -1349,6 +1320,16 @@ const azeModernInvoiceLayoutStyles = `
   .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
   .footer-text { color: #ff5b5b; font-size: 16px; line-height: 1.35; font-weight: 700; }
   .phone-text { display: flex; align-items: center; }
+  .attachment-row { flex: 0 0 74mm; height: 74mm; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
+  .attachment-card { height: 100%; background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(58, 58, 58, 0.28); display: flex; flex-direction: column; min-height: 0; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+  .attachment-card--empty { background: transparent; border-color: transparent; }
+  .attachment-frame { flex: 1 1 auto; min-height: 0; background: #efefef; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .attachment-frame--empty { background: transparent; }
+  .attachment-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .attachment-caption { flex: 0 0 auto; display: grid; gap: 3px; padding: 10px 12px 12px; color: #111111; }
+  .attachment-caption--empty { min-height: 48px; padding: 10px 12px 12px; }
+  .attachment-caption span { color: #ff5b5b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+  .attachment-caption strong { color: #2f49a7; font-size: 13px; line-height: 1.25; }
 `;
 
 const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
@@ -1423,7 +1404,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
   const buildAzeInvoicePageHtml = (
     pageRows: AzeInvoiceRow[],
-    options: { isFirstPage: boolean; isLastPage: boolean; includeSummary: boolean },
+    options: { isFirstPage: boolean; isLastPage: boolean; tailBlocks?: string[]; includeFooter: boolean },
   ) => {
     const rowsHtml = buildAzeInvoiceRowsHtml(pageRows);
     const pageClassName = [
@@ -1433,8 +1414,8 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
     ]
       .filter(Boolean)
       .join(' ');
-    const summarySlot = options.includeSummary ? summaryHtml : '';
-    const footerSlot = options.includeSummary ? `<div class="page-footer">${footerHtml}</div>` : '';
+    const tailBlocksHtml = options.tailBlocks?.join('') ?? '';
+    const footerSlot = options.includeFooter ? `<div class="page-footer">${footerHtml}</div>` : '';
 
     if (options.isFirstPage) {
       return `
@@ -1528,7 +1509,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                     ${azeInvoiceTableHeadHtml}
                     <tbody>${rowsHtml}</tbody>
                   </table>
-                  ${summarySlot}
+                  ${tailBlocksHtml}
                 </div>
               </section>
             </div>
@@ -1547,7 +1528,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 ${azeInvoiceTableColumnsHtml}
                 <tbody>${rowsHtml}</tbody>
               </table>
-              ${summarySlot}
+              ${tailBlocksHtml}
             </div>
           </section>
         </div>
@@ -1558,13 +1539,18 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
   const paginateAzeInvoiceRowsByLayout = () => {
     if (!tableRows.length) {
-      return [[]];
+      return [{ rows: [], tailBlocks: [summaryHtml, ...buildAttachmentTailBlocks(data.attachments)] }];
     }
 
     const fallbackPages = paginateAzeInvoiceRowsByEstimate(tableRows);
 
     if (typeof document === 'undefined') {
-      return fallbackPages;
+      const fallbackLayouts = fallbackPages.map((rows) => ({ rows, tailBlocks: [] as string[] }));
+      fallbackLayouts[fallbackLayouts.length - 1].tailBlocks = [
+        summaryHtml,
+        ...buildAttachmentTailBlocks(data.attachments),
+      ];
+      return fallbackLayouts;
     }
 
     const measurementHost = document.createElement('div');
@@ -1583,30 +1569,35 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
     const pageFits = (
       pageRows: AzeInvoiceRow[],
-      options: { isFirstPage: boolean; includeSummary: boolean },
+      options: { isFirstPage: boolean; tailBlocks?: string[]; includeFooter: boolean },
     ) => {
       measurementRoot.innerHTML = `
         <style>${azeModernInvoiceLayoutStyles}</style>
         ${buildAzeInvoicePageHtml(pageRows, {
           isFirstPage: options.isFirstPage,
-          isLastPage: options.includeSummary,
-          includeSummary: options.includeSummary,
+          isLastPage: options.includeFooter,
+          tailBlocks: options.tailBlocks,
+          includeFooter: options.includeFooter,
         })}
       `;
 
       const pageMain = measurementRoot.querySelector<HTMLElement>('.page-main');
       const table = measurementRoot.querySelector<HTMLElement>('.aze-invoice-table');
-      const summary = measurementRoot.querySelector<HTMLElement>('.summary-section');
 
       if (!pageMain || !table) {
         return true;
       }
 
+      const measuredElements = [
+        table,
+        ...Array.from(measurementRoot.querySelectorAll<HTMLElement>('.summary-section, .attachment-row')),
+      ];
       const pageMainBottom = pageMain.getBoundingClientRect().bottom;
-      const tableBottom = table.getBoundingClientRect().bottom;
-      const summaryBottom = summary?.getBoundingClientRect().bottom ?? tableBottom;
+      const contentBottom = Math.max(
+        ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
+      );
 
-      return Math.max(tableBottom, summaryBottom) <= pageMainBottom + 0.5;
+      return contentBottom <= pageMainBottom + 0.5;
     };
 
     try {
@@ -1619,7 +1610,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         const currentPage = pages[pageIndex];
         const candidatePage = [...currentPage, row];
 
-        if (pageFits(candidatePage, { isFirstPage: pageIndex === 0, includeSummary: false })) {
+        if (pageFits(candidatePage, { isFirstPage: pageIndex === 0, includeFooter: false })) {
           currentPage.push(row);
           continue;
         }
@@ -1652,16 +1643,38 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         pages.pop();
       }
 
-      const lastPageIndex = pages.length - 1;
-      const lastPage = pages[lastPageIndex];
+      const pageLayouts = pages.map((rows) => ({ rows, tailBlocks: [] as string[] }));
+      const tailBlocks = [summaryHtml, ...buildAttachmentTailBlocks(data.attachments)];
+      let tailPageIndex = pageLayouts.length - 1;
 
-      if (!pageFits(lastPage, { isFirstPage: lastPageIndex === 0, includeSummary: true })) {
-        pages.push([]);
+      for (const [tailBlockIndex, tailBlock] of tailBlocks.entries()) {
+        const currentLayout = pageLayouts[tailPageIndex];
+        const isLastTailBlock = tailBlockIndex === tailBlocks.length - 1;
+        const candidateTailBlocks = [...currentLayout.tailBlocks, tailBlock];
+
+        if (
+          pageFits(currentLayout.rows, {
+            isFirstPage: tailPageIndex === 0,
+            tailBlocks: candidateTailBlocks,
+            includeFooter: isLastTailBlock,
+          })
+        ) {
+          currentLayout.tailBlocks.push(tailBlock);
+          continue;
+        }
+
+        pageLayouts.push({ rows: [], tailBlocks: [tailBlock] });
+        tailPageIndex = pageLayouts.length - 1;
       }
 
-      return pages.length ? pages : [[]];
+      return pageLayouts.length ? pageLayouts : [{ rows: [], tailBlocks }];
     } catch {
-      return fallbackPages;
+      const fallbackLayouts = fallbackPages.map((rows) => ({ rows, tailBlocks: [] as string[] }));
+      fallbackLayouts[fallbackLayouts.length - 1].tailBlocks = [
+        summaryHtml,
+        ...buildAttachmentTailBlocks(data.attachments),
+      ];
+      return fallbackLayouts;
     } finally {
       measurementHost.remove();
     }
@@ -1669,15 +1682,15 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
   const renderedPages = paginateAzeInvoiceRowsByLayout();
   const pagesHtml = renderedPages
-    .map((pageRows, pageIndex) =>
-      buildAzeInvoicePageHtml(pageRows, {
+    .map((pageLayout, pageIndex) =>
+      buildAzeInvoicePageHtml(pageLayout.rows, {
         isFirstPage: pageIndex === 0,
         isLastPage: pageIndex === renderedPages.length - 1,
-        includeSummary: pageIndex === renderedPages.length - 1,
+        tailBlocks: pageLayout.tailBlocks,
+        includeFooter: pageIndex === renderedPages.length - 1,
       }),
     )
     .join('');
-  const attachmentsHtml = buildAttachmentPagesHtml(data.attachments);
 
   return `
     <!doctype html>
@@ -1761,6 +1774,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
           .footer-text { color: #ff5b5b; font-size: 16px; line-height: 1.35; font-weight: 700; }
           .phone-text { display: flex; align-items: center; }
+          .attachment-row { flex: 0 0 74mm; height: 74mm; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
           .attachment-page { padding: 14mm 16mm 12mm 16mm; }
           .attachment-section { height: 100%; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
           .attachment-head { flex: 0 0 auto; display: flex; align-items: end; justify-content: space-between; border-bottom: 3px solid #ff5b5b; padding-bottom: 9px; }
@@ -1770,18 +1784,18 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .attachment-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 12px; align-content: stretch; overflow: hidden; }
           .attachment-grid--receipts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .attachment-footer-space { flex: 0 0 10mm; }
-          .attachment-card { background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(58, 58, 58, 0.28); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+          .attachment-card { height: 100%; background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(58, 58, 58, 0.28); display: flex; flex-direction: column; min-height: 0; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
           .attachment-card--empty { background: transparent; border-color: transparent; }
           .attachment-frame { flex: 1 1 auto; min-height: 0; background: #efefef; display: flex; align-items: center; justify-content: center; overflow: hidden; }
           .attachment-frame--empty { background: transparent; }
-          .attachment-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
-          .attachment-caption { display: grid; gap: 3px; padding: 10px 12px 12px; color: #111111; }
+          .attachment-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+          .attachment-caption { flex: 0 0 auto; display: grid; gap: 3px; padding: 10px 12px 12px; color: #111111; }
           .attachment-caption--empty { min-height: 48px; padding: 10px 12px 12px; }
           .attachment-caption span { color: #ff5b5b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
           .attachment-caption strong { color: #2f49a7; font-size: 13px; line-height: 1.25; }
         </style>
       </head>
-      <body>${pagesHtml}${attachmentsHtml}</body>
+      <body>${pagesHtml}</body>
     </html>
   `;
 };
