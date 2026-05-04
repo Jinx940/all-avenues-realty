@@ -147,6 +147,8 @@ type EvidenceAttachmentPair = {
   before: PdfAttachmentFile | null;
   after: PdfAttachmentFile | null;
 };
+type JobFileAttachment = JobRow['files']['before'][number];
+type JobFileBucket = keyof JobRow['files'];
 
 type JobSelectionState = {
   propertyId: string;
@@ -182,7 +184,22 @@ const isPdfDocumentFile = (fileName: string) => getPdfFileExtension(fileName) ==
 const isPdfReceiptFile = (file: Pick<JobRow['files']['receipt'][number], 'name' | 'mimeType'>) =>
   isPdfImageFile(file.name) ||
   isPdfDocumentFile(file.name) ||
-  file.mimeType.toLowerCase().includes('pdf');
+  String(file.mimeType ?? '').toLowerCase().startsWith('image/') ||
+  String(file.mimeType ?? '').toLowerCase().includes('pdf');
+const normalizePdfAttachmentKind = (value: string | null | undefined): PdfAttachmentFile['kind'] | null => {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+
+  if (normalized === 'before') return 'before';
+  if (normalized === 'after') return 'after';
+  if (normalized === 'receipt' || normalized === 'receipts') return 'receipt';
+
+  return null;
+};
+const invoicePhotoAttachmentKinds = new Set<PdfAttachmentFile['kind']>(['before', 'after']);
+const receiptAttachmentKinds = new Set<PdfAttachmentFile['kind']>(['receipt']);
 const defaultAttachmentSelection: AttachmentSelection = {
   before: true,
   after: true,
@@ -364,6 +381,46 @@ const normalizeInvoiceDescription = (value: string) => {
 };
 
 const displayInvoiceCell = (value: string, fallback = '-') => value.trim() || fallback;
+const buildPdfAttachmentsForJobs = (
+  sourceJobs: JobRow[],
+  allowedKinds: ReadonlySet<PdfAttachmentFile['kind']>,
+): PdfAttachmentFile[] =>
+  sourceJobs.flatMap((job) => {
+    const label = [
+      displayInvoiceCell(job.unit),
+      displayInvoiceCell(job.area),
+      displayInvoiceCell(job.service, 'General Service'),
+    ]
+      .filter((value) => value && value !== '-')
+      .join(' - ');
+
+    const buildAttachment = (kind: PdfAttachmentFile['kind'], file: JobFileAttachment): PdfAttachmentFile => ({
+      kind,
+      jobId: job.id,
+      label: label || job.propertyName,
+      fileName: file.name,
+      url: buildAssetUrl(file.url),
+      mimeType: file.mimeType,
+      createdAt: file.createdAt,
+    });
+
+    return (Object.entries(job.files) as Array<[JobFileBucket, JobFileAttachment[]]>).flatMap(
+      ([field, files]) =>
+        files.flatMap((file) => {
+          const kind = normalizePdfAttachmentKind(file.category) ?? normalizePdfAttachmentKind(field);
+
+          if (!kind || !allowedKinds.has(kind)) {
+            return [];
+          }
+
+          if (kind === 'receipt') {
+            return isPdfReceiptFile(file) ? [buildAttachment(kind, file)] : [];
+          }
+
+          return isPdfImageFile(file.name) ? [buildAttachment(kind, file)] : [];
+        }),
+    );
+  });
 
 const compareInvoiceCells = (left: string, right: string) => {
   const leftIsFallback = left === '-';
@@ -2337,39 +2394,17 @@ export function InvoiceQuoteView({
       })),
     [descriptionEdits, selectedJobs],
   );
-  const selectedJobAttachments: PdfAttachmentFile[] = useMemo(
-    () =>
-      selectedJobs.flatMap((job) => {
-        const label = [
-          displayInvoiceCell(job.unit),
-          displayInvoiceCell(job.area),
-          displayInvoiceCell(job.service, 'General Service'),
-        ]
-          .filter((value) => value && value !== '-')
-          .join(' - ');
-        const buildAttachment = (kind: PdfAttachmentFile['kind'], file: JobRow['files']['before'][number]) => ({
-          kind,
-          jobId: job.id,
-          label: label || job.propertyName,
-          fileName: file.name,
-          url: buildAssetUrl(file.url),
-          mimeType: file.mimeType,
-          createdAt: file.createdAt,
-        });
-
-        return [
-          ...job.files.before
-            .filter((file) => isPdfImageFile(file.name))
-            .map((file) => buildAttachment('before', file)),
-          ...job.files.after
-            .filter((file) => isPdfImageFile(file.name))
-            .map((file) => buildAttachment('after', file)),
-          ...job.files.receipt
-            .filter(isPdfReceiptFile)
-            .map((file) => buildAttachment('receipt', file)),
-        ];
-      }),
+  const selectedPhotoAttachments = useMemo(
+    () => buildPdfAttachmentsForJobs(selectedJobs, invoicePhotoAttachmentKinds),
     [selectedJobs],
+  );
+  const propertyReceiptAttachments = useMemo(
+    () => buildPdfAttachmentsForJobs(propertyJobs, receiptAttachmentKinds),
+    [propertyJobs],
+  );
+  const selectedJobAttachments: PdfAttachmentFile[] = useMemo(
+    () => [...selectedPhotoAttachments, ...propertyReceiptAttachments],
+    [propertyReceiptAttachments, selectedPhotoAttachments],
   );
   const attachmentCounts = useMemo(
     () =>
@@ -2637,19 +2672,17 @@ export function InvoiceQuoteView({
 
     const appendices = await Promise.all(
       selectedReceiptAttachments.map(async (attachment) => {
-        try {
-          return {
-            fileName: attachment.fileName,
-            mimeType: attachment.mimeType,
-            blob: await fetchAssetBlob(attachment.url),
-          };
-        } catch {
-          return null;
-        }
+        const blob = await fetchAssetBlob(attachment.url);
+
+        return {
+          fileName: attachment.fileName,
+          mimeType: blob.type || attachment.mimeType,
+          blob,
+        };
       }),
     );
 
-    return appendices.filter((appendix): appendix is GeneratedPdfReceiptAppendix => Boolean(appendix));
+    return appendices;
   }, [includeAttachmentsInPdf, selectedReceiptAttachments]);
 
   useEffect(() => {

@@ -112,7 +112,14 @@ const waitForExportImages = async (root: HTMLElement) => {
 
 const isPdfReceiptAppendix = (appendix: GeneratedPdfReceiptAppendix) =>
   appendix.mimeType.toLowerCase().includes('pdf') ||
+  appendix.blob.type.toLowerCase().includes('pdf') ||
   appendix.fileName.split(/[?#]/)[0]?.toLowerCase().endsWith('.pdf');
+const hasPdfSignature = (bytes: Uint8Array) =>
+  bytes[0] === 0x25 &&
+  bytes[1] === 0x50 &&
+  bytes[2] === 0x44 &&
+  bytes[3] === 0x46 &&
+  bytes[4] === 0x2d;
 
 const blobToObjectUrlImage = async (blob: Blob) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -222,8 +229,9 @@ const appendReceiptAppendices = async (
 
   for (const appendix of receiptAppendices) {
     try {
-      if (isPdfReceiptAppendix(appendix)) {
-        const receiptDocument = await PDFDocument.load(await appendix.blob.arrayBuffer(), {
+      const appendixBytes = new Uint8Array(await appendix.blob.arrayBuffer());
+      if (isPdfReceiptAppendix(appendix) || hasPdfSignature(appendixBytes)) {
+        const receiptDocument = await PDFDocument.load(appendixBytes, {
           ignoreEncryption: true,
         });
         const receiptPages = await pdfDocument.copyPages(
@@ -256,7 +264,7 @@ const appendReceiptAppendices = async (
         height: renderHeight,
       });
     } catch {
-      continue;
+      throw new Error(`Could not append receipt "${appendix.fileName}" to the PDF.`);
     }
   }
 
