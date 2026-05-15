@@ -19,6 +19,7 @@ type PdfServiceItem = {
 };
 
 type PdfAttachmentFile = {
+  id: string;
   kind: 'before' | 'after' | 'receipt';
   jobId: string;
   label: string;
@@ -395,6 +396,7 @@ const buildPdfAttachmentsForJobs = (
       .join(' - ');
 
     const buildAttachment = (kind: PdfAttachmentFile['kind'], file: JobFileAttachment): PdfAttachmentFile => ({
+      id: file.id,
       kind,
       jobId: job.id,
       label: label || job.propertyName,
@@ -469,7 +471,7 @@ const buildRyanInvoiceGroups = (items: PdfServiceItem[]): RyanInvoiceGroup[] =>
     area: displayInvoiceCell(item.area),
     service: displayInvoiceCell(item.service, 'General Service'),
     totalPrice: item.unitPrice,
-    sentences: splitDescriptionIntoSentences(item.description),
+    sentences: splitDescriptionIntoSentences(item.description).flatMap(splitLongRyanInvoiceSentence),
   }))
   .map((group) => ({
     ...group,
@@ -711,6 +713,54 @@ const ryanInvoiceTableHeadHtml = `
     <th class="ryan-price-head">Unit Price (USD)</th>
   </tr>
 `;
+
+function splitLongRyanInvoiceSentence(value: string) {
+  const maxLength = 180;
+
+  if (value.length <= maxLength) {
+    return [value];
+  }
+
+  const words = value.split(/\s+/).filter(Boolean);
+
+  if (!words.length) {
+    return [value];
+  }
+
+  const chunks: string[] = [];
+  let currentChunk = '';
+
+  words.forEach((word) => {
+    if (word.length > maxLength) {
+      if (currentChunk) {
+        chunks.push(currentChunk);
+        currentChunk = '';
+      }
+
+      for (let index = 0; index < word.length; index += maxLength) {
+        chunks.push(word.slice(index, index + maxLength));
+      }
+
+      return;
+    }
+
+    const candidateChunk = currentChunk ? `${currentChunk} ${word}` : word;
+
+    if (candidateChunk.length > maxLength && currentChunk) {
+      chunks.push(currentChunk);
+      currentChunk = word;
+      return;
+    }
+
+    currentChunk = candidateChunk;
+  });
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks.length ? chunks : [value];
+}
 
 const countRyanInvoiceChunkRows = (chunk: Pick<RyanInvoiceChunk, 'sentences'>) =>
   Math.max(chunk.sentences.length ? 1 : 0, 1);
@@ -1914,6 +1964,21 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     </div>
   `;
 
+  const ryanOpeningBlockHtml = `
+    <section class="ryan-title-band">
+      <div class="ryan-title-band-inner">
+        <div class="ryan-title-left">
+          <span class="invoice-title">${escapeHtml(data.documentType)}</span>
+          <span class="invoice-number">No. ${escapeHtml(data.invoiceNumber)}</span>
+        </div>
+        <div class="ryan-title-right">
+          <span class="company-name">Sterling<br>Mechanical</span>
+          <div class="company-info">${companyInfoHtml}</div>
+        </div>
+      </div>
+    </section>
+  `;
+
   const paymentDetailsHtml = `
     <div class="top-details-wrap">
       <div class="payment-grid">
@@ -1959,6 +2024,13 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .legacy-page { display: flex; flex-direction: column; }
     .legacy-page--continue { padding: 12mm 12mm 10mm 12mm; }
     .legacy-page--last { padding-bottom: 10mm; }
+    .ryan-body-page { padding: 14mm 12mm 10mm 12mm; }
+    .ryan-body-page.legacy-page--continue { padding: 12mm 12mm 10mm 12mm; }
+    .ryan-body { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .ryan-title-band { width: 100%; padding: 18px 0; margin: 0 0 8px 0; color: #ffffff; background-color: #24c6dc; background-image: linear-gradient(to bottom, #24c6dc, #c471ed); }
+    .ryan-title-band-inner { width: 100%; margin: 0 auto; padding: 0 24px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; }
+    .ryan-title-left { line-height: 0.9; }
+    .ryan-title-right { text-align: right; font-size: 12px; line-height: 1.5; }
     .invoice-header { width: 100%; padding: 18px 0; margin: 0; color: #ffffff; }
     .invoice-header.aze { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
     .invoice-header.ryan { background-color: #24c6dc; background-image: linear-gradient(to bottom, #24c6dc, #c471ed); }
@@ -1974,9 +2046,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .invoice-body--continue { padding-top: 0; }
     .legacy-table-shell { flex: 1 1 auto; min-height: 0; padding-bottom: 12mm; box-sizing: border-box; }
     .legacy-table-shell--last { padding-bottom: 16mm; }
-    .ryan-page-header-gap { flex: 0 0 8mm; }
-    .ryan-page-footer-gap { flex: 0 0 10mm; }
-    .ryan-table-shell { padding-bottom: 0; }
+    .ryan-table-shell { flex: 0 0 auto; padding-bottom: 0; overflow: visible; }
     .ryan-table-shell--last { padding-bottom: 0; }
     table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
     th, td { border: 1px solid #1f4dbb; padding: 5px; word-wrap: break-word; color: #1f4dbb; }
@@ -2028,10 +2098,9 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     chunks: RyanInvoiceChunk[],
     options: { isFirstPage: boolean; includeSummary: boolean },
   ) => `
-    <div class="page legacy-page ${options.isFirstPage ? '' : 'legacy-page--continue'} ${options.includeSummary ? 'legacy-page--last' : ''}">
-      ${options.isFirstPage ? headerHtml : ''}
-      ${options.isFirstPage ? '' : '<div class="ryan-page-header-gap" aria-hidden="true"></div>'}
-      <div class="invoice-body${options.isFirstPage ? '' : ' invoice-body--continue'}">
+    <div class="page legacy-page ryan-body-page ${options.isFirstPage ? '' : 'legacy-page--continue'} ${options.includeSummary ? 'legacy-page--last' : ''}">
+      <main class="ryan-body">
+        ${options.isFirstPage ? ryanOpeningBlockHtml : ''}
         ${options.isFirstPage ? paymentDetailsHtml : ''}
         <div class="legacy-table-shell ryan-table-shell ${options.includeSummary ? 'legacy-table-shell--last ryan-table-shell--last' : ''}">
           <table class="ryan-invoice-table">
@@ -2040,8 +2109,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
             ${options.includeSummary ? summaryRowsHtml : ''}
           </table>
         </div>
-      </div>
-      <div class="ryan-page-footer-gap" aria-hidden="true"></div>
+      </main>
     </div>
   `;
 
@@ -2075,17 +2143,16 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
     const pageFits = (chunks: RyanInvoiceChunk[], options: { isFirstPage: boolean; includeSummary: boolean }) => {
       measurementHost.innerHTML = `<style>${legacySterlingPdfStyles}</style>${buildRyanPageHtml(chunks, options)}`;
-      const page = measurementHost.querySelector<HTMLElement>('.page');
+      const body = measurementHost.querySelector<HTMLElement>('.ryan-body');
       const table = measurementHost.querySelector<HTMLElement>('.ryan-invoice-table');
-      const footerGap = measurementHost.querySelector<HTMLElement>('.ryan-page-footer-gap');
 
-      if (!page || !table || !footerGap) {
+      if (!body || !table) {
         return true;
       }
 
-      const footerGapRect = footerGap.getBoundingClientRect();
+      const bodyRect = body.getBoundingClientRect();
       const tableRect = table.getBoundingClientRect();
-      return tableRect.bottom <= footerGapRect.top;
+      return tableRect.bottom <= bodyRect.bottom + 0.5;
     };
 
     const pages: RyanInvoiceChunk[][] = [[]];
@@ -2298,6 +2365,7 @@ export function InvoiceQuoteView({
   const [materialExpense, setMaterialExpense] = useState('0');
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [attachmentSelection, setAttachmentSelection] = useState<AttachmentSelection>(defaultAttachmentSelection);
+  const [selectedRyanReceiptIds, setSelectedRyanReceiptIds] = useState<string[]>([]);
   const [descriptionEdits, setDescriptionEdits] = useState<Record<string, string>>({});
   const [jobSelection, setJobSelection] = useState<JobSelectionState>({
     propertyId: '',
@@ -2402,6 +2470,13 @@ export function InvoiceQuoteView({
     () => buildPdfAttachmentsForJobs(propertyJobs, receiptAttachmentKinds),
     [propertyJobs],
   );
+  useEffect(() => {
+    setSelectedRyanReceiptIds((current) => {
+      const availableIds = new Set(propertyReceiptAttachments.map((attachment) => attachment.id));
+      const next = current.filter((id) => availableIds.has(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [propertyReceiptAttachments]);
   const selectedJobAttachments: PdfAttachmentFile[] = useMemo(
     () => [...selectedPhotoAttachments, ...propertyReceiptAttachments],
     [propertyReceiptAttachments, selectedPhotoAttachments],
@@ -2422,16 +2497,45 @@ export function InvoiceQuoteView({
     () => selectedAttachments.filter((attachment) => attachment.kind !== 'receipt'),
     [selectedAttachments],
   );
+  const selectedRyanReceiptAttachments = useMemo(() => {
+    if (ownerKey !== 'ryan') {
+      return [];
+    }
+
+    const selectedReceiptIds = new Set(selectedRyanReceiptIds);
+    return propertyReceiptAttachments.filter((attachment) => selectedReceiptIds.has(attachment.id));
+  }, [ownerKey, propertyReceiptAttachments, selectedRyanReceiptIds]);
   const selectedReceiptAttachments = useMemo(
-    () => selectedAttachments.filter((attachment) => attachment.kind === 'receipt'),
-    [selectedAttachments],
+    () =>
+      ownerKey === 'ryan'
+        ? selectedRyanReceiptAttachments
+        : selectedAttachments.filter((attachment) => attachment.kind === 'receipt'),
+    [ownerKey, selectedAttachments, selectedRyanReceiptAttachments],
   );
-  const includeAttachmentsInPdf =
-    documentType === 'Invoice' && ownerKey === 'aze' && selectedAttachments.length > 0;
-  const selectedAttachmentSummary = selectableAttachmentKinds
-    .filter((kind) => attachmentSelection[kind] && attachmentCounts[kind] > 0)
-    .map((kind) => `${attachmentKindLabels[kind]} (${attachmentCounts[kind]})`)
-    .join(', ');
+  const availableAttachmentKinds = useMemo<Array<PdfAttachmentFile['kind']>>(
+    () => (ownerKey === 'ryan' ? ['receipt'] : selectableAttachmentKinds),
+    [ownerKey],
+  );
+  const hasSelectablePdfAttachments = availableAttachmentKinds.some((kind) => attachmentCounts[kind] > 0);
+  const allRyanReceiptsSelected =
+    ownerKey === 'ryan' &&
+    propertyReceiptAttachments.length > 0 &&
+    selectedRyanReceiptAttachments.length === propertyReceiptAttachments.length;
+  const includeAzeInvoicePhotosInPdf =
+    documentType === 'Invoice' && ownerKey === 'aze' && selectedInvoicePhotoAttachments.length > 0;
+  const includeReceiptAppendicesInPdf =
+    documentType === 'Invoice' &&
+    (ownerKey === 'aze' || ownerKey === 'ryan') &&
+    selectedReceiptAttachments.length > 0;
+  const selectedAttachmentSummary =
+    ownerKey === 'ryan'
+      ? selectedRyanReceiptAttachments.length > 0
+        ? `Receipt (${selectedRyanReceiptAttachments.length} of ${propertyReceiptAttachments.length})`
+        : ''
+      : availableAttachmentKinds
+          .filter((kind) => attachmentSelection[kind] && attachmentCounts[kind] > 0)
+          .map((kind) => `${attachmentKindLabels[kind]} (${attachmentCounts[kind]})`)
+          .join(', ');
 
   const servicesTotal = selectedItems.reduce((sum, item) => sum + item.unitPrice, 0);
   const ryanLaborValue = toAmount(ryanLabor);
@@ -2606,7 +2710,7 @@ export function InvoiceQuoteView({
           jobTotal,
           expenses,
           totalDue,
-          attachments: includeAttachmentsInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
+          attachments: includeAzeInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
         })
       : buildLegacySterlingPdfHtml({
           ownerKey,
@@ -2637,7 +2741,7 @@ export function InvoiceQuoteView({
     documentType,
     effectiveDocumentNumber,
     firstJobDate,
-    includeAttachmentsInPdf,
+    includeAzeInvoicePhotosInPdf,
     issueDate,
     jobTotal,
     juanLaborValue,
@@ -2657,16 +2761,16 @@ export function InvoiceQuoteView({
   const buildGeneratedDocumentContentForPdf = useCallback(async (
     documentNumberOverride?: string,
   ): Promise<GeneratedDocumentContent | null> => {
-    if (!includeAttachmentsInPdf) {
+    if (!includeAzeInvoicePhotosInPdf) {
       return buildGeneratedDocumentContent(documentNumberOverride);
     }
 
     const embeddedAttachments = await inlinePdfAttachmentImages(selectedInvoicePhotoAttachments);
     return buildGeneratedDocumentContent(documentNumberOverride, embeddedAttachments);
-  }, [buildGeneratedDocumentContent, includeAttachmentsInPdf, selectedInvoicePhotoAttachments]);
+  }, [buildGeneratedDocumentContent, includeAzeInvoicePhotosInPdf, selectedInvoicePhotoAttachments]);
 
   const buildReceiptAppendicesForPdf = useCallback(async (): Promise<GeneratedPdfReceiptAppendix[]> => {
-    if (!includeAttachmentsInPdf || !selectedReceiptAttachments.length) {
+    if (!includeReceiptAppendicesInPdf) {
       return [];
     }
 
@@ -2683,7 +2787,7 @@ export function InvoiceQuoteView({
     );
 
     return appendices;
-  }, [includeAttachmentsInPdf, selectedReceiptAttachments]);
+  }, [includeReceiptAppendicesInPdf, selectedReceiptAttachments]);
 
   useEffect(() => {
     if (!documentPreviewOpen) {
@@ -2929,15 +3033,19 @@ export function InvoiceQuoteView({
                 type="button"
                 className="invoice-attachment-trigger"
                 onClick={() => setAttachmentsOpen((current) => !current)}
-                disabled={documentType !== 'Invoice' || ownerKey !== 'aze' || !selectedJobAttachments.length}
+                disabled={documentType !== 'Invoice' || !hasSelectablePdfAttachments}
               >
                 <span>
                   Add attachments to PDF
                   <small>
                     {selectedAttachmentSummary ||
-                      (selectedJobAttachments.length
-                        ? 'Choose Before, After or Receipts'
-                        : 'Select jobs with before, after or receipt files to enable this.')}
+                      (hasSelectablePdfAttachments
+                        ? ownerKey === 'ryan'
+                          ? `Choose receipts (${attachmentCounts.receipt} available)`
+                          : 'Choose Before, After or Receipts'
+                        : ownerKey === 'ryan'
+                          ? 'Select jobs with receipt files to enable this.'
+                          : 'Select jobs with before, after or receipt files to enable this.')}
                   </small>
                 </span>
                 <span className={`invoice-services-caret ${attachmentsOpen ? 'is-open' : ''}`}>
@@ -2945,25 +3053,81 @@ export function InvoiceQuoteView({
                 </span>
               </button>
 
-              {attachmentsOpen ? (
+              {attachmentsOpen && documentType === 'Invoice' && hasSelectablePdfAttachments ? (
                 <div className="invoice-attachment-menu">
-                  {selectableAttachmentKinds.map((kind) => (
-                    <label key={kind} className="invoice-attachment-option">
-                      <input
-                        type="checkbox"
-                        checked={attachmentSelection[kind]}
-                        onChange={(event) =>
-                          setAttachmentSelection((current) => ({
-                            ...current,
-                            [kind]: event.target.checked,
-                          }))
-                        }
-                        disabled={!attachmentCounts[kind]}
-                      />
-                      <span>{attachmentKindLabels[kind]}</span>
-                      <small>{attachmentCounts[kind]} file(s)</small>
-                    </label>
-                  ))}
+                  {ownerKey === 'ryan' ? (
+                    <>
+                      <label className="invoice-attachment-option">
+                        <input
+                          type="checkbox"
+                          checked={allRyanReceiptsSelected}
+                          onChange={(event) =>
+                            setSelectedRyanReceiptIds(
+                              event.target.checked
+                                ? propertyReceiptAttachments.map((attachment) => attachment.id)
+                                : [],
+                            )
+                          }
+                        />
+                        <span>All receipts</span>
+                        <small>
+                          {selectedRyanReceiptAttachments.length} of {propertyReceiptAttachments.length} selected
+                        </small>
+                      </label>
+
+                      <div className="invoice-attachment-receipt-list">
+                        {propertyReceiptAttachments.map((attachment) => {
+                          const isSelected = selectedRyanReceiptIds.includes(attachment.id);
+
+                          return (
+                            <label
+                              key={attachment.id}
+                              className="invoice-attachment-option invoice-attachment-option--receipt"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(event) =>
+                                  setSelectedRyanReceiptIds((current) => {
+                                    if (event.target.checked) {
+                                      return current.includes(attachment.id)
+                                        ? current
+                                        : [...current, attachment.id];
+                                    }
+
+                                    return current.filter((id) => id !== attachment.id);
+                                  })
+                                }
+                              />
+                              <span className="invoice-attachment-receipt-meta">
+                                <span>{attachment.label}</span>
+                                <small>{attachment.fileName}</small>
+                              </span>
+                              <small>{formatPdfDate(attachment.createdAt)}</small>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    availableAttachmentKinds.map((kind) => (
+                      <label key={kind} className="invoice-attachment-option">
+                        <input
+                          type="checkbox"
+                          checked={attachmentSelection[kind]}
+                          onChange={(event) =>
+                            setAttachmentSelection((current) => ({
+                              ...current,
+                              [kind]: event.target.checked,
+                            }))
+                          }
+                          disabled={!attachmentCounts[kind]}
+                        />
+                        <span>{attachmentKindLabels[kind]}</span>
+                        <small>{attachmentCounts[kind]} file(s)</small>
+                      </label>
+                    ))
+                  )}
                 </div>
               ) : null}
             </div>

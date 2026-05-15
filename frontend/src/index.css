@@ -557,6 +557,25 @@ button:disabled {
   font-weight: 700;
 }
 
+.invoice-attachment-receipt-list {
+  display: grid;
+  gap: 8px;
+}
+
+.invoice-attachment-option--receipt {
+  align-items: start;
+}
+
+.invoice-attachment-receipt-meta {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.invoice-attachment-receipt-meta small {
+  overflow-wrap: anywhere;
+}
+
 label,
 .field-label,
 .file-card,
