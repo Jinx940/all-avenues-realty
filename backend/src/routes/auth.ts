@@ -16,7 +16,7 @@ import {
   type AuthenticatedRequest,
 } from '../lib/http.js';
 import { prisma } from '../lib/prisma.js';
-import { loginSchema, passwordChangeSchema } from '../lib/schemas.js';
+import { loginSchema, passwordChangeSchema, profileUpdateSchema } from '../lib/schemas.js';
 import { issueSession, sessionMiddleware } from '../lib/sessionAuth.js';
 import {
   clearSessionCookie,
@@ -84,6 +84,47 @@ export const registerAuthRoutes = (app: Express) => {
 
       clearSessionCookie(response, env);
       response.json({ ok: true });
+    }),
+  );
+
+  app.patch(
+    '/api/auth/profile',
+    sessionMiddleware,
+    asyncRoute(async (request, response) => {
+      setNoStore(response);
+      const auth = (request as AuthenticatedRequest).auth;
+      if (!auth) {
+        response.status(401).json({ message: 'Authentication required.' });
+        return;
+      }
+
+      const payload = profileUpdateSchema.parse(request.body);
+      const displayName = payload.displayName.trim();
+
+      const updatedUser = await prisma.$transaction(async (transaction) => {
+        const user = await transaction.user.update({
+          where: { id: auth.id },
+          data: { displayName },
+          select: authUserSelect,
+        });
+
+        await recordAuditLog(transaction, request, {
+          entityType: 'User',
+          entityId: user.id,
+          entityLabel: displayName,
+          action: 'Updated profile',
+          summary: `Updated profile for "${displayName}".`,
+          metadata: {
+            username: user.username,
+          },
+        });
+
+        return user;
+      });
+
+      response.json({
+        user: serializeAuthUser(updatedUser),
+      });
     }),
   );
 

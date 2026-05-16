@@ -37,15 +37,20 @@ export function SettingsView({
   draft,
   editingUserId,
   isSavingUser,
+  profileDisplayName,
+  isSavingProfile,
   passwordDraft,
   isChangingPassword,
   isRunningPhotoAudit,
   isSyncingStorageBackups,
   onSubmit,
+  onProfileSubmit,
   onPasswordSubmit,
   onRunPhotoAudit,
   onSyncStorageBackups,
   onFieldChange,
+  onProfileDisplayNameChange,
+  onCancelProfileEdit,
   onPasswordFieldChange,
   onStartEdit,
   onCancelEdit,
@@ -65,15 +70,20 @@ export function SettingsView({
   draft: UserDraft;
   editingUserId: string | null;
   isSavingUser: boolean;
+  profileDisplayName: string;
+  isSavingProfile: boolean;
   passwordDraft: PasswordChangeDraft;
   isChangingPassword: boolean;
   isRunningPhotoAudit: boolean;
   isSyncingStorageBackups: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onProfileSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onPasswordSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRunPhotoAudit: () => void;
   onSyncStorageBackups: () => void;
   onFieldChange: (field: keyof UserDraft, value: string) => void;
+  onProfileDisplayNameChange: (value: string) => void;
+  onCancelProfileEdit: () => void;
   onPasswordFieldChange: (field: keyof PasswordChangeDraft, value: string) => void;
   onStartEdit: (userId: string) => void;
   onCancelEdit: () => void;
@@ -213,6 +223,44 @@ export function SettingsView({
           </div>
 
           <div className="settings-section-stack">
+            <article className="settings-admin-card">
+              <div className="panel-head">
+                <div>
+                  <h3 className="title-with-icon title-with-icon--sm">
+                    <UiIcon name="users" />
+                    <span>My profile</span>
+                  </h3>
+                </div>
+              </div>
+
+              <form className="form-grid" onSubmit={onProfileSubmit}>
+                <label>
+                  Display name
+                  <input
+                    value={profileDisplayName}
+                    onChange={(event) => onProfileDisplayNameChange(event.target.value)}
+                    placeholder="Your name"
+                  />
+                </label>
+
+                <label>
+                  Username
+                  <input value={`@${currentUser.username}`} disabled />
+                </label>
+
+                <div className="actions-row span-2">
+                  <button type="submit" disabled={isSavingProfile}>
+                    <UiIcon name="refresh" />
+                    {isSavingProfile ? 'Saving...' : 'Save profile'}
+                  </button>
+                  <button type="button" className="ghost-button" onClick={onCancelProfileEdit}>
+                    <UiIcon name="close" />
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </article>
+
             <article className="settings-admin-card">
               <div className="panel-head">
                 <div>

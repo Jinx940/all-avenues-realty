@@ -9,7 +9,7 @@ export const canManageJobs = (role: UserRole) =>
   role === UserRole.ADMIN || role === UserRole.OFFICE;
 
 export const canCreateJobs = (role: UserRole) =>
-  canManageJobs(role) || role === UserRole.WORKER;
+  canManageJobs(role);
 
 export const canViewAllJobs = (role: UserRole) =>
   role === UserRole.ADMIN || role === UserRole.OFFICE || role === UserRole.VIEWER;

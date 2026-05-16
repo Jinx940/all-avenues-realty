@@ -15,6 +15,10 @@ export const passwordChangeSchema = z.object({
   message: 'The confirmation password does not match.',
 });
 
+export const profileUpdateSchema = z.object({
+  displayName: z.string().trim().min(2).max(120),
+});
+
 export const userCreateSchema = z.object({
   username: z.string().trim().min(3).max(50),
   displayName: z.string().trim().min(2).max(120),

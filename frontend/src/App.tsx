@@ -268,8 +268,7 @@ const serializePasswordChangeDraft = (draft: PasswordChangeState) =>
 const canAdmin = (user: AuthUser | null) => user?.role === 'ADMIN';
 const canManageJobs = (user: AuthUser | null) =>
   user?.role === 'ADMIN' || user?.role === 'OFFICE';
-const canCreateJobs = (user: AuthUser | null) =>
-  canManageJobs(user) || (user?.role === 'WORKER' && Boolean(user.workerId));
+const canCreateJobs = (user: AuthUser | null) => canManageJobs(user);
 const documentDataTabs = new Set<TabId>(['generate-invoice-quote', 'document-center']);
 const adminDataTabs = new Set<TabId>(['workers', 'settings']);
 
@@ -284,6 +283,7 @@ export default function App() {
   const [authReady, setAuthReady] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [profileDisplayName, setProfileDisplayName] = useState('');
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -319,6 +319,7 @@ export default function App() {
   const [isClearingPropertyCover, setIsClearingPropertyCover] = useState(false);
   const [isSavingWorker, setIsSavingWorker] = useState(false);
   const [isSavingUser, setIsSavingUser] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isRunningPhotoAudit, setIsRunningPhotoAudit] = useState(false);
   const [isSyncingStorageBackups, setIsSyncingStorageBackups] = useState(false);
@@ -430,6 +431,8 @@ export default function App() {
     () => serializePasswordChangeDraft(passwordChangeDraft),
     [passwordChangeDraft],
   );
+  const hasUnsavedProfileChanges =
+    activeTab === 'settings' && profileDisplayName.trim() !== (currentUser?.displayName ?? '');
   const hasUnsavedJobChanges =
     activeTab === 'new-job' && currentJobDraftSignature !== cleanJobDraftSignature;
   const hasUnsavedPropertyChanges =
@@ -437,7 +440,8 @@ export default function App() {
     currentPropertyDraftSignature !== cleanPropertyDraftSignature;
   const hasUnsavedUserChanges =
     activeTab === 'settings' &&
-    (currentUserDraftSignature !== userDraftBaseline ||
+    (hasUnsavedProfileChanges ||
+      currentUserDraftSignature !== userDraftBaseline ||
       currentPasswordChangeSignature !== emptyPasswordChangeSignature);
   const unsavedChangesContext = hasUnsavedJobChanges
     ? 'job form'
@@ -452,6 +456,7 @@ export default function App() {
     const freshUserDraft = createUserDraft();
     const freshPasswordDraft = createPasswordChangeForm();
     setCurrentUser(null);
+    setProfileDisplayName('');
     setBootstrap(null);
     setDashboard(null);
     setJobs([]);
@@ -552,6 +557,10 @@ export default function App() {
   useEffect(() => {
     healthRef.current = health;
   }, [health]);
+
+  useEffect(() => {
+    setProfileDisplayName(currentUser?.displayName ?? '');
+  }, [currentUser]);
 
   useEffect(() => {
     const hydrateSession = async () => {
@@ -1517,6 +1526,10 @@ export default function App() {
     setPasswordChangeDraft(createPasswordChangeForm());
   }, []);
 
+  const resetProfileState = useCallback(() => {
+    setProfileDisplayName(currentUser?.displayName ?? '');
+  }, [currentUser]);
+
   const startUserEdit = useCallback((userId: string) => {
     const user = users.find((item) => item.id === userId);
     if (!user) return;
@@ -1557,6 +1570,33 @@ export default function App() {
       setMessage({ type: 'error', text: messageFrom(error) });
     } finally {
       setIsSavingUser(false);
+    }
+  };
+
+  const submitProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentUser) return;
+
+    const nextDisplayName = profileDisplayName.trim();
+    if (!nextDisplayName || nextDisplayName === currentUser.displayName) {
+      resetProfileState();
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const payload = await requestJson<AuthSessionPayload>('/api/auth/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: nextDisplayName }),
+      });
+
+      setCurrentUser(payload.user);
+      setMessage({ type: 'success', text: 'Profile updated.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: messageFrom(error) });
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -2029,11 +2069,14 @@ export default function App() {
             draft={userDraft}
             editingUserId={editingUserId}
             isSavingUser={isSavingUser}
+            profileDisplayName={profileDisplayName}
+            isSavingProfile={isSavingProfile}
             passwordDraft={passwordChangeDraft}
             isChangingPassword={isChangingPassword}
             isRunningPhotoAudit={isRunningPhotoAudit}
             isSyncingStorageBackups={isSyncingStorageBackups}
             onSubmit={submitUser}
+            onProfileSubmit={submitProfile}
             onPasswordSubmit={submitPasswordChange}
             onRunPhotoAudit={() => void runPhotoAudit()}
             onSyncStorageBackups={() => void syncStorageBackups()}
@@ -2044,6 +2087,8 @@ export default function App() {
                 ...(field === 'role' && value !== 'WORKER' ? { workerId: '' } : {}),
               }))
             }
+            onProfileDisplayNameChange={setProfileDisplayName}
+            onCancelProfileEdit={resetProfileState}
             onPasswordFieldChange={(field, value) =>
               setPasswordChangeDraft((current) => ({
                 ...current,
