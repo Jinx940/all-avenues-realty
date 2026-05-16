@@ -686,6 +686,8 @@ export function JobTrackerView({
                                   (sum, areaGroup) => sum + areaGroup.jobs.length,
                                   0,
                                 );
+                                const unitJobs = unitGroup.areas.flatMap((areaGroup) => areaGroup.jobs);
+                                const unitMaterialTotal = sumTrackerJobAmount(unitJobs, (job) => job.materialCost);
                                 const areaPreview = buildTrackerPreviewLabels(
                                   unitGroup.areas.map((areaGroup) => areaGroup.area || 'No area'),
                                 );
@@ -707,6 +709,10 @@ export function JobTrackerView({
                                         </div>
                                       </div>
                                       <div className="tracker-group-preview">
+                                        <span className="tracker-group-preview-chip tracker-group-preview-chip--unit-total">
+                                          <span>Material / Receipt Total</span>
+                                          <strong>{formatMoney(unitMaterialTotal)}</strong>
+                                        </span>
                                         {areaPreview.slice(0, 3).map((label) => (
                                           <span key={label} className="tracker-group-preview-chip">
                                             {label}

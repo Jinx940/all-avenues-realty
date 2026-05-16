@@ -5759,6 +5759,32 @@ textarea {
   color: var(--muted-strong);
 }
 
+.tracker-group-preview-chip--unit-total {
+  display: grid;
+  gap: 1px;
+  justify-items: center;
+  min-height: 34px;
+  padding: 5px 12px;
+  background: linear-gradient(180deg, rgba(231, 247, 239, 0.98), rgba(213, 238, 225, 0.94));
+  border-color: rgba(172, 216, 195, 0.96);
+  color: #2f6f58;
+  font-variant-numeric: tabular-nums;
+}
+
+.tracker-group-preview-chip--unit-total span {
+  color: #56836e;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tracker-group-preview-chip--unit-total strong {
+  color: #2f6f58;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
 .tracker-group-body {
   display: grid;
   gap: 10px;
