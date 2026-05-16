@@ -158,6 +158,9 @@ type TrackerPropertyGroup = {
 const buildTrackerPreviewLabels = (values: string[]) =>
   Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort(trackerValueSort);
 
+const sumTrackerJobAmount = (jobs: JobRow[], getAmount: (job: JobRow) => number) =>
+  jobs.reduce((sum, job) => sum + getAmount(job), 0);
+
 const groupTrackerJobs = (jobs: JobRow[]): TrackerPropertyGroup[] => {
   const propertyGroups: TrackerPropertyGroup[] = [];
   const propertyIndex = new Map<string, TrackerPropertyGroup>();
@@ -467,6 +470,36 @@ export function JobTrackerView({
       </div>
     );
   };
+  const renderTrackerAreaTotalRow = (areaGroup: TrackerAreaGroup) => {
+    const materialTotal = sumTrackerJobAmount(areaGroup.jobs, (job) => job.materialCost);
+    const laborTotal = sumTrackerJobAmount(areaGroup.jobs, (job) => job.laborCost);
+    const areaLabel = areaGroup.area || 'No area';
+
+    return (
+      <div key={`${areaGroup.key}:total`} className="tracker-unit-job-row tracker-area-total-row">
+        <div className="tracker-area-total-title">
+          <span>Total</span>
+          <strong>{areaLabel}</strong>
+        </div>
+        <span className="tracker-area-total-empty" aria-hidden="true" />
+        <div className="tracker-area-total-money">
+          <span>Material Total</span>
+          <strong>{formatMoney(materialTotal)}</strong>
+        </div>
+        <span className="tracker-area-total-empty" aria-hidden="true" />
+        <div className="tracker-area-total-money">
+          <span>Labor Total</span>
+          <strong>{formatMoney(laborTotal)}</strong>
+        </div>
+        <span className="tracker-area-total-empty" aria-hidden="true" />
+        <span className="tracker-area-total-empty" aria-hidden="true" />
+        <span className="tracker-area-total-empty" aria-hidden="true" />
+        <span className="tracker-area-total-empty" aria-hidden="true" />
+        <span className="tracker-area-total-empty" aria-hidden="true" />
+        <span className="tracker-area-total-empty" aria-hidden="true" />
+      </div>
+    );
+  };
 
   return (
     <section className="tab-panel">
@@ -714,6 +747,7 @@ export function JobTrackerView({
                                                 </header>
                                                 <div className="tracker-area-group-body">
                                                   {areaGroup.jobs.map(renderTrackerUnitJobRow)}
+                                                  {renderTrackerAreaTotalRow(areaGroup)}
                                                 </div>
                                               </section>
                                             ))}

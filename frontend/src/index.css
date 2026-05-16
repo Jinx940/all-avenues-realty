@@ -5888,6 +5888,44 @@ textarea {
   background: #9fd3f0;
 }
 
+.tracker-area-total-row {
+  border-top: 1px solid rgba(184, 211, 233, 0.98);
+  background: linear-gradient(180deg, rgba(244, 250, 255, 0.99), rgba(231, 242, 252, 0.96));
+}
+
+.tracker-unit-job-row.tracker-area-total-row::before {
+  background: #79c7a6;
+}
+
+.tracker-area-total-title,
+.tracker-area-total-money {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.tracker-area-total-title span,
+.tracker-area-total-money span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tracker-area-total-title strong,
+.tracker-area-total-money strong {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.92rem;
+  line-height: 1.15;
+}
+
+.tracker-area-total-money strong {
+  color: #2f6f58;
+}
+
 .tracker-unit-job-row > span,
 .tracker-unit-job-row > div {
   min-width: 0;
