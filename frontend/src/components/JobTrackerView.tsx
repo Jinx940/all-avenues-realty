@@ -155,9 +155,6 @@ type TrackerPropertyGroup = {
   stories: TrackerStoryGroup[];
 };
 
-const buildTrackerPreviewLabels = (values: string[]) =>
-  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort(trackerValueSort);
-
 const sumTrackerJobAmount = (jobs: JobRow[], getAmount: (job: JobRow) => number) =>
   jobs.reduce((sum, job) => sum + getAmount(job), 0);
 
@@ -688,9 +685,7 @@ export function JobTrackerView({
                                 );
                                 const unitJobs = unitGroup.areas.flatMap((areaGroup) => areaGroup.jobs);
                                 const unitMaterialTotal = sumTrackerJobAmount(unitJobs, (job) => job.materialCost);
-                                const areaPreview = buildTrackerPreviewLabels(
-                                  unitGroup.areas.map((areaGroup) => areaGroup.area || 'No area'),
-                                );
+                                const unitLaborTotal = sumTrackerJobAmount(unitJobs, (job) => job.laborCost);
 
                                 return (
                                   <details
@@ -710,19 +705,13 @@ export function JobTrackerView({
                                       </div>
                                       <div className="tracker-group-preview">
                                         <span className="tracker-group-preview-chip tracker-group-preview-chip--unit-total">
-                                          <span>Material / Receipt Total</span>
+                                          <span>Material cost per Unit Total</span>
                                           <strong>{formatMoney(unitMaterialTotal)}</strong>
                                         </span>
-                                        {areaPreview.slice(0, 3).map((label) => (
-                                          <span key={label} className="tracker-group-preview-chip">
-                                            {label}
-                                          </span>
-                                        ))}
-                                        {areaPreview.length > 3 ? (
-                                          <span className="tracker-group-preview-chip tracker-group-preview-chip--more">
-                                            +{areaPreview.length - 3} more
-                                          </span>
-                                        ) : null}
+                                        <span className="tracker-group-preview-chip tracker-group-preview-chip--unit-total tracker-group-preview-chip--unit-labor-total">
+                                          <span>Labor Total</span>
+                                          <strong>{formatMoney(unitLaborTotal)}</strong>
+                                        </span>
                                       </div>
                                     </summary>
 

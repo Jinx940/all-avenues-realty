@@ -5775,6 +5775,8 @@ textarea {
   color: #56836e;
   font-size: 0.62rem;
   letter-spacing: 0.08em;
+  line-height: 1.15;
+  text-align: center;
   text-transform: uppercase;
 }
 
@@ -5783,6 +5785,20 @@ textarea {
   font-family: 'Outfit', sans-serif;
   font-size: 0.9rem;
   line-height: 1;
+}
+
+.tracker-group-preview-chip--unit-labor-total {
+  background: linear-gradient(180deg, rgba(238, 246, 255, 0.98), rgba(224, 238, 251, 0.94));
+  border-color: rgba(180, 211, 238, 0.96);
+  color: #3d688d;
+}
+
+.tracker-group-preview-chip--unit-labor-total span {
+  color: #5f83a4;
+}
+
+.tracker-group-preview-chip--unit-labor-total strong {
+  color: #3d688d;
 }
 
 .tracker-group-body {
