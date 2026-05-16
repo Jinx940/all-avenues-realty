@@ -225,8 +225,16 @@ const createJobFilters = () => ({
   unit: '',
   area: '',
   service: '',
+  timeline: '',
   paymentStatus: '',
 });
+
+const trackerTimelineFilterValueFor = (job: JobRow) => {
+  if (job.status === 'DONE') return 'DONE';
+  if (job.timeline.isLate || job.timeline.tone === 'danger') return 'OVERDUE';
+  if (job.timeline.tone === 'warning') return 'NEAR_DUE';
+  return 'IN_PROGRESS';
+};
 
 const createUserDraft = (): UserDraftState => ({
   username: '',
@@ -366,6 +374,7 @@ export default function App() {
     if (jobFilters.unit && job.unit !== jobFilters.unit) return false;
     if (jobFilters.area && job.area !== jobFilters.area) return false;
     if (jobFilters.service && job.service !== jobFilters.service) return false;
+    if (jobFilters.timeline && trackerTimelineFilterValueFor(job) !== jobFilters.timeline) return false;
     if (jobFilters.paymentStatus && job.paymentStatus !== jobFilters.paymentStatus) return false;
     if (!deferredSearch.trim()) return true;
     const haystack = [
@@ -375,6 +384,7 @@ export default function App() {
       job.unit,
       job.area,
       job.service,
+      trackerTimelineFilterValueFor(job).replace(/_/g, ' '),
       job.paymentStatusLabel,
       job.paymentStatus,
       job.description,
@@ -881,7 +891,7 @@ export default function App() {
   };
 
   const updateJobTrackerFilter = (
-    field: 'search' | 'propertyId' | 'story' | 'unit' | 'area' | 'service' | 'paymentStatus',
+    field: 'search' | 'propertyId' | 'story' | 'unit' | 'area' | 'service' | 'timeline' | 'paymentStatus',
     value: string,
   ) => {
     setJobFilters((current) =>

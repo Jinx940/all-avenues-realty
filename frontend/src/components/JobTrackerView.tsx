@@ -104,7 +104,15 @@ const dateRangeFor = (job: JobRow) => {
   return `${start} -> ${due}`;
 };
 
-type TrackerFilterField = 'search' | 'propertyId' | 'story' | 'unit' | 'area' | 'service' | 'paymentStatus';
+type TrackerFilterField =
+  | 'search'
+  | 'propertyId'
+  | 'story'
+  | 'unit'
+  | 'area'
+  | 'service'
+  | 'timeline'
+  | 'paymentStatus';
 
 type TrackerFilters = {
   search: string;
@@ -113,8 +121,16 @@ type TrackerFilters = {
   unit: string;
   area: string;
   service: string;
+  timeline: string;
   paymentStatus: string;
 };
+
+const trackerTimelineOptions = [
+  { value: 'IN_PROGRESS', label: 'In Progress' },
+  { value: 'NEAR_DUE', label: 'Near Due' },
+  { value: 'OVERDUE', label: 'Overdue' },
+  { value: 'DONE', label: 'Done' },
+];
 
 const trackerValueSort = (left: string, right: string) =>
   left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
@@ -574,6 +590,18 @@ export function JobTrackerView({
               {serviceOptions.map((service) => (
                 <option key={service.value} value={service.value}>
                   {service.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Timeline
+            <select value={filters.timeline} onChange={(event) => onFilterChange('timeline', event.target.value)}>
+              <option value="">All</option>
+              {trackerTimelineOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>

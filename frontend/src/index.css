@@ -5620,7 +5620,7 @@ textarea {
 }
 
 .job-tracker-filters--central {
-  grid-template-columns: repeat(7, minmax(150px, 1fr));
+  grid-template-columns: repeat(8, minmax(140px, 1fr));
   gap: 12px;
   align-items: end;
 }
