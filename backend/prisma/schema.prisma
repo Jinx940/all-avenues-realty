@@ -59,6 +59,7 @@ enum GeneratedDocumentType {
 enum DocumentOwner {
   AZE
   RYAN
+  TODD
 }
 
 enum WorkerHistoryAction {

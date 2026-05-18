@@ -7,7 +7,10 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { UiIcon } from './UiIcon';
 
 type DocumentType = 'Invoice' | 'Quote';
-type OwnerKey = 'aze' | 'ryan';
+type OwnerKey = 'aze' | 'ryan' | 'todd';
+type DocumentOwnerCode = 'AZE' | 'RYAN' | 'TODD';
+type DocumentOwnerFilter = 'ALL' | DocumentOwnerCode;
+type DocumentOwnerLabel = 'AZE' | 'Ryan' | 'Todd Goertler';
 
 type PdfServiceItem = {
   story: string;
@@ -112,6 +115,10 @@ type AzeInvoiceData = {
   attachments: PdfAttachmentFile[];
 };
 
+type ToddInvoiceData = AzeInvoiceData & {
+  primaryLaborLabel: string;
+};
+
 type LegacyPdfData = {
   ownerKey: OwnerKey;
   documentType: DocumentType;
@@ -157,7 +164,7 @@ type JobSelectionState = {
   mode: 'auto' | 'manual';
 };
 
-const headerOwnerOptions = ['Juan Azabache (AZE)', 'Ryan Goertler'] as const;
+const headerOwnerOptions = ['Juan Azabache (AZE)', 'Ryan Goertler', 'Todd Goertler'] as const;
 
 const formatUsd = (value: number) => `$${value.toFixed(2)}`;
 const formatPdfNumber = (value: number) =>
@@ -298,8 +305,17 @@ const escapeHtml = (value: string) =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 
-const ownerKeyFor = (owner: (typeof headerOwnerOptions)[number]): OwnerKey =>
-  owner.includes('Ryan') ? 'ryan' : 'aze';
+const ownerKeyFor = (owner: (typeof headerOwnerOptions)[number]): OwnerKey => {
+  if (owner.includes('Todd')) return 'todd';
+  if (owner.includes('Ryan')) return 'ryan';
+  return 'aze';
+};
+
+const ownerLabelFor = (ownerKey: OwnerKey): DocumentOwnerLabel => {
+  if (ownerKey === 'ryan') return 'Ryan';
+  if (ownerKey === 'todd') return 'Todd Goertler';
+  return 'AZE';
+};
 
 const getLocalTodayIso = () => {
   const now = new Date();
@@ -1908,6 +1924,245 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   `;
 };
 
+const paginateToddInvoiceRows = (rows: AzeInvoiceRow[]) => {
+  if (!rows.length) return [[]];
+
+  const pages: AzeInvoiceRow[][] = [[]];
+  const pageLimitFor = (pageIndex: number) => (pageIndex === 0 ? 10.4 : 16.8);
+  const summaryUnits = 5.8;
+  let pageIndex = 0;
+  let usedUnits = 0;
+
+  rows.forEach((row) => {
+    const rowUnits = estimateAzeInvoiceRowUnits(row);
+    const pageLimit = pageLimitFor(pageIndex);
+    const currentPage = pages[pageIndex];
+
+    if (currentPage.length > 0 && usedUnits + rowUnits > pageLimit) {
+      pages.push([]);
+      pageIndex += 1;
+      usedUnits = 0;
+    }
+
+    pages[pageIndex].push(row);
+    usedUnits += rowUnits;
+  });
+
+  if (pages[pageIndex].length > 0 && usedUnits + summaryUnits > pageLimitFor(pageIndex)) {
+    pages.push([]);
+  }
+
+  return pages.length ? pages : [[]];
+};
+
+const buildToddModernInvoiceHtml = (data: ToddInvoiceData) => {
+  const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
+  const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
+
+  const summaryHtml = `
+    <section class="summary-wrap">
+      <div class="summary">
+        <div class="summary-row">
+          <span>${escapeHtml(data.primaryLaborLabel)}</span>
+          <strong>${formatPdfMoney(data.ryanLabor)}</strong>
+        </div>
+        <div class="summary-row">
+          <span>Juan Labor</span>
+          <strong>${formatPdfMoney(data.juanLabor)}</strong>
+        </div>
+        <div class="summary-row">
+          <span>Job Total</span>
+          <strong>${formatPdfMoney(data.jobTotal)}</strong>
+        </div>
+        <div class="summary-row summary-row-muted">
+          <span>Expenses</span>
+          <strong>${formatPdfMoney(data.expenses)}</strong>
+        </div>
+        <div class="summary-row summary-row-total">
+          <span>Total Due</span>
+          <strong>${formatPdfMoney(data.totalDue)}</strong>
+        </div>
+      </div>
+    </section>
+  `;
+
+  const headerHtml = (isFirstPage: boolean) => `
+    <header class="sheet-header">
+      <div class="brand-lockup">
+        <div class="dot-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+          <span></span><span></span><span></span>
+          <span></span><span></span><span></span>
+        </div>
+        <div>
+          <strong>Todd Goertler</strong>
+          <span>Private Service Partner</span>
+          <small>@todd.go</small>
+        </div>
+      </div>
+      <div class="invoice-heading">
+        <h1>Invoice</h1>
+        <dl>
+          <div><dt>Invoice #</dt><dd>${escapeHtml(data.invoiceNumber)}</dd></div>
+          <div><dt>Date</dt><dd>${escapeHtml(formatPdfDate(data.docDate))}</dd></div>
+        </dl>
+      </div>
+      ${
+        isFirstPage
+          ? `
+            <section class="client-grid">
+              <div>
+                <span>Bill To</span>
+                <strong>${billToHtml || '-'}</strong>
+              </div>
+              <div>
+                <span>Project</span>
+                <strong>${escapeHtml(data.propertyAddress)}</strong>
+                <small>${escapeHtml(data.propertyCityLine || 'All Avenues Realty')}</small>
+              </div>
+              <div>
+                <span>Timeline</span>
+                <strong>${escapeHtml(formatPdfDate(data.startDate))}</strong>
+                <small>Finish ${escapeHtml(formatPdfDate(data.finishDate))}</small>
+              </div>
+            </section>
+          `
+          : ''
+      }
+    </header>
+  `;
+
+  const footerHtml = `
+    <footer class="sheet-footer">
+      <div>
+        <span>Payment Method</span>
+        <strong>Payment due upon receipt</strong>
+        <small>Please include the invoice number with payment.</small>
+      </div>
+      <div>
+        <span>Contact</span>
+        <strong>Todd Goertler</strong>
+        <small>@todd.go<br>+1 (440) 666-5608</small>
+      </div>
+      <div>
+        <span>Terms</span>
+        <strong>All Avenues Realty service partner</strong>
+        <small>Thank you for your business.</small>
+      </div>
+      <div class="signature">
+        <strong>Todd Goertler</strong>
+        <small>Owner</small>
+      </div>
+    </footer>
+  `;
+
+  const buildPageHtml = (
+    pageRows: AzeInvoiceRow[],
+    options: { isFirstPage: boolean; isLastPage: boolean },
+  ) => `
+    <div class="page ${options.isFirstPage ? 'page-first' : 'page-continue'}">
+      ${headerHtml(options.isFirstPage)}
+      <main class="sheet-body">
+        <table class="todd-invoice-table">
+          ${azeInvoiceTableColumnsHtml}
+          ${azeInvoiceTableHeadHtml}
+          <tbody>${buildAzeInvoiceRowsHtml(pageRows)}</tbody>
+        </table>
+        ${options.isLastPage ? summaryHtml : ''}
+      </main>
+      ${options.isLastPage ? footerHtml : '<footer class="sheet-footer sheet-footer-spacer"></footer>'}
+    </div>
+  `;
+
+  const pages = paginateToddInvoiceRows(tableRows);
+  const pagesHtml = pages
+    .map((pageRows, pageIndex) =>
+      buildPageHtml(pageRows, {
+        isFirstPage: pageIndex === 0,
+        isLastPage: pageIndex === pages.length - 1,
+      }),
+    )
+    .join('');
+
+  return `
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Invoice ${escapeHtml(data.invoiceNumber)}</title>
+        <style>
+          @page { size: A4; margin: 0; }
+          * { box-sizing: border-box; }
+          html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #eceff1 !important; color: #1f2328; font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body { overflow: auto; }
+          .page { width: 210mm; height: 297mm; margin: 0; padding: 16mm 14mm 12mm; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+          .page:last-child { page-break-after: auto; break-after: auto; }
+          .page-continue { padding-top: 12mm; }
+          .sheet-header { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
+          .brand-lockup { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+          .dot-mark { width: 43px; height: 43px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; flex: 0 0 43px; }
+          .dot-mark span { display: block; border-radius: 999px; background: #1f2328; }
+          .brand-lockup strong { display: block; font-size: 22px; line-height: 1.05; letter-spacing: 0; }
+          .brand-lockup span { display: block; margin-top: 3px; color: #4f5963; font-size: 11px; text-transform: uppercase; font-weight: 700; }
+          .brand-lockup small { display: block; margin-top: 5px; color: #58636f; font-size: 12px; }
+          .invoice-heading { text-align: right; min-width: 190px; }
+          .invoice-heading h1 { margin: 0 0 4px; color: #1f2328; font-size: 46px; line-height: 0.95; font-weight: 800; letter-spacing: 0; }
+          .invoice-heading dl { margin: 0; display: grid; justify-content: end; gap: 3px; }
+          .invoice-heading div { display: grid; grid-template-columns: auto 84px; gap: 9px; align-items: baseline; }
+          .invoice-heading dt { margin: 0; color: #4f5963; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+          .invoice-heading dd { margin: 0; color: #1f2328; font-size: 12px; text-align: left; font-variant-numeric: tabular-nums; }
+          .client-grid { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1.25fr 0.72fr; gap: 18px; padding-top: 9px; }
+          .client-grid div { min-height: 54px; padding-left: 11px; border-left: 3px solid #9aa5af; }
+          .client-grid span { display: block; color: #4f5963; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
+          .client-grid strong { display: block; color: #1f2328; font-size: 13px; line-height: 1.25; }
+          .client-grid small { display: block; color: #58636f; font-size: 11px; line-height: 1.3; margin-top: 3px; }
+          .sheet-body { flex: 1 1 auto; min-height: 0; padding-top: 14px; display: flex; flex-direction: column; overflow: hidden; }
+          .todd-invoice-table { width: 100%; border-collapse: collapse; table-layout: fixed; background: transparent; }
+          .todd-invoice-table .aze-unit-col { width: 72px; }
+          .todd-invoice-table .aze-area-col { width: 86px; }
+          .todd-invoice-table .aze-service-col { width: 108px; }
+          .todd-invoice-table .aze-price-col { width: 108px; }
+          .todd-invoice-table th { height: 38px; padding: 0 8px; border-bottom: 2px solid #1f2328; color: #1f2328; font-size: 11px; line-height: 1.2; text-align: center; text-transform: uppercase; font-weight: 800; }
+          .todd-invoice-table td { padding: 9px 8px; border-bottom: 1px solid #b8c0c8; border-right: 1px solid #c9d0d7; vertical-align: top; }
+          .todd-invoice-table td:last-child, .todd-invoice-table th:last-child { border-right: 0; }
+          .todd-invoice-table .unit,
+          .todd-invoice-table .area,
+          .todd-invoice-table .service { color: #1f2328; font-size: 10px; font-weight: 800; line-height: 1.18; text-align: center; word-break: break-word; }
+          .todd-invoice-table .service.is-empty { color: transparent; }
+          .todd-invoice-table .desc { color: #343b43; font-size: 11px; line-height: 1.35; }
+          .todd-invoice-table .desc ul { margin: 0; padding-left: 16px; }
+          .todd-invoice-table .desc li + li { margin-top: 3px; }
+          .todd-invoice-table .cost { color: #1f2328; font-size: 11px; font-weight: 800; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+          .todd-invoice-table .cost.is-empty { color: transparent; }
+          .todd-invoice-table .row-continuation .service,
+          .todd-invoice-table .row-continuation .cost { padding-top: 0; }
+          .todd-invoice-table .row-no-divider .service,
+          .todd-invoice-table .row-no-divider .cost { padding-bottom: 0; }
+          .summary-wrap { flex: 0 0 auto; display: flex; justify-content: flex-end; margin-top: 12px; border-top: 2px solid #1f2328; padding-top: 9px; }
+          .summary { width: 260px; display: grid; gap: 0; }
+          .summary-row { display: grid; grid-template-columns: 1fr 110px; min-height: 27px; align-items: center; border-bottom: 1px solid #c3cbd3; color: #343b43; font-size: 11px; }
+          .summary-row span { padding-right: 12px; }
+          .summary-row strong { color: #1f2328; text-align: right; font-variant-numeric: tabular-nums; }
+          .summary-row-muted span,
+          .summary-row-muted strong { color: #69737f; }
+          .summary-row-total { margin-top: 5px; min-height: 34px; border-bottom: 0; background: #1f2328; color: #ffffff; padding: 0 10px; }
+          .summary-row-total strong,
+          .summary-row-total span { color: #ffffff; }
+          .sheet-footer { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr 130px; gap: 16px; padding-top: 14px; margin-top: 10px; border-top: 1px solid #b8c0c8; color: #343b43; }
+          .sheet-footer-spacer { min-height: 24px; border-top: 0; }
+          .sheet-footer span { display: block; color: #69737f; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; }
+          .sheet-footer strong { display: block; color: #1f2328; font-size: 11px; line-height: 1.25; }
+          .sheet-footer small { display: block; color: #58636f; font-size: 9px; line-height: 1.35; margin-top: 3px; }
+          .signature { display: flex; min-height: 58px; flex-direction: column; justify-content: flex-end; align-items: flex-end; text-align: right; position: relative; }
+          .signature::before { content: ""; position: absolute; right: 0; bottom: 28px; width: 112px; height: 1px; background: #1f2328; transform: rotate(-8deg); transform-origin: right center; }
+          .signature strong { font-size: 12px; }
+        </style>
+      </head>
+      <body>${pagesHtml}</body>
+    </html>
+  `;
+};
+
 const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
   const companyInfoHtml =
     data.ownerKey === 'ryan'
@@ -1918,6 +2173,12 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           '<strong>Secondary (440)666-5608</strong>',
           '<strong>Ryangoertler1313@gmail.com</strong>',
         ].join('<br>')
+      : data.ownerKey === 'todd'
+        ? [
+            'Concord Twp, Ohio 44077',
+            '<strong>Main (440)666-5608</strong>',
+            '<strong>@todd.go</strong>',
+          ].join('<br>')
       : [
           '15222 Saranac Rd,',
           'Lindmar Dr. Concord Twp. OH',
@@ -1931,8 +2192,15 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
   const ryanColumnLayout = buildRyanInvoiceColumnLayout(ryanGroups);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const docDateHtml = escapeHtml(data.docDate);
-  const headerClass = data.ownerKey === 'ryan' ? 'invoice-header ryan' : 'invoice-header aze';
+  const companyNameHtml = data.ownerKey === 'todd' ? 'Todd<br>Goertler' : 'Sterling<br>Mechanical';
+  const headerClass =
+    data.ownerKey === 'ryan'
+      ? 'invoice-header ryan'
+      : data.ownerKey === 'todd'
+        ? 'invoice-header todd'
+        : 'invoice-header aze';
   const materialLabel = data.documentType === 'Quote' ? 'Material Expense Estimate' : 'Material Expense';
+  const primaryLaborLabel = data.ownerKey === 'todd' ? 'Todd Labor' : 'Ryan Labor';
   const summaryLabelColspan = isRyanInvoice ? 4 : 2;
   const tableHeadHtml = isRyanInvoice ? ryanInvoiceTableHeadHtml : legacyTableHeadHtml;
   const tableClassName = isRyanInvoice ? 'ryan-invoice-table' : '';
@@ -1957,7 +2225,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           <span class="invoice-number">No. ${escapeHtml(data.invoiceNumber)}</span>
         </div>
         <div class="header-right">
-          <span class="company-name">Sterling<br>Mechanical</span>
+          <span class="company-name">${companyNameHtml}</span>
           <div class="company-info">${companyInfoHtml}</div>
         </div>
       </div>
@@ -1972,7 +2240,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           <span class="invoice-number">No. ${escapeHtml(data.invoiceNumber)}</span>
         </div>
         <div class="ryan-title-right">
-          <span class="company-name">Sterling<br>Mechanical</span>
+          <span class="company-name">${companyNameHtml}</span>
           <div class="company-info">${companyInfoHtml}</div>
         </div>
       </div>
@@ -1994,7 +2262,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
   const summaryRowsHtml = `
     <tr>
-      <td colspan="${summaryLabelColspan}" class="summary-label-blue">Ryan Labor</td>
+      <td colspan="${summaryLabelColspan}" class="summary-label-blue">${escapeHtml(primaryLaborLabel)}</td>
       <td class="amount-blue">${formatPdfMoney(data.ryanLabor)}</td>
     </tr>
     <tr>
@@ -2034,6 +2302,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .invoice-header { width: 100%; padding: 18px 0; margin: 0; color: #ffffff; }
     .invoice-header.aze { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
     .invoice-header.ryan { background-color: #24c6dc; background-image: linear-gradient(to bottom, #24c6dc, #c471ed); }
+    .invoice-header.todd { background-color: #1f2328; background-image: linear-gradient(to bottom, #1f2328, #58636f); }
     .header-inner { width: 100%; margin: 0 auto; padding: 0 24px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; }
     .header-left { line-height: 0.9; }
     .invoice-title { display: block; font-size: 58px; font-weight: 800; letter-spacing: 1px; color: #ffffff; }
@@ -2380,7 +2649,7 @@ export function InvoiceQuoteView({
   const [generatePdfBusy, setGeneratePdfBusy] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const [historyPropertyId, setHistoryPropertyId] = useState('');
-  const [historyOwner, setHistoryOwner] = useState<'ALL' | 'AZE' | 'RYAN'>('ALL');
+  const [historyOwner, setHistoryOwner] = useState<DocumentOwnerFilter>('ALL');
   const [historyType, setHistoryType] = useState<'ALL' | 'INVOICE' | 'QUOTE'>('ALL');
   const [historyDateRange, setHistoryDateRange] = useState<'ALL' | 'TODAY' | '7' | '30'>('ALL');
   const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
@@ -2405,6 +2674,7 @@ export function InvoiceQuoteView({
   const allSelected = propertyJobs.length > 0 && selectedJobIds.length === propertyJobs.length;
   const activeProperty = properties.find((property) => property.id === normalizedPropertyId) ?? null;
   const ownerKey = ownerKeyFor(headerOwner);
+  const ownerLabel = ownerLabelFor(ownerKey);
   const usesAutoDocumentNumber = !documentNumber.trim();
   const effectiveDocumentNumber = documentNumber.trim() || suggestedNumber;
   const descriptionValueFor = (job: JobRow) => descriptionEdits[job.id] ?? normalizeInvoiceDescription(job.description);
@@ -2513,7 +2783,7 @@ export function InvoiceQuoteView({
     [ownerKey, selectedAttachments, selectedRyanReceiptAttachments],
   );
   const availableAttachmentKinds = useMemo<Array<PdfAttachmentFile['kind']>>(
-    () => (ownerKey === 'ryan' ? ['receipt'] : selectableAttachmentKinds),
+    () => (ownerKey === 'ryan' || ownerKey === 'todd' ? ['receipt'] : selectableAttachmentKinds),
     [ownerKey],
   );
   const hasSelectablePdfAttachments = availableAttachmentKinds.some((kind) => attachmentCounts[kind] > 0);
@@ -2525,7 +2795,7 @@ export function InvoiceQuoteView({
     documentType === 'Invoice' && ownerKey === 'aze' && selectedInvoicePhotoAttachments.length > 0;
   const includeReceiptAppendicesInPdf =
     documentType === 'Invoice' &&
-    (ownerKey === 'aze' || ownerKey === 'ryan') &&
+    (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd') &&
     selectedReceiptAttachments.length > 0;
   const selectedAttachmentSummary =
     ownerKey === 'ryan'
@@ -2566,7 +2836,7 @@ export function InvoiceQuoteView({
 
   const previewRows = [
     { label: 'Services Total', value: servicesTotal },
-    { label: 'Ryan Labor', value: ryanLaborValue },
+    { label: ownerKey === 'todd' ? 'Todd Labor' : 'Ryan Labor', value: ryanLaborValue },
     { label: 'Juan Labor', value: juanLaborValue },
     { label: 'Job Total', value: jobTotal },
     { label: 'Material Expense', value: materialExpenseValue },
@@ -2685,6 +2955,7 @@ export function InvoiceQuoteView({
     }
 
     const useAzeModernInvoice = ownerKey === 'aze' && documentType === 'Invoice';
+    const useToddModernInvoice = ownerKey === 'todd' && documentType === 'Invoice';
     const safeDocumentNumber =
       String(documentNumberOverride ?? effectiveDocumentNumber).trim() || '00000000';
     const safeBaseName = `${documentType}_${(activeProperty?.name || 'property')
@@ -2712,6 +2983,26 @@ export function InvoiceQuoteView({
           totalDue,
           attachments: includeAzeInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
         })
+      : useToddModernInvoice
+        ? buildToddModernInvoiceHtml({
+            invoiceNumber: safeDocumentNumber,
+            docDate: issueDate,
+            clientName,
+            clientCompany,
+            propertyAddress,
+            propertyCityLine,
+            billTo,
+            startDate: firstJobDate,
+            finishDate: lastJobDate,
+            selectedItems,
+            ryanLabor: ryanLaborValue,
+            juanLabor: juanLaborValue,
+            jobTotal,
+            expenses,
+            totalDue,
+            attachments: [],
+            primaryLaborLabel: 'Todd Labor',
+          })
       : buildLegacySterlingPdfHtml({
           ownerKey,
           documentType,
@@ -3040,10 +3331,10 @@ export function InvoiceQuoteView({
                   <small>
                     {selectedAttachmentSummary ||
                       (hasSelectablePdfAttachments
-                        ? ownerKey === 'ryan'
+                        ? ownerKey === 'ryan' || ownerKey === 'todd'
                           ? `Choose receipts (${attachmentCounts.receipt} available)`
                           : 'Choose Before, After or Receipts'
-                        : ownerKey === 'ryan'
+                        : ownerKey === 'ryan' || ownerKey === 'todd'
                           ? 'Select jobs with receipt files to enable this.'
                           : 'Select jobs with before, after or receipt files to enable this.')}
                   </small>
@@ -3243,7 +3534,7 @@ export function InvoiceQuoteView({
 
           <div className="form-grid">
             <label>
-              Ryan Labor (USD)
+              {ownerKey === 'todd' ? 'Todd Labor (USD)' : 'Ryan Labor (USD)'}
               <input
                 type="number"
                 min="0"
@@ -3395,11 +3686,12 @@ export function InvoiceQuoteView({
               Owner
               <select
                 value={historyOwner}
-                onChange={(event) => setHistoryOwner(event.target.value as 'ALL' | 'AZE' | 'RYAN')}
+                onChange={(event) => setHistoryOwner(event.target.value as DocumentOwnerFilter)}
               >
                 <option value="ALL">All owners</option>
                 <option value="AZE">AZE</option>
                 <option value="RYAN">Ryan</option>
+                <option value="TODD">Todd Goertler</option>
               </select>
             </label>
 
@@ -3578,7 +3870,7 @@ export function InvoiceQuoteView({
                   </article>
                   <article className="document-preview-meta-card">
                     <span>Owner</span>
-                    <strong>{ownerKey === 'ryan' ? 'Ryan' : 'AZE'}</strong>
+                    <strong>{ownerLabel}</strong>
                   </article>
                   <article className="document-preview-meta-card">
                     <span>Date</span>

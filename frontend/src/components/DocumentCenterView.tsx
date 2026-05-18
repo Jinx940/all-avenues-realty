@@ -26,6 +26,7 @@ type DocumentCenterItem = {
 };
 
 type DocumentPreviewMode = 'image' | 'pdf' | 'frame' | 'unsupported';
+type DocumentOwnerFilter = 'ALL' | GeneratedDocumentHistoryItem['ownerLabel'];
 
 const documentKindClassFor = (kind: DocumentCenterItem['kind']) => `document-kind-pill document-kind-pill--${kind.toLowerCase()}`;
 
@@ -121,7 +122,7 @@ export function DocumentCenterView({
   const [search, setSearch] = useState('');
   const [propertyId, setPropertyId] = useState('');
   const [kind, setKind] = useState<'ALL' | 'Invoice' | 'Quote' | 'Receipt'>('ALL');
-  const [owner, setOwner] = useState<'ALL' | 'AZE' | 'Ryan'>('ALL');
+  const [owner, setOwner] = useState<DocumentOwnerFilter>('ALL');
   const [dateRange, setDateRange] = useState<'ALL' | 'TODAY' | '7' | '30'>('ALL');
   const [previewItem, setPreviewItem] = useState<DocumentCenterItem | null>(null);
 
@@ -301,6 +302,7 @@ export function DocumentCenterView({
                 <option value="ALL">All</option>
                 <option value="AZE">AZE</option>
                 <option value="Ryan">Ryan</option>
+                <option value="Todd Goertler">Todd Goertler</option>
               </select>
             </label>
 
