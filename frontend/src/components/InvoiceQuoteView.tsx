@@ -391,8 +391,10 @@ const displayInvoiceCell = (value: string, fallback = '-') => value.trim() || fa
 const buildPdfAttachmentsForJobs = (
   sourceJobs: JobRow[],
   allowedKinds: ReadonlySet<PdfAttachmentFile['kind']>,
-): PdfAttachmentFile[] =>
-  sourceJobs.flatMap((job) => {
+): PdfAttachmentFile[] => {
+  const seenAttachments = new Set<string>();
+
+  return sourceJobs.flatMap((job) => {
     const label = [
       displayInvoiceCell(job.unit),
       displayInvoiceCell(job.area),
@@ -422,13 +424,30 @@ const buildPdfAttachmentsForJobs = (
           }
 
           if (kind === 'receipt') {
-            return isPdfReceiptFile(file) ? [buildAttachment(kind, file)] : [];
+            if (!isPdfReceiptFile(file)) {
+              return [];
+            }
+          } else if (!isPdfImageFile(file.name)) {
+            return [];
           }
 
-          return isPdfImageFile(file.name) ? [buildAttachment(kind, file)] : [];
+          const duplicateKey = [
+            kind,
+            file.name.trim().toLowerCase(),
+            file.size,
+            file.mimeType.trim().toLowerCase(),
+          ].join('|');
+
+          if (seenAttachments.has(duplicateKey)) {
+            return [];
+          }
+
+          seenAttachments.add(duplicateKey);
+          return [buildAttachment(kind, file)];
         }),
     );
   });
+};
 
 const compareInvoiceCells = (left: string, right: string) => {
   const leftIsFallback = left === '-';
