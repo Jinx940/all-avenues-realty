@@ -1983,8 +1983,8 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
       </div>
       <div>
         <span>Contact</span>
-        <strong>Todd Goertler</strong>
-        <small>@todd.go<br>+1 (440) 666-5608</small>
+        <strong>Home Envy</strong>
+        <small>Todd Goertler<br>(440) 571-2129</small>
       </div>
       <div>
         <span>Partner</span>
@@ -2002,10 +2002,10 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
     <section class="body-intro">
       <div class="brand-lockup">
         <img class="home-envy-logo" src="${escapeHtml(homeEnvyLogoUrl)}" alt="Home Envy logo">
-        <div>
-          <strong>Todd Goertler</strong>
-          <span>Private Service Partner</span>
-          <small>@todd.go</small>
+        <div class="brand-copy">
+          <strong>Home Envy</strong>
+          <span>Todd Goertler</span>
+          <small>Home Improvement Services</small>
         </div>
       </div>
       <div class="invoice-heading">
@@ -2044,11 +2044,12 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
     .page-continue { padding-top: 12mm; }
     .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .body-intro { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
-    .brand-lockup { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
-    .home-envy-logo { width: 50px; height: 50px; object-fit: contain; display: block; flex: 0 0 50px; }
-    .brand-lockup strong { display: block; font-size: 22px; line-height: 1.05; letter-spacing: 0; }
-    .brand-lockup span { display: block; margin-top: 3px; color: #4f5963; font-size: 11px; text-transform: uppercase; font-weight: 700; }
-    .brand-lockup small { display: block; margin-top: 5px; color: #58636f; font-size: 12px; }
+    .brand-lockup { display: flex; align-items: center; gap: 18px; min-width: 0; }
+    .home-envy-logo { width: 82px; height: 82px; object-fit: contain; display: block; flex: 0 0 82px; }
+    .brand-copy { display: grid; gap: 4px; }
+    .brand-copy strong { display: block; color: #1f2328; font-size: 27px; line-height: 1; letter-spacing: 0; }
+    .brand-copy span { display: block; color: #1f2328; font-size: 17px; line-height: 1.05; font-weight: 800; }
+    .brand-copy small { display: block; color: #58636f; font-size: 12px; line-height: 1.15; font-weight: 700; }
     .invoice-heading { text-align: right; min-width: 190px; }
     .invoice-heading h1 { margin: 0 0 4px; color: #1f2328; font-size: 46px; line-height: 0.95; font-weight: 800; letter-spacing: 0; }
     .invoice-heading dl { margin: 0; display: grid; justify-content: end; gap: 3px; }
@@ -2056,42 +2057,42 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
     .invoice-heading dt { margin: 0; color: #4f5963; font-size: 10px; font-weight: 800; text-transform: uppercase; }
     .invoice-heading dd { margin: 0; color: #1f2328; font-size: 12px; text-align: left; font-variant-numeric: tabular-nums; }
     .client-grid { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1.25fr 0.72fr; gap: 18px; padding-top: 15px; margin-bottom: 14px; }
-    .client-grid div { min-height: 54px; padding-left: 11px; border-left: 3px solid #9aa5af; }
+    .client-grid div { min-height: 54px; padding: 0 11px; border-left: 3px solid #9aa5af; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     .client-grid span { display: block; color: #4f5963; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
     .client-grid strong { display: block; color: #1f2328; font-size: 13px; line-height: 1.25; }
     .client-grid small { display: block; color: #58636f; font-size: 11px; line-height: 1.3; margin-top: 3px; }
-    .todd-invoice-table { width: 100%; border-collapse: collapse; table-layout: fixed; background: transparent; }
+    .todd-invoice-table { width: 94%; margin: 0 auto; border-collapse: collapse; table-layout: fixed; background: transparent; }
     .todd-invoice-table .aze-unit-col { width: 72px; }
     .todd-invoice-table .aze-area-col { width: 86px; }
     .todd-invoice-table .aze-service-col { width: 108px; }
     .todd-invoice-table .aze-price-col { width: 108px; }
     .todd-invoice-table th { height: 38px; padding: 0 8px; border-bottom: 2px solid #1f2328; color: #1f2328; font-size: 11px; line-height: 1.2; text-align: center; text-transform: uppercase; font-weight: 800; }
-    .todd-invoice-table td { padding: 9px 8px; border-bottom: 1px solid #b8c0c8; border-right: 1px solid #c9d0d7; vertical-align: top; }
+    .todd-invoice-table td { padding: 9px 8px; border-bottom: 1px solid #b8c0c8; border-right: 1px solid #c9d0d7; vertical-align: middle; text-align: center; }
     .todd-invoice-table td:last-child, .todd-invoice-table th:last-child { border-right: 0; }
     .todd-invoice-table .unit,
     .todd-invoice-table .area,
     .todd-invoice-table .service { color: #1f2328; font-size: 10px; font-weight: 800; line-height: 1.18; text-align: center; word-break: break-word; }
     .todd-invoice-table .service.is-empty { color: transparent; }
-    .todd-invoice-table .desc { color: #343b43; font-size: 11px; line-height: 1.35; }
-    .todd-invoice-table .desc ul { margin: 0; padding-left: 16px; }
+    .todd-invoice-table .desc { color: #343b43; font-size: 11px; line-height: 1.35; text-align: center; }
+    .todd-invoice-table .desc ul { margin: 0; padding-left: 0; list-style-position: inside; }
     .todd-invoice-table .desc li + li { margin-top: 3px; }
-    .todd-invoice-table .cost { color: #1f2328; font-size: 11px; font-weight: 800; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .todd-invoice-table .cost { color: #1f2328; font-size: 11px; font-weight: 800; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .todd-invoice-table .cost.is-empty { color: transparent; }
     .todd-invoice-table .row-continuation .service,
     .todd-invoice-table .row-continuation .cost { padding-top: 0; }
     .todd-invoice-table .row-no-divider .service,
     .todd-invoice-table .row-no-divider .cost { padding-bottom: 0; }
-    .summary-wrap { flex: 0 0 auto; display: flex; justify-content: flex-end; margin-top: 12px; border-top: 2px solid #1f2328; padding-top: 9px; break-inside: avoid; page-break-inside: avoid; }
+    .summary-wrap { flex: 0 0 auto; display: flex; justify-content: center; margin-top: 12px; border-top: 2px solid #1f2328; padding-top: 9px; break-inside: avoid; page-break-inside: avoid; }
     .summary { width: 260px; display: grid; gap: 0; }
     .summary-row { display: grid; grid-template-columns: 1fr 110px; min-height: 27px; align-items: center; border-bottom: 1px solid #c3cbd3; color: #343b43; font-size: 11px; }
-    .summary-row span { padding-right: 12px; }
-    .summary-row strong { color: #1f2328; text-align: right; font-variant-numeric: tabular-nums; }
+    .summary-row span { padding-right: 12px; text-align: center; }
+    .summary-row strong { color: #1f2328; text-align: center; font-variant-numeric: tabular-nums; }
     .summary-row-muted span,
     .summary-row-muted strong { color: #69737f; }
     .summary-row-total { margin-top: 5px; min-height: 34px; border-bottom: 0; background: #1f2328; color: #ffffff; padding: 0 10px; }
     .summary-row-total strong,
     .summary-row-total span { color: #ffffff; }
-    .payment-grid { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr 130px; gap: 16px; padding-top: 14px; margin-top: 10px; border-top: 1px solid #b8c0c8; color: #343b43; break-inside: avoid; page-break-inside: avoid; }
+    .payment-grid { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr 130px; gap: 16px; padding-top: 14px; margin-top: 10px; border-top: 1px solid #b8c0c8; color: #343b43; text-align: center; align-items: center; break-inside: avoid; page-break-inside: avoid; }
     .payment-grid span { display: block; color: #69737f; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; }
     .payment-grid strong { display: block; color: #1f2328; font-size: 11px; line-height: 1.25; }
     .payment-grid small { display: block; color: #58636f; font-size: 9px; line-height: 1.35; margin-top: 3px; }
