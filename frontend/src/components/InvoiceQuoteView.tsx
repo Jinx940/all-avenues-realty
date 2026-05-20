@@ -1984,7 +1984,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
       <div>
         <span>Contact</span>
         <strong>Home Envy</strong>
-        <small>Todd Goertler<br>(440) 571-2129</small>
+        <small>tcgoertler@gmail.com<br>(440) 571-2129</small>
       </div>
       <div>
         <span>Partner</span>
@@ -2095,6 +2095,18 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
     .summary-row-total { margin-top: 5px; min-height: 34px; border-bottom: 0; background: #1f2328; color: #ffffff; padding: 0 10px; }
     .summary-row-total strong,
     .summary-row-total span { color: #ffffff; }
+    .attachment-section-start { flex: 0 0 auto; margin-top: 14px; break-inside: avoid; page-break-inside: avoid; }
+    .attachment-heading { padding: 0 0 7px 0; border-bottom: 2px solid #1f2328; color: #1f2328; font-size: 13px; line-height: 1.2; font-weight: 800; text-transform: uppercase; break-inside: avoid; page-break-inside: avoid; }
+    .attachment-row { flex: 0 0 72mm; height: 72mm; width: 94%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px auto 0; break-inside: avoid; page-break-inside: avoid; }
+    .attachment-card { height: 100%; background: rgba(255, 255, 255, 0.5); border: 1px solid #b8c0c8; display: flex; flex-direction: column; min-height: 0; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+    .attachment-card--empty { background: transparent; border-color: transparent; }
+    .attachment-frame { flex: 1 1 auto; min-height: 0; background: #eceff1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .attachment-frame--empty { background: transparent; }
+    .attachment-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .attachment-caption { flex: 0 0 auto; display: grid; gap: 3px; padding: 9px 11px 10px; color: #1f2328; }
+    .attachment-caption--empty { min-height: 42px; padding: 9px 11px 10px; }
+    .attachment-caption span { color: #69737f; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+    .attachment-caption strong { color: #1f2328; font-size: 11px; line-height: 1.25; }
     .payment-grid { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr 130px; gap: 16px; padding-top: 14px; margin-top: 10px; border-top: 1px solid #b8c0c8; color: #343b43; text-align: left; align-items: start; break-inside: avoid; page-break-inside: avoid; }
     .payment-grid span { display: block; color: #69737f; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; }
     .payment-grid strong { display: block; color: #1f2328; font-size: 11px; line-height: 1.25; }
@@ -2129,7 +2141,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
   `;
 
   const paginateToddInvoiceRowsByLayout = () => {
-    const tailBlocks = [summaryHtml];
+    const tailBlocks = [summaryHtml, ...buildAttachmentTailBlocks(data.attachments)];
 
     if (!tableRows.length) {
       return [{ rows: [], tailBlocks }];
@@ -2177,7 +2189,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
 
       const measuredElements = Array.from(
         measurementRoot.querySelectorAll<HTMLElement>(
-          '.body-intro, .client-grid, .todd-invoice-table, .summary-wrap',
+          '.body-intro, .client-grid, .todd-invoice-table, .summary-wrap, .attachment-section-start, .attachment-row',
         ),
       );
 
@@ -2757,7 +2769,6 @@ export function InvoiceQuoteView({
   const [propertyId, setPropertyId] = useState('');
   const [headerOwner, setHeaderOwner] = useState<(typeof headerOwnerOptions)[number]>(headerOwnerOptions[0]);
   const [documentType, setDocumentType] = useState<DocumentType>('Invoice');
-  const [documentNumber, setDocumentNumber] = useState('');
   const [suggestedNumber, setSuggestedNumber] = useState(() =>
     getSuggestedDocumentNumber(documents, 'Invoice'),
   );
@@ -2810,8 +2821,8 @@ export function InvoiceQuoteView({
   const activeProperty = properties.find((property) => property.id === normalizedPropertyId) ?? null;
   const ownerKey = ownerKeyFor(headerOwner);
   const ownerLabel = ownerLabelFor(ownerKey);
-  const usesAutoDocumentNumber = !documentNumber.trim();
-  const effectiveDocumentNumber = documentNumber.trim() || suggestedNumber;
+  const usesAutoDocumentNumber = true;
+  const effectiveDocumentNumber = suggestedNumber;
   const descriptionValueFor = (job: JobRow) => descriptionEdits[job.id] ?? normalizeInvoiceDescription(job.description);
   const displayedSelectedCount = selectedJobIds.length;
 
@@ -2918,7 +2929,7 @@ export function InvoiceQuoteView({
     [ownerKey, selectedAttachments, selectedRyanReceiptAttachments],
   );
   const availableAttachmentKinds = useMemo<Array<PdfAttachmentFile['kind']>>(
-    () => (ownerKey === 'ryan' || ownerKey === 'todd' ? ['receipt'] : selectableAttachmentKinds),
+    () => (ownerKey === 'ryan' ? ['receipt'] : selectableAttachmentKinds),
     [ownerKey],
   );
   const hasSelectablePdfAttachments = availableAttachmentKinds.some((kind) => attachmentCounts[kind] > 0);
@@ -2927,7 +2938,9 @@ export function InvoiceQuoteView({
     propertyReceiptAttachments.length > 0 &&
     selectedRyanReceiptAttachments.length === propertyReceiptAttachments.length;
   const includeAzeInvoicePhotosInPdf =
-    documentType === 'Invoice' && ownerKey === 'aze' && selectedInvoicePhotoAttachments.length > 0;
+    documentType === 'Invoice' &&
+    (ownerKey === 'aze' || ownerKey === 'todd') &&
+    selectedInvoicePhotoAttachments.length > 0;
   const includeReceiptAppendicesInPdf =
     documentType === 'Invoice' &&
     (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd') &&
@@ -3142,7 +3155,7 @@ export function InvoiceQuoteView({
             jobTotal,
             expenses,
             totalDue,
-            attachments: [],
+            attachments: includeAzeInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
           })
       : buildLegacySterlingPdfHtml({
           ownerKey,
@@ -3284,12 +3297,11 @@ export function InvoiceQuoteView({
     setGeneratePdfBusy(true);
 
     try {
-      const manualDocumentNumber = documentNumber.trim();
-      const maxAttempts = manualDocumentNumber ? 1 : 3;
+      const maxAttempts = 3;
       let lastError: unknown = null;
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const activeDocumentNumber = manualDocumentNumber || await fetchNextDocumentNumber();
+        const activeDocumentNumber = await fetchNextDocumentNumber();
         const generated = await buildGeneratedDocumentContentForPdf(activeDocumentNumber);
 
         if (!generated) {
@@ -3334,7 +3346,7 @@ export function InvoiceQuoteView({
           );
           return;
         } catch (error) {
-          if (!manualDocumentNumber && !saved && isDocumentNumberConflict(error) && attempt < maxAttempts - 1) {
+          if (!saved && isDocumentNumberConflict(error) && attempt < maxAttempts - 1) {
             lastError = error;
             continue;
           }
@@ -3430,14 +3442,15 @@ export function InvoiceQuoteView({
             <label>
               No.
               <input
-                value={documentNumber}
-                onChange={(event) => setDocumentNumber(event.target.value)}
-                placeholder={suggestedNumber ? `Next available: ${suggestedNumber}` : 'e.g. 2311'}
+                value={suggestedNumber || ''}
+                readOnly
+                aria-readonly="true"
+                placeholder="Automatic"
               />
               <small className="muted-copy">
                 {suggestedNumber
-                  ? `Leave it blank to use the next available number (${suggestedNumber}).`
-                  : 'Leave it blank to use the next available number.'}
+                  ? `The next available number (${suggestedNumber}) is assigned automatically.`
+                  : 'The next available number is assigned automatically.'}
               </small>
             </label>
 
@@ -3472,10 +3485,10 @@ export function InvoiceQuoteView({
                   <small>
                     {selectedAttachmentSummary ||
                       (hasSelectablePdfAttachments
-                        ? ownerKey === 'ryan' || ownerKey === 'todd'
+                        ? ownerKey === 'ryan'
                           ? `Choose receipts (${attachmentCounts.receipt} available)`
                           : 'Choose Before, After or Receipts'
-                        : ownerKey === 'ryan' || ownerKey === 'todd'
+                        : ownerKey === 'ryan'
                           ? 'Select jobs with receipt files to enable this.'
                           : 'Select jobs with before, after or receipt files to enable this.')}
                   </small>
