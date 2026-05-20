@@ -1,11 +1,15 @@
 export type TabId =
   | 'dashboard'
+  | 'field-mode'
+  | 'schedule'
+  | 'alerts-center'
   | 'new-job'
   | 'property-info'
   | 'property-register'
   | 'job-tracker'
   | 'generate-invoice-quote'
   | 'document-center'
+  | 'client-portal'
   | 'workers'
   | 'settings';
 
@@ -314,4 +318,55 @@ export type BootstrapPayload = {
 export type FlashMessage = {
   type: 'info' | 'success' | 'error';
   text: string;
+};
+
+export type PublicClientPortalPayload = {
+  property: {
+    id: string;
+    name: string;
+    address: string | null;
+    cityLine: string | null;
+    notes: string | null;
+    coverImageUrl: string | null;
+  };
+  summary: {
+    totalJobs: number;
+    completedJobs: number;
+    openJobs: number;
+    overdueJobs: number;
+    completionRate: number;
+  };
+  jobs: Array<{
+    id: string;
+    story: string;
+    unit: string;
+    area: string;
+    service: string;
+    description: string;
+    status: string;
+    statusLabel: string;
+    timeline: {
+      label: string;
+      tone: Tone;
+      isLate: boolean;
+    };
+    startDate: string | null;
+    dueDate: string | null;
+    completedAt: string | null;
+    files: {
+      before: JobFile[];
+      progress: JobFile[];
+      after: JobFile[];
+    };
+  }>;
+  documents: Array<{
+    id: string;
+    documentTypeLabel: 'Invoice' | 'Quote';
+    documentNumber: string;
+    fileName: string;
+    issueDate: string | null;
+    createdAt: string;
+    url: string;
+  }>;
+  updatedAt: string;
 };

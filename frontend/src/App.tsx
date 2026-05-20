@@ -49,6 +49,8 @@ import { AdvanceCashAlertsBell } from './components/AdvanceCashAlertsBell';
 import { UiIcon } from './components/UiIcon';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { LoginView } from './components/LoginView';
+import { GlobalSearch } from './components/GlobalSearch';
+import { ClientPortalView, PublicClientPortalView } from './components/ClientPortalView';
 import {
   createEditableJobFormState,
   serializeJobFormDraft,
@@ -64,9 +66,14 @@ import {
   storyHasAnyValue,
   unitHasAnyValue,
 } from './propertySpecs';
-import { pageMeta, readStoredSidebarPreference, roleTabs, sidebarPreferenceKey, tabs } from './lib/navigation';
+import { pageMeta, readStoredSidebarPreference, roleTabs, tabs, writeStoredSidebarPreference } from './lib/navigation';
 
 const DashboardView = lazy(() => import('./components/DashboardView').then((module) => ({ default: module.DashboardView })));
+const FieldModeView = lazy(() => import('./components/FieldModeView').then((module) => ({ default: module.FieldModeView })));
+const ScheduleView = lazy(() => import('./components/ScheduleView').then((module) => ({ default: module.ScheduleView })));
+const AlertsCenterView = lazy(() =>
+  import('./components/AlertsCenterView').then((module) => ({ default: module.AlertsCenterView })),
+);
 const JobsView = lazy(() => import('./components/JobsView').then((module) => ({ default: module.JobsView })));
 const PropertiesView = lazy(() =>
   import('./components/PropertiesView').then((module) => ({ default: module.PropertiesView })),
@@ -268,14 +275,22 @@ const serializePasswordChangeDraft = (draft: PasswordChangeState) =>
 const canAdmin = (user: AuthUser | null) => user?.role === 'ADMIN';
 const canManageJobs = (user: AuthUser | null) =>
   user?.role === 'ADMIN' || user?.role === 'OFFICE';
-const canCreateJobs = (user: AuthUser | null) => canManageJobs(user);
+const canCreateJobs = (user: AuthUser | null) =>
+  canManageJobs(user) || user?.role === 'WORKER';
 const documentDataTabs = new Set<TabId>(['generate-invoice-quote', 'document-center']);
 const adminDataTabs = new Set<TabId>(['workers', 'settings']);
 
 const tabNeedsDocuments = (tab: TabId) => documentDataTabs.has(tab);
 const tabNeedsAdminData = (tab: TabId) => adminDataTabs.has(tab);
 
+const readClientPortalPropertyId = () => {
+  if (typeof window === 'undefined') return '';
+  const match = window.location.pathname.match(/^\/client\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1] ?? '') : '';
+};
+
 export default function App() {
+  const clientPortalPropertyId = readClientPortalPropertyId();
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isDesktopSidebarExpanded, setIsDesktopSidebarExpanded] = useState(readStoredSidebarPreference);
@@ -323,6 +338,7 @@ export default function App() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isRunningPhotoAudit, setIsRunningPhotoAudit] = useState(false);
   const [isSyncingStorageBackups, setIsSyncingStorageBackups] = useState(false);
+  const [isSavingFieldUpdate, setIsSavingFieldUpdate] = useState(false);
   const [jobFilters, setJobFilters] = useState(createJobFilters());
   const activeTabRef = useRef(activeTab);
   const healthRef = useRef(health);
@@ -331,12 +347,16 @@ export default function App() {
   const currentPage = pageMeta[activeTab];
   const tabsWithoutHeader: TabId[] = [
     'dashboard',
+    'field-mode',
+    'schedule',
+    'alerts-center',
     'new-job',
     'property-info',
     'property-register',
     'job-tracker',
     'generate-invoice-quote',
     'document-center',
+    'client-portal',
     'workers',
     'settings',
   ];
@@ -563,6 +583,11 @@ export default function App() {
   }, [currentUser]);
 
   useEffect(() => {
+    if (clientPortalPropertyId) {
+      setAuthReady(true);
+      return undefined;
+    }
+
     const hydrateSession = async () => {
       try {
         const session = await requestJson<AuthSessionPayload>('/api/auth/session');
@@ -575,7 +600,7 @@ export default function App() {
     };
 
     void hydrateSession();
-  }, [resetWorkspaceState]);
+  }, [clientPortalPropertyId, resetWorkspaceState]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -600,8 +625,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(sidebarPreferenceKey, String(isDesktopSidebarExpanded));
+    writeStoredSidebarPreference(isDesktopSidebarExpanded);
   }, [isDesktopSidebarExpanded]);
 
   useEffect(() => {
@@ -1063,6 +1087,54 @@ export default function App() {
 
     setActiveTab('new-job');
     setJobForm(createEditableJobFormState(job, bootstrap?.properties ?? []));
+  };
+
+  const openJobForReview = async (job: JobRow) => {
+    if (canManageJobs(currentUser)) {
+      await handleEditJob(job);
+      return;
+    }
+
+    setJobFilters({
+      ...createJobFilters(),
+      propertyId: job.propertyId,
+      search: [job.area, job.service].filter(Boolean).join(' '),
+    });
+    await handleTabSelection('job-tracker');
+  };
+
+  const openPropertyForReview = async (property: PropertySummary) => {
+    setSelectedPropertyId(property.id);
+    await handleTabSelection('property-info');
+  };
+
+  const openDocumentCenterFor = async () => {
+    await handleTabSelection('document-center');
+  };
+
+  const openWorkersFromSearch = async () => {
+    await handleTabSelection('workers');
+  };
+
+  const openInvoiceGeneratorFor = async (job: JobRow) => {
+    setSelectedPropertyId(job.propertyId);
+    await handleTabSelection('generate-invoice-quote');
+  };
+
+  const submitFieldUpdate = async (job: JobRow, formData: FormData) => {
+    setIsSavingFieldUpdate(true);
+    try {
+      const updated = await requestJson<JobRow>(`/api/jobs/${job.id}/field-update`, {
+        method: 'PATCH',
+        body: formData,
+      });
+      syncOpenJobForm(updated);
+      await refreshAll({ type: 'success', text: 'Field update saved.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: messageFrom(error) });
+    } finally {
+      setIsSavingFieldUpdate(false);
+    }
   };
 
   const openAdvanceCashAlertJob = (jobId: string) => {
@@ -1740,6 +1812,10 @@ export default function App() {
     }
   };
 
+  if (clientPortalPropertyId) {
+    return <PublicClientPortalView propertyId={clientPortalPropertyId} />;
+  }
+
   if (!authReady) {
     return <main className="login-shell login-shell--loading">Loading workspace...</main>;
   }
@@ -1837,6 +1913,16 @@ export default function App() {
             <UiIcon name={isSidebarVisible ? 'close' : 'menu'} size={18} />
             <span>{isSidebarVisible ? 'Hide menu' : 'Show menu'}</span>
           </button>
+          <GlobalSearch
+            jobs={jobs}
+            properties={bootstrap?.properties ?? []}
+            documents={generatedDocuments}
+            workers={allWorkers}
+            onOpenJob={(job) => void openJobForReview(job)}
+            onOpenProperty={(property) => void openPropertyForReview(property)}
+            onOpenDocument={() => void openDocumentCenterFor()}
+            onOpenWorker={() => void openWorkersFromSearch()}
+          />
         </div>
 
         {showPageHeader ? (
@@ -1872,8 +1958,39 @@ export default function App() {
             jobs={jobs}
             onCreateJob={() => void handleTabSelection('new-job')}
             onOpenSettings={() => void handleTabSelection('settings')}
+            onOpenSchedule={() => void handleTabSelection('schedule')}
+            onOpenAlerts={() => void handleTabSelection('alerts-center')}
             canCreateJob={canCreateJobs(currentUser)}
             canOpenSettings={Boolean(currentUser)}
+          />
+        ) : null}
+
+        {activeTab === 'field-mode' ? (
+          <FieldModeView
+            jobs={jobs}
+            currentUser={currentUser}
+            isSaving={isSavingFieldUpdate}
+            onSubmitUpdate={submitFieldUpdate}
+            onOpenJob={(job) => void openJobForReview(job)}
+          />
+        ) : null}
+
+        {activeTab === 'schedule' ? (
+          <ScheduleView
+            jobs={jobs}
+            properties={bootstrap?.properties ?? []}
+            canManage={canManageJobs(currentUser)}
+            onOpenJob={(job) => void openJobForReview(job)}
+            onMarkDone={requestMarkJobDone}
+          />
+        ) : null}
+
+        {activeTab === 'alerts-center' ? (
+          <AlertsCenterView
+            jobs={jobs}
+            onOpenJob={(job) => void openJobForReview(job)}
+            onCreateInvoice={(job) => void openInvoiceGeneratorFor(job)}
+            onOpenSchedule={() => void handleTabSelection('schedule')}
           />
         ) : null}
 
@@ -2035,6 +2152,13 @@ export default function App() {
               });
             }}
             onDeleteDocument={(documentId, options) => deleteGeneratedDocument(documentId, options)}
+          />
+        ) : null}
+
+        {activeTab === 'client-portal' ? (
+          <ClientPortalView
+            properties={bootstrap?.properties ?? []}
+            selectedPropertyId={selectedPropertyId}
           />
         ) : null}
 

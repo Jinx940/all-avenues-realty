@@ -10,6 +10,13 @@ test('parseCookieHeader decodes cookie values', () => {
   });
 });
 
+test('parseCookieHeader keeps malformed cookie values instead of throwing', () => {
+  assert.deepEqual(parseCookieHeader('session=%E0%A4%A; foo=bar'), {
+    session: '%E0%A4%A',
+    foo: 'bar',
+  });
+});
+
 test('sessionTokenFromRequest prefers the session cookie over authorization headers', () => {
   const request = {
     headers: {

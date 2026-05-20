@@ -66,6 +66,14 @@ const readErrorMessage = async (response: Response) => {
   return `${response.status} ${response.statusText}`;
 };
 
+const headersWithJsonDefault = (init?: RequestInit) => {
+  const headers = new Headers(init?.headers);
+  if (typeof init?.body === 'string' && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  return headers;
+};
+
 export const requestJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
   let response: Response;
 
@@ -73,7 +81,7 @@ export const requestJson = async <T>(path: string, init?: RequestInit): Promise<
     response = await fetch(`${apiBaseUrl}${path}`, {
       ...init,
       credentials: 'include',
-      headers: init?.headers ?? {},
+      headers: headersWithJsonDefault(init),
     });
   } catch {
     const target = apiBaseUrl || 'the current origin';
@@ -94,7 +102,7 @@ export const requestBlob = async (path: string, init?: RequestInit) => {
     response = await fetch(`${apiBaseUrl}${path}`, {
       ...init,
       credentials: 'include',
-      headers: init?.headers ?? {},
+      headers: headersWithJsonDefault(init),
     });
   } catch {
     const target = apiBaseUrl || 'the current origin';

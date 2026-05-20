@@ -21,6 +21,8 @@ export function DashboardView({
   jobs,
   onCreateJob,
   onOpenSettings,
+  onOpenSchedule,
+  onOpenAlerts,
   canCreateJob,
   canOpenSettings,
 }: {
@@ -28,6 +30,8 @@ export function DashboardView({
   jobs: JobRow[];
   onCreateJob: () => void;
   onOpenSettings: () => void;
+  onOpenSchedule: () => void;
+  onOpenAlerts: () => void;
   canCreateJob: boolean;
   canOpenSettings: boolean;
 }) {
@@ -379,6 +383,22 @@ export function DashboardView({
                 >
                   <UiIcon name="download" />
                   Export finance Excel
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button dashboard-hero-button dashboard-hero-button--settings"
+                  onClick={onOpenSchedule}
+                >
+                  <UiIcon name="calendar" />
+                  Open schedule
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button dashboard-hero-button dashboard-hero-button--settings"
+                  onClick={onOpenAlerts}
+                >
+                  <UiIcon name="bell" />
+                  Alerts center
                 </button>
                 {canCreateJob ? (
                   <button

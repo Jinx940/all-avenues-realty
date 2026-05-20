@@ -3,6 +3,7 @@ import { ApiError, buildAssetUrl, fetchAssetBlob, requestJson } from '../lib/api
 import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendix } from '../lib/generatedPdf';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
+import homeEnvyLogoUrl from '../assets/Home_envy_logo.png';
 import { ConfirmDialog } from './ConfirmDialog';
 import { UiIcon } from './UiIcon';
 
@@ -113,10 +114,6 @@ type AzeInvoiceData = {
   expenses: number;
   totalDue: number;
   attachments: PdfAttachmentFile[];
-};
-
-type ToddInvoiceData = AzeInvoiceData & {
-  primaryLaborLabel: string;
 };
 
 type LegacyPdfData = {
@@ -1519,6 +1516,9 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           <div>+1 (440) 666-5608</div>
         </div>
       </div>
+      <div style="grid-column: 1 / -1; color: #2f49a7; font-size: 10px; line-height: 1.35; border-top: 1px solid rgba(47, 73, 167, 0.35); padding-top: 7px;">
+        Payment due upon receipt unless otherwise agreed. Please include the invoice number with payment. Thank you for choosing All Avenues Realty service partners.
+      </div>
     </div>
   `;
 
@@ -1929,7 +1929,7 @@ const paginateToddInvoiceRows = (rows: AzeInvoiceRow[]) => {
 
   const pages: AzeInvoiceRow[][] = [[]];
   const pageLimitFor = (pageIndex: number) => (pageIndex === 0 ? 15.8 : 19.2);
-  const summaryUnits = 5.8;
+  const summaryUnits = 2.8;
   let pageIndex = 0;
   let usedUnits = 0;
 
@@ -1955,7 +1955,7 @@ const paginateToddInvoiceRows = (rows: AzeInvoiceRow[]) => {
   return pages.length ? pages : [[]];
 };
 
-const buildToddModernInvoiceHtml = (data: ToddInvoiceData) => {
+const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
 
@@ -1963,20 +1963,8 @@ const buildToddModernInvoiceHtml = (data: ToddInvoiceData) => {
     <section class="summary-wrap">
       <div class="summary">
         <div class="summary-row">
-          <span>${escapeHtml(data.primaryLaborLabel)}</span>
-          <strong>${formatPdfMoney(data.ryanLabor)}</strong>
-        </div>
-        <div class="summary-row">
-          <span>Juan Labor</span>
-          <strong>${formatPdfMoney(data.juanLabor)}</strong>
-        </div>
-        <div class="summary-row">
           <span>Job Total</span>
           <strong>${formatPdfMoney(data.jobTotal)}</strong>
-        </div>
-        <div class="summary-row summary-row-muted">
-          <span>Expenses</span>
-          <strong>${formatPdfMoney(data.expenses)}</strong>
         </div>
         <div class="summary-row summary-row-total">
           <span>Total Due</span>
@@ -1999,7 +1987,7 @@ const buildToddModernInvoiceHtml = (data: ToddInvoiceData) => {
         <small>@todd.go<br>+1 (440) 666-5608</small>
       </div>
       <div>
-        <span>Terms</span>
+        <span>Partner</span>
         <strong>All Avenues Realty service partner</strong>
         <small>Thank you for your business.</small>
       </div>
@@ -2013,11 +2001,7 @@ const buildToddModernInvoiceHtml = (data: ToddInvoiceData) => {
   const bodyIntroHtml = `
     <section class="body-intro">
       <div class="brand-lockup">
-        <div class="dot-mark" aria-hidden="true">
-          <span></span><span></span><span></span>
-          <span></span><span></span><span></span>
-          <span></span><span></span><span></span>
-        </div>
+        <img class="home-envy-logo" src="${escapeHtml(homeEnvyLogoUrl)}" alt="Home Envy logo">
         <div>
           <strong>Todd Goertler</strong>
           <span>Private Service Partner</span>
@@ -2061,8 +2045,7 @@ const buildToddModernInvoiceHtml = (data: ToddInvoiceData) => {
     .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .body-intro { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
     .brand-lockup { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
-    .dot-mark { width: 43px; height: 43px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; flex: 0 0 43px; }
-    .dot-mark span { display: block; border-radius: 999px; background: #1f2328; }
+    .home-envy-logo { width: 50px; height: 50px; object-fit: contain; display: block; flex: 0 0 50px; }
     .brand-lockup strong { display: block; font-size: 22px; line-height: 1.05; letter-spacing: 0; }
     .brand-lockup span { display: block; margin-top: 3px; color: #4f5963; font-size: 11px; text-transform: uppercase; font-weight: 700; }
     .brand-lockup small { display: block; margin-top: 5px; color: #58636f; font-size: 12px; }
@@ -2400,6 +2383,11 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
   const summaryRowsHtml = `
     <tr>
+      <td colspan="${summaryLabelColspan + 1}" class="terms-cell">
+        Payment due upon receipt unless otherwise agreed. Please include the ${escapeHtml(data.documentType.toLowerCase())} number with payment. Thank you for your business.
+      </td>
+    </tr>
+    <tr>
       <td colspan="${summaryLabelColspan}" class="summary-label-blue">${escapeHtml(primaryLaborLabel)}</td>
       <td class="amount-blue">${formatPdfMoney(data.ryanLabor)}</td>
     </tr>
@@ -2491,6 +2479,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     td.ryan-meta-cell--continuation { font-size: 9px; }
     .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
     .amount-blue { text-align: center; color: #1f4dbb; font-weight: 800; font-size: 11px; vertical-align: middle; }
+    .terms-cell { color: #000000; font-size: 10px; line-height: 1.45; background: #f7fbff; text-align: left; }
     td.is-empty { color: transparent; }
     .top-details-wrap { border-top: 3px solid #1f4dbb; margin-top: 4px; padding-top: 6px; margin-bottom: 8px; }
     .payment-title { color: #1f4dbb; font-weight: 800; font-size: 14px; display: block; margin-bottom: 6px; }
@@ -3139,7 +3128,6 @@ export function InvoiceQuoteView({
             expenses,
             totalDue,
             attachments: [],
-            primaryLaborLabel: 'Todd Labor',
           })
       : buildLegacySterlingPdfHtml({
           ownerKey,

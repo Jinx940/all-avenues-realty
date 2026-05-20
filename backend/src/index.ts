@@ -35,6 +35,7 @@ import {
 } from './data/defaults.js';
 import { env } from './env.js';
 import { buildInfo, buildSummary } from './lib/buildInfo.js';
+import { parseNullableLocalDate } from './lib/dates.js';
 import { recordAuditLog } from './lib/audit.js';
 import {
   canManageJobs,
@@ -52,6 +53,8 @@ import {
   buildGeneratedDocumentUrl,
   buildJobFileUrl,
   buildPropertyCoverUrl,
+  parseBase64PdfContent,
+  safeContentDispositionFileName,
   sanitizeGeneratedDocumentHtml,
 } from './lib/documents.js';
 import { isDocumentNumberConflictError, nextDocumentNumberFromDatabase } from './lib/documentNumbers.js';
@@ -175,6 +178,11 @@ const jobInputSchema = z.object({
   dueDate: z.string().optional(),
   workerIds: z.any().transform(parseStringArray),
   performedBy: z.string().trim().max(120).optional().or(z.literal('')),
+});
+
+const fieldJobUpdateSchema = z.object({
+  status: z.nativeEnum(JobStatus).optional(),
+  fieldNote: z.string().trim().max(1200).optional().or(z.literal('')),
 });
 
 const generatedDocumentSchema = z.object({
@@ -346,20 +354,6 @@ const requestPublicOrigin = (request: Request) => {
 };
 
 const hasFrontendBuild = () => fs.existsSync(frontendIndexFile);
-
-const parseNullableDate = (value: string | undefined) => {
-  const raw = String(value ?? '').trim();
-  if (!raw) {
-    return null;
-  }
-
-  const date = new Date(`${raw}T00:00:00`);
-  if (Number.isNaN(date.getTime())) {
-    throw new Error(`Invalid date: ${raw}`);
-  }
-
-  return date;
-};
 
 const summarizePropertyJobs = (
   jobs: Array<{ propertyId: string; status: JobStatus; dueDate: Date | null }>,
@@ -746,6 +740,116 @@ const loadJob = (jobId: string) =>
     },
   });
 
+const publicClientPortalUrl = (propertyId: string) => `/client/${encodeURIComponent(propertyId)}`;
+const publicClientPortalFileUrl = (propertyId: string, fileId: string) =>
+  `/api/client-portal/${encodeURIComponent(propertyId)}/files/${encodeURIComponent(fileId)}`;
+const publicClientPortalCoverUrl = (propertyId: string) =>
+  `/api/client-portal/${encodeURIComponent(propertyId)}/cover-image`;
+const publicClientPortalDocumentUrl = (propertyId: string, documentId: string) =>
+  `/api/client-portal/${encodeURIComponent(propertyId)}/documents/${encodeURIComponent(documentId)}`;
+
+const publicPortalFileCategories = new Set<FileCategory>([
+  FileCategory.BEFORE,
+  FileCategory.PROGRESS,
+  FileCategory.AFTER,
+]);
+
+const publicPortalCategoryFields: Partial<Record<FileCategory, 'before' | 'progress' | 'after'>> = {
+  [FileCategory.BEFORE]: 'before',
+  [FileCategory.PROGRESS]: 'progress',
+  [FileCategory.AFTER]: 'after',
+};
+
+const groupPublicPortalFiles = (
+  propertyId: string,
+  files: Array<{
+    id: string;
+    category: FileCategory;
+    originalName: string;
+    mimeType: string;
+    size: number;
+    createdAt: Date;
+  }>,
+) => {
+  const grouped = {
+    before: [],
+    progress: [],
+    after: [],
+  } as Record<'before' | 'progress' | 'after', Array<{
+    id: string;
+    category: string;
+    name: string;
+    url: string;
+    mimeType: string;
+    size: number;
+    createdAt: string;
+  }>>;
+
+  files.forEach((file) => {
+    if (
+      file.category !== FileCategory.BEFORE &&
+      file.category !== FileCategory.PROGRESS &&
+      file.category !== FileCategory.AFTER
+    ) {
+      return;
+    }
+
+    const field = publicPortalCategoryFields[file.category];
+    if (!field) return;
+
+    grouped[field].push({
+      id: file.id,
+      category: fileCategoryLabels[file.category],
+      name: file.originalName,
+      url: publicClientPortalFileUrl(propertyId, file.id),
+      mimeType: file.mimeType,
+      size: file.size,
+      createdAt: file.createdAt.toISOString(),
+    });
+  });
+
+  return grouped;
+};
+
+const serializePublicPortalJob = (job: {
+  id: string;
+  story: string;
+  unit: string;
+  area: string;
+  service: string;
+  description: string;
+  status: JobStatus;
+  startDate: Date | null;
+  dueDate: Date | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  files: Array<{
+    id: string;
+    category: FileCategory;
+    originalName: string;
+    mimeType: string;
+    size: number;
+    createdAt: Date;
+  }>;
+}, propertyId: string) => ({
+  id: job.id,
+  story: normalizeStoryInput(job.story),
+  unit: job.unit,
+  area: job.area,
+  service: job.service,
+  description: job.description,
+  status: job.status,
+  statusLabel: jobStatusLabels[job.status],
+  timeline: timelineFrom(job.status, job.dueDate),
+  startDate: job.startDate?.toISOString() ?? null,
+  dueDate: job.dueDate?.toISOString() ?? null,
+  completedAt: job.completedAt?.toISOString() ?? null,
+  files: groupPublicPortalFiles(propertyId, job.files),
+  createdAt: job.createdAt.toISOString(),
+  updatedAt: job.updatedAt.toISOString(),
+});
+
 const seedSystem = async () => {
   await Promise.all(
     defaultProperties.map(async (name) => {
@@ -880,6 +984,256 @@ app.get(
 
 registerAuthRoutes(app);
 
+app.get(
+  '/api/client-portal/:propertyId',
+  asyncRoute(async (request, response) => {
+    const propertyId = String(request.params.propertyId);
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        cityLine: true,
+        notes: true,
+        coverImageUrl: true,
+        updatedAt: true,
+        jobs: {
+          orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+          select: {
+            id: true,
+            story: true,
+            unit: true,
+            area: true,
+            service: true,
+            description: true,
+            status: true,
+            startDate: true,
+            dueDate: true,
+            completedAt: true,
+            createdAt: true,
+            updatedAt: true,
+            files: {
+              where: {
+                category: {
+                  in: [FileCategory.BEFORE, FileCategory.PROGRESS, FileCategory.AFTER],
+                },
+              },
+              orderBy: {
+                createdAt: 'desc',
+              },
+              select: {
+                id: true,
+                category: true,
+                originalName: true,
+                mimeType: true,
+                size: true,
+                createdAt: true,
+              },
+            },
+          },
+        },
+        documents: {
+          orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
+          take: 20,
+          select: {
+            id: true,
+            documentType: true,
+            documentNumber: true,
+            fileName: true,
+            issueDate: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!property) {
+      response.status(404).json({ message: 'Client portal not found.' });
+      return;
+    }
+
+    const totalJobs = property.jobs.length;
+    const completedJobs = property.jobs.filter((job) => job.status === JobStatus.DONE).length;
+    const openJobs = totalJobs - completedJobs;
+    const overdueJobs = property.jobs.filter(
+      (job) => job.status !== JobStatus.DONE && job.dueDate && job.dueDate < today(),
+    ).length;
+    const completionRate = totalJobs ? Math.round((completedJobs / totalJobs) * 100) : 0;
+
+    response.setHeader('Cache-Control', 'public, max-age=45');
+    response.json({
+      property: {
+        id: property.id,
+        name: property.name,
+        address: property.address,
+        cityLine: property.cityLine,
+        notes: property.notes,
+        coverImageUrl: property.coverImageUrl
+          ? isExternalUrl(property.coverImageUrl)
+            ? property.coverImageUrl
+            : publicClientPortalCoverUrl(property.id)
+          : null,
+      },
+      summary: {
+        totalJobs,
+        completedJobs,
+        openJobs,
+        overdueJobs,
+        completionRate,
+      },
+      jobs: property.jobs.map((job) => serializePublicPortalJob(job, property.id)),
+      documents: property.documents.map((document) => ({
+        id: document.id,
+        documentTypeLabel: generatedDocumentTypeLabels[document.documentType],
+        documentNumber: document.documentNumber,
+        fileName: document.fileName,
+        issueDate: document.issueDate?.toISOString() ?? null,
+        createdAt: document.createdAt.toISOString(),
+        url: publicClientPortalDocumentUrl(property.id, document.id),
+      })),
+      updatedAt: property.updatedAt.toISOString(),
+      url: publicClientPortalUrl(property.id),
+    });
+  }),
+);
+
+app.get(
+  '/api/client-portal/:propertyId/cover-image',
+  asyncRoute(async (request, response) => {
+    const propertyId = String(request.params.propertyId);
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { coverImageUrl: true },
+    });
+
+    const storedName = managedStoredRefFromValue(property?.coverImageUrl);
+    if (!storedName) {
+      if (property?.coverImageUrl && isExternalUrl(property.coverImageUrl)) {
+        response.redirect(property.coverImageUrl);
+        return;
+      }
+
+      response.status(404).json({ message: 'Cover image not found.' });
+      return;
+    }
+
+    const managedFile = await readManagedFile(storedName);
+    if (managedFile.kind === 'missing') {
+      response.status(404).json({ message: managedFile.message });
+      return;
+    }
+
+    response.setHeader('Cache-Control', 'public, max-age=180');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    if (managedFile.kind === 'buffer') {
+      if (managedFile.mimeType) {
+        response.setHeader('Content-Type', managedFile.mimeType);
+      }
+      response.send(managedFile.buffer);
+      return;
+    }
+
+    response.sendFile(managedFile.filePath);
+  }),
+);
+
+app.get(
+  '/api/client-portal/:propertyId/files/:fileId',
+  asyncRoute(async (request, response) => {
+    const propertyId = String(request.params.propertyId);
+    const fileId = String(request.params.fileId);
+
+    const file = await prisma.jobFile.findFirst({
+      where: {
+        id: fileId,
+        category: {
+          in: Array.from(publicPortalFileCategories),
+        },
+        storedName: {
+          not: null,
+        },
+        job: {
+          propertyId,
+        },
+      },
+      select: {
+        storedName: true,
+        mimeType: true,
+        originalName: true,
+      },
+    });
+
+    if (!file?.storedName) {
+      response.status(404).json({ message: 'File not found.' });
+      return;
+    }
+
+    const managedFile = await readManagedFile(file.storedName);
+    if (managedFile.kind === 'missing') {
+      response.status(404).json({ message: managedFile.message });
+      return;
+    }
+
+    response.setHeader('Cache-Control', 'public, max-age=180');
+    response.setHeader('Content-Type', managedFile.kind === 'buffer' ? managedFile.mimeType || file.mimeType : file.mimeType);
+    response.setHeader('Content-Disposition', `inline; filename="${safeContentDispositionFileName(file.originalName)}"`);
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    if (managedFile.kind === 'buffer') {
+      response.send(managedFile.buffer);
+      return;
+    }
+
+    response.sendFile(managedFile.filePath);
+  }),
+);
+
+app.get(
+  '/api/client-portal/:propertyId/documents/:documentId',
+  asyncRoute(async (request, response) => {
+    const propertyId = String(request.params.propertyId);
+    const documentId = String(request.params.documentId);
+    const document = await prisma.generatedDocument.findFirst({
+      where: {
+        id: documentId,
+        propertyId,
+      },
+      select: {
+        html: true,
+        mimeType: true,
+        fileName: true,
+      },
+    });
+
+    if (!document) {
+      response.status(404).json({ message: 'Document not found.' });
+      return;
+    }
+
+    if (document.mimeType === 'application/pdf') {
+      response.setHeader('Cache-Control', 'public, max-age=120');
+      response.setHeader('Referrer-Policy', 'no-referrer');
+      response.setHeader('X-Content-Type-Options', 'nosniff');
+      response.setHeader('Content-Type', 'application/pdf');
+      const pdfContent = parseBase64PdfContent(document.html);
+      if (!pdfContent) {
+        throw new HttpError(422, 'Saved PDF content is invalid.');
+      }
+      response.setHeader('Content-Disposition', `inline; filename="${safeContentDispositionFileName(document.fileName)}"`);
+      response.send(pdfContent.buffer);
+      return;
+    }
+
+    const documentResponse = buildDocumentResponse(document.html, false);
+    Object.entries(documentResponse.headers).forEach(([key, value]) => {
+      response.setHeader(key, value);
+    });
+    response.setHeader('Content-Type', `${document.mimeType}; charset=utf-8`);
+    response.setHeader('Content-Disposition', `inline; filename="${safeContentDispositionFileName(document.fileName)}"`);
+    response.send(documentResponse.html);
+  }),
+);
+
 app.use('/api', sessionMiddleware);
 
 app.get(
@@ -936,7 +1290,7 @@ app.get(
 
     response.setHeader('Cache-Control', 'private, max-age=60');
     response.setHeader('Content-Type', managedFile.kind === 'buffer' ? managedFile.mimeType || file.mimeType : file.mimeType);
-    response.setHeader('Content-Disposition', `inline; filename="${file.originalName.replace(/"/g, '')}"`);
+    response.setHeader('Content-Disposition', `inline; filename="${safeContentDispositionFileName(file.originalName)}"`);
     response.setHeader('X-Content-Type-Options', 'nosniff');
     if (managedFile.kind === 'buffer') {
       response.send(managedFile.buffer);
@@ -961,7 +1315,7 @@ app.post(
     const workbookBuffer = await buildFinanceWorkbookBuffer(payload);
 
     response.setHeader('Content-Type', financeWorkbookMimeType);
-    response.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    response.setHeader('Content-Disposition', `attachment; filename="${safeContentDispositionFileName(fileName, 'finance-workbook.xlsx')}"`);
     response.setHeader('Cache-Control', 'private, no-store');
     response.send(workbookBuffer);
   }),
@@ -1582,8 +1936,8 @@ app.get(
     const propertyId = String(request.query.propertyId ?? '').trim();
     const ownerValue = String(request.query.owner ?? '').trim().toUpperCase();
     const documentTypeValue = String(request.query.documentType ?? '').trim().toUpperCase();
-    const dateFrom = parseNullableDate(String(request.query.dateFrom ?? '').trim());
-    const dateTo = parseNullableDate(String(request.query.dateTo ?? '').trim());
+    const dateFrom = parseNullableLocalDate(String(request.query.dateFrom ?? '').trim(), 'dateFrom');
+    const dateTo = parseNullableLocalDate(String(request.query.dateTo ?? '').trim(), 'dateTo');
 
     const documents = await prisma.generatedDocument.findMany({
       where: {
@@ -1729,11 +2083,15 @@ app.get(
       response.setHeader('Referrer-Policy', 'no-referrer');
       response.setHeader('X-Content-Type-Options', 'nosniff');
       response.setHeader('Content-Type', 'application/pdf');
+      const pdfContent = parseBase64PdfContent(document.html);
+      if (!pdfContent) {
+        throw new HttpError(422, 'Saved PDF content is invalid.');
+      }
       response.setHeader(
         'Content-Disposition',
-        `inline; filename="${document.fileName.replace(/"/g, '')}"`,
+        `inline; filename="${safeContentDispositionFileName(document.fileName)}"`,
       );
-      response.send(Buffer.from(document.html, 'base64'));
+      response.send(pdfContent.buffer);
       return;
     }
 
@@ -1744,7 +2102,7 @@ app.get(
     response.setHeader('Content-Type', `${document.mimeType}; charset=utf-8`);
     response.setHeader(
       'Content-Disposition',
-      `inline; filename="${document.fileName.replace(/"/g, '')}"`,
+      `inline; filename="${safeContentDispositionFileName(document.fileName)}"`,
     );
     response.send(documentResponse.html);
   }),
@@ -1859,14 +2217,17 @@ app.post(
       documentMimeType === 'text/html'
         ? sanitizeGeneratedDocumentHtml(payload.html ?? payload.content ?? '')
         : '';
-    const pdfBase64 = documentMimeType === 'application/pdf' ? String(payload.content ?? '').trim() : '';
+    const pdfContent =
+      documentMimeType === 'application/pdf'
+        ? parseBase64PdfContent(String(payload.content ?? ''))
+        : null;
 
     if (documentMimeType === 'text/html' && !sanitizedHtml) {
       response.status(400).json({ message: 'Generated document HTML is empty after sanitization.' });
       return;
     }
-    if (documentMimeType === 'application/pdf' && !pdfBase64) {
-      response.status(400).json({ message: 'Generated PDF content is empty.' });
+    if (documentMimeType === 'application/pdf' && !pdfContent) {
+      response.status(400).json({ message: 'Generated PDF content is invalid.' });
       return;
     }
 
@@ -1875,10 +2236,10 @@ app.post(
     const fileCategory =
       payload.documentType === 'Invoice' ? FileCategory.INVOICE : FileCategory.QUOTE;
     const storedDocumentContent =
-      documentMimeType === 'application/pdf' ? pdfBase64 : sanitizedHtml;
+      documentMimeType === 'application/pdf' ? pdfContent?.base64 ?? '' : sanitizedHtml;
     const storedDocumentSize =
       documentMimeType === 'application/pdf'
-        ? Buffer.from(pdfBase64, 'base64').byteLength
+        ? pdfContent?.buffer.byteLength ?? 0
         : Buffer.byteLength(sanitizedHtml, 'utf8');
 
     const relatedJobs = await prisma.job.findMany({
@@ -1921,7 +2282,7 @@ app.post(
             fileName: payload.fileName,
             mimeType: documentMimeType,
             html: storedDocumentContent,
-            issueDate: parseNullableDate(payload.issueDate),
+            issueDate: parseNullableLocalDate(payload.issueDate, 'issueDate'),
           },
         });
 
@@ -2056,8 +2417,8 @@ app.post(
         invoiceStatus: payload.invoiceStatus,
         paymentStatus: payload.paymentStatus,
         advanceCashApp: payload.advanceCashApp,
-        startDate: parseNullableDate(payload.startDate),
-        dueDate: parseNullableDate(payload.dueDate),
+        startDate: parseNullableLocalDate(payload.startDate, 'startDate'),
+        dueDate: parseNullableLocalDate(payload.dueDate, 'dueDate'),
         completedAt: payload.status === JobStatus.DONE ? new Date() : null,
         assignments: {
           create: workerIds.map((workerId) => ({ workerId })),
@@ -2102,6 +2463,109 @@ app.post(
     });
 
     response.status(201).json(serializeJob(hydratedJob));
+  }),
+);
+
+app.patch(
+  '/api/jobs/:jobId/field-update',
+  jobUploadFields,
+  asyncRoute(async (request, response) => {
+    const auth = (request as AuthenticatedRequest).auth;
+    if (!auth || auth.role === UserRole.VIEWER) {
+      response.status(403).json({ message: 'You do not have permission to send field updates.' });
+      return;
+    }
+
+    const jobId = String(request.params.jobId);
+    const payload = fieldJobUpdateSchema.parse(request.body);
+    const filesMap = ((request as Request & { files?: UploadedFilesMap }).files ?? {}) as UploadedFilesMap;
+    const existingJob = await prisma.job.findFirst({
+      where: {
+        id: jobId,
+        ...roleScopeForJobs(auth),
+      },
+      select: {
+        id: true,
+        service: true,
+        description: true,
+        status: true,
+        completedAt: true,
+        property: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!existingJob) {
+      response.status(404).json({ message: 'Job not found or not assigned to your profile.' });
+      return;
+    }
+
+    const nextStatus = payload.status ?? existingJob.status;
+    const completedAt =
+      nextStatus === JobStatus.DONE
+        ? existingJob.status === JobStatus.DONE
+          ? existingJob.completedAt ?? new Date()
+          : new Date()
+        : null;
+    const fieldNote = String(payload.fieldNote ?? '').trim();
+    const nextDescription = fieldNote
+      ? [
+          existingJob.description.trim(),
+          `[Field update - ${new Date().toISOString().slice(0, 10)}] ${fieldNote}`,
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+      : existingJob.description;
+
+    let uploadedFiles: UploadedJobFileRecord[] = [];
+
+    try {
+      uploadedFiles = await uploadIncomingJobFiles(jobId, filesMap);
+
+      await prisma.job.update({
+        where: {
+          id: jobId,
+        },
+        data: {
+          status: nextStatus,
+          completedAt,
+          description: nextDescription,
+          ...(uploadedFiles.length
+            ? {
+                files: {
+                  create: uploadedFiles,
+                },
+              }
+            : {}),
+        },
+      });
+    } catch (error) {
+      await Promise.all(uploadedFiles.map((file) => deleteManagedFile(file.storedName)));
+      throw error;
+    }
+
+    const hydratedJob = await loadJob(jobId);
+
+    await recordAuditLog(prisma, request, {
+      entityType: 'Job',
+      entityId: hydratedJob.id,
+      entityLabel: `${hydratedJob.property.name} - ${hydratedJob.service}`,
+      action: 'Field update',
+      summary: `Saved field update for "${hydratedJob.service}" in "${hydratedJob.property.name}".`,
+      metadata: {
+        propertyId: hydratedJob.property.id,
+        propertyName: hydratedJob.property.name,
+        status: hydratedJob.status,
+        uploadedFileCount: uploadedFiles.length,
+        noteIncluded: Boolean(fieldNote),
+      },
+    });
+
+    response.json(serializeJob(hydratedJob));
   }),
 );
 
@@ -2166,8 +2630,8 @@ app.put(
           invoiceStatus: payload.invoiceStatus,
           paymentStatus: payload.paymentStatus,
           advanceCashApp: payload.advanceCashApp,
-          startDate: parseNullableDate(payload.startDate),
-          dueDate: parseNullableDate(payload.dueDate),
+          startDate: parseNullableLocalDate(payload.startDate, 'startDate'),
+          dueDate: parseNullableLocalDate(payload.dueDate, 'dueDate'),
           completedAt,
           assignments: {
             deleteMany: {},
@@ -2766,7 +3230,12 @@ app.use((error: unknown, _request: Request, response: Response, next: NextFuncti
 
   console.error(error);
   response.status(500).json({
-    message: error instanceof Error ? error.message : 'Unexpected server error',
+    message:
+      env.NODE_ENV === 'production'
+        ? 'Unexpected server error'
+        : error instanceof Error
+          ? error.message
+          : 'Unexpected server error',
   });
 });
 

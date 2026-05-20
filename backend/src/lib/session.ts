@@ -29,7 +29,11 @@ export const parseCookieHeader = (headerValue: string | undefined) => {
 
       const key = part.slice(0, separatorIndex).trim();
       const value = part.slice(separatorIndex + 1).trim();
-      cookies[key] = decodeURIComponent(value);
+      try {
+        cookies[key] = decodeURIComponent(value);
+      } catch {
+        cookies[key] = value;
+      }
     });
 
   return cookies;

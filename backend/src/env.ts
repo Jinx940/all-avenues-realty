@@ -40,9 +40,11 @@ const envSchema = z.object({
 });
 
 export const buildEnv = (source: NodeJS.ProcessEnv) => {
+  const isTestProcess = source.NODE_ENV === 'test' || source.npm_lifecycle_event === 'test';
   const parsedEnv = envSchema.safeParse({
     ...source,
     API_PORT: source.API_PORT ?? source.PORT,
+    DATABASE_URL: source.DATABASE_URL ?? (isTestProcess ? 'postgresql://user:pass@localhost:5432/all_avenues_test' : undefined),
   });
 
   if (!parsedEnv.success) {

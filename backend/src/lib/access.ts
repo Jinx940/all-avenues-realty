@@ -9,7 +9,7 @@ export const canManageJobs = (role: UserRole) =>
   role === UserRole.ADMIN || role === UserRole.OFFICE;
 
 export const canCreateJobs = (role: UserRole) =>
-  canManageJobs(role);
+  canManageJobs(role) || role === UserRole.WORKER;
 
 export const canViewAllJobs = (role: UserRole) =>
   role === UserRole.ADMIN || role === UserRole.OFFICE || role === UserRole.VIEWER;
@@ -37,16 +37,23 @@ export const roleScopeForProperties = (auth: AuthUser): Prisma.PropertyWhereInpu
         },
       };
 
-export const roleScopeForDocuments = (auth: AuthUser): Prisma.GeneratedDocumentWhereInput =>
-  canViewAllJobs(auth.role)
-    ? {}
-    : {
-        files: {
-          some: {
-            job: roleScopeForJobs(auth),
-          },
-        },
-      };
+export const roleScopeForDocuments = (auth: AuthUser): Prisma.GeneratedDocumentWhereInput => {
+  if (canViewAllJobs(auth.role)) {
+    return {};
+  }
+
+  const jobScope = roleScopeForJobs(auth);
+  return {
+    files: {
+      some: {
+        job: jobScope,
+      },
+      every: {
+        job: jobScope,
+      },
+    },
+  };
+};
 
 export const assertRole = (
   request: Request,

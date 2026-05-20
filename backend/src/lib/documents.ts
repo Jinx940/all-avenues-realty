@@ -23,6 +23,38 @@ const stripDangerousAttributes = (html: string) =>
 export const sanitizeGeneratedDocumentHtml = (html: string) =>
   stripDangerousAttributes(stripDangerousTags(html)).trim();
 
+export const safeContentDispositionFileName = (value: string, fallback = 'file') => {
+  const safeName = String(value ?? '')
+    .replace(/[\r\n"]/g, '')
+    .replace(/[\\/]/g, '-')
+    .trim();
+
+  return safeName || fallback;
+};
+
+export const parseBase64PdfContent = (value: string) => {
+  const base64 = String(value ?? '').trim().replace(/\s+/g, '');
+  if (!base64 || base64.length % 4 === 1 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {
+    return null;
+  }
+
+  const buffer = Buffer.from(base64, 'base64');
+  const encoded = buffer.toString('base64');
+  const hasCanonicalEncoding =
+    encoded === base64 ||
+    encoded.replace(/=+$/, '') === base64.replace(/=+$/, '');
+  const hasPdfSignature =
+    buffer[0] === 0x25 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x44 &&
+    buffer[3] === 0x46 &&
+    buffer[4] === 0x2d;
+
+  return buffer.length && hasCanonicalEncoding && hasPdfSignature
+    ? { base64, buffer }
+    : null;
+};
+
 export const buildGeneratedDocumentUrl = (documentId: string, autoPrint = false) =>
   `/api/generated-documents/${documentId}${autoPrint ? '?print=1' : ''}`;
 
