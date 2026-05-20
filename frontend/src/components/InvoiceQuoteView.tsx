@@ -146,8 +146,6 @@ type GeneratedDocumentContent = {
   safeDocumentNumber: string;
 };
 
-type AttachmentSelection = Record<PdfAttachmentFile['kind'], boolean>;
-
 type EvidenceAttachmentPair = {
   before: PdfAttachmentFile | null;
   after: PdfAttachmentFile | null;
@@ -205,11 +203,6 @@ const normalizePdfAttachmentKind = (value: string | null | undefined): PdfAttach
 };
 const invoicePhotoAttachmentKinds = new Set<PdfAttachmentFile['kind']>(['before', 'after']);
 const receiptAttachmentKinds = new Set<PdfAttachmentFile['kind']>(['receipt']);
-const defaultAttachmentSelection: AttachmentSelection = {
-  before: true,
-  after: true,
-  receipt: true,
-};
 const selectableAttachmentKinds: Array<PdfAttachmentFile['kind']> = ['before', 'after', 'receipt'];
 
 const toAmount = (value: string) => {
@@ -2140,18 +2133,37 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
     </div>
   `;
 
+  type ToddInvoicePageLayout = {
+    rows: AzeInvoiceRow[];
+    tailBlocks: string[];
+    includeFooter: boolean;
+  };
+
   const paginateToddInvoiceRowsByLayout = () => {
-    const tailBlocks = [summaryHtml, ...buildAttachmentTailBlocks(data.attachments)];
+    const attachmentTailBlocks = buildAttachmentTailBlocks(data.attachments);
 
     if (!tableRows.length) {
-      return [{ rows: [], tailBlocks }];
+      return [
+        { rows: [], tailBlocks: [summaryHtml], includeFooter: true },
+        ...(attachmentTailBlocks.length
+          ? [{ rows: [], tailBlocks: attachmentTailBlocks, includeFooter: false }]
+          : []),
+      ];
     }
 
     const fallbackPages = paginateToddInvoiceRows(tableRows);
 
     if (typeof document === 'undefined') {
-      const fallbackLayouts = fallbackPages.map((rows) => ({ rows, tailBlocks: [] as string[] }));
-      fallbackLayouts[fallbackLayouts.length - 1].tailBlocks = tailBlocks;
+      const fallbackLayouts: ToddInvoicePageLayout[] = fallbackPages.map((rows) => ({
+        rows,
+        tailBlocks: [],
+        includeFooter: false,
+      }));
+      fallbackLayouts[fallbackLayouts.length - 1].tailBlocks = [summaryHtml];
+      fallbackLayouts[fallbackLayouts.length - 1].includeFooter = true;
+      if (attachmentTailBlocks.length) {
+        fallbackLayouts.push({ rows: [], tailBlocks: attachmentTailBlocks, includeFooter: false });
+      }
       return fallbackLayouts;
     }
 
@@ -2248,32 +2260,66 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
         pages.pop();
       }
 
-      const pageLayouts = pages.map((rows) => ({ rows, tailBlocks: [] as string[] }));
-      let tailPageIndex = pageLayouts.length - 1;
+      const pageLayouts: ToddInvoicePageLayout[] = pages.map((rows) => ({
+        rows,
+        tailBlocks: [],
+        includeFooter: false,
+      }));
+      let summaryPageIndex = pageLayouts.length - 1;
+      const summaryLayout = pageLayouts[summaryPageIndex];
 
-      for (const tailBlock of tailBlocks) {
-        const currentLayout = pageLayouts[tailPageIndex];
-        const candidateTailBlocks = [...currentLayout.tailBlocks, tailBlock];
-
-        if (
-          pageFits(currentLayout.rows, {
-            isFirstPage: tailPageIndex === 0,
-            tailBlocks: candidateTailBlocks,
-            includeFooter: true,
-          })
-        ) {
-          currentLayout.tailBlocks.push(tailBlock);
-          continue;
-        }
-
-        pageLayouts.push({ rows: [], tailBlocks: [tailBlock] });
-        tailPageIndex = pageLayouts.length - 1;
+      if (
+        pageFits(summaryLayout.rows, {
+          isFirstPage: summaryPageIndex === 0,
+          tailBlocks: [summaryHtml],
+          includeFooter: true,
+        })
+      ) {
+        summaryLayout.tailBlocks = [summaryHtml];
+        summaryLayout.includeFooter = true;
+      } else {
+        pageLayouts.push({ rows: [], tailBlocks: [summaryHtml], includeFooter: true });
+        summaryPageIndex = pageLayouts.length - 1;
       }
 
-      return pageLayouts.length ? pageLayouts : [{ rows: [], tailBlocks }];
+      if (attachmentTailBlocks.length) {
+        pageLayouts.push({ rows: [], tailBlocks: [], includeFooter: false });
+        let attachmentPageIndex = pageLayouts.length - 1;
+
+        for (const tailBlock of attachmentTailBlocks) {
+          const currentLayout = pageLayouts[attachmentPageIndex];
+          const candidateTailBlocks = [...currentLayout.tailBlocks, tailBlock];
+
+          if (
+            pageFits(currentLayout.rows, {
+              isFirstPage: attachmentPageIndex === 0,
+              tailBlocks: candidateTailBlocks,
+              includeFooter: false,
+            })
+          ) {
+            currentLayout.tailBlocks.push(tailBlock);
+            continue;
+          }
+
+          pageLayouts.push({ rows: [], tailBlocks: [tailBlock], includeFooter: false });
+          attachmentPageIndex = pageLayouts.length - 1;
+        }
+      }
+
+      return pageLayouts.length
+        ? pageLayouts
+        : [{ rows: [], tailBlocks: [summaryHtml], includeFooter: true }];
     } catch {
-      const fallbackLayouts = fallbackPages.map((rows) => ({ rows, tailBlocks: [] as string[] }));
-      fallbackLayouts[fallbackLayouts.length - 1].tailBlocks = tailBlocks;
+      const fallbackLayouts: ToddInvoicePageLayout[] = fallbackPages.map((rows) => ({
+        rows,
+        tailBlocks: [],
+        includeFooter: false,
+      }));
+      fallbackLayouts[fallbackLayouts.length - 1].tailBlocks = [summaryHtml];
+      fallbackLayouts[fallbackLayouts.length - 1].includeFooter = true;
+      if (attachmentTailBlocks.length) {
+        fallbackLayouts.push({ rows: [], tailBlocks: attachmentTailBlocks, includeFooter: false });
+      }
       return fallbackLayouts;
     } finally {
       measurementHost.remove();
@@ -2286,7 +2332,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
       buildPageHtml(pageLayout.rows, {
         isFirstPage: pageIndex === 0,
         tailBlocks: pageLayout.tailBlocks,
-        includeFooter: pageIndex === renderedPages.length - 1,
+        includeFooter: pageLayout.includeFooter,
       }),
     )
     .join('');
@@ -2779,7 +2825,7 @@ export function InvoiceQuoteView({
   const [advancePayment, setAdvancePayment] = useState('0');
   const [materialExpense, setMaterialExpense] = useState('0');
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
-  const [attachmentSelection, setAttachmentSelection] = useState<AttachmentSelection>(defaultAttachmentSelection);
+  const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([]);
   const [selectedRyanReceiptIds, setSelectedRyanReceiptIds] = useState<string[]>([]);
   const [descriptionEdits, setDescriptionEdits] = useState<Record<string, string>>({});
   const [jobSelection, setJobSelection] = useState<JobSelectionState>({
@@ -2897,6 +2943,13 @@ export function InvoiceQuoteView({
     () => [...selectedPhotoAttachments, ...propertyReceiptAttachments],
     [propertyReceiptAttachments, selectedPhotoAttachments],
   );
+  useEffect(() => {
+    setSelectedAttachmentIds((current) => {
+      const availableIds = new Set(selectedJobAttachments.map((attachment) => attachment.id));
+      const next = current.filter((id) => availableIds.has(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [selectedJobAttachments]);
   const attachmentCounts = useMemo(
     () =>
       selectableAttachmentKinds.reduce((counts, kind) => ({
@@ -2905,9 +2958,13 @@ export function InvoiceQuoteView({
       }), {} as Record<PdfAttachmentFile['kind'], number>),
     [selectedJobAttachments],
   );
+  const selectedAttachmentIdSet = useMemo(
+    () => new Set(selectedAttachmentIds),
+    [selectedAttachmentIds],
+  );
   const selectedAttachments = useMemo(
-    () => selectedJobAttachments.filter((attachment) => attachmentSelection[attachment.kind]),
-    [attachmentSelection, selectedJobAttachments],
+    () => selectedJobAttachments.filter((attachment) => selectedAttachmentIdSet.has(attachment.id)),
+    [selectedAttachmentIdSet, selectedJobAttachments],
   );
   const selectedInvoicePhotoAttachments = useMemo(
     () => selectedAttachments.filter((attachment) => attachment.kind !== 'receipt'),
@@ -2951,8 +3008,11 @@ export function InvoiceQuoteView({
         ? `Receipt (${selectedRyanReceiptAttachments.length} of ${propertyReceiptAttachments.length})`
         : ''
       : availableAttachmentKinds
-          .filter((kind) => attachmentSelection[kind] && attachmentCounts[kind] > 0)
-          .map((kind) => `${attachmentKindLabels[kind]} (${attachmentCounts[kind]})`)
+          .map((kind) => {
+            const selectedCount = selectedAttachments.filter((attachment) => attachment.kind === kind).length;
+            return selectedCount > 0 ? `${attachmentKindLabels[kind]} (${selectedCount} of ${attachmentCounts[kind]})` : '';
+          })
+          .filter(Boolean)
           .join(', ');
 
   const usesManualAmounts = ownerKey !== 'todd';
@@ -3037,6 +3097,34 @@ export function InvoiceQuoteView({
       propertyId: normalizedPropertyId,
       ids: allSelected ? [] : propertyJobs.map((job) => job.id),
       mode: 'manual',
+    });
+  };
+
+  const setAttachmentKindSelected = (kind: PdfAttachmentFile['kind'], checked: boolean) => {
+    const kindIds = selectedJobAttachments
+      .filter((attachment) => attachment.kind === kind)
+      .map((attachment) => attachment.id);
+
+    setSelectedAttachmentIds((current) => {
+      const nextIds = new Set(current);
+      kindIds.forEach((id) => {
+        if (checked) {
+          nextIds.add(id);
+        } else {
+          nextIds.delete(id);
+        }
+      });
+      return [...nextIds];
+    });
+  };
+
+  const setAttachmentSelected = (attachmentId: string, checked: boolean) => {
+    setSelectedAttachmentIds((current) => {
+      if (checked) {
+        return current.includes(attachmentId) ? current : [...current, attachmentId];
+      }
+
+      return current.filter((id) => id !== attachmentId);
     });
   };
 
@@ -3555,23 +3643,49 @@ export function InvoiceQuoteView({
                       </div>
                     </>
                   ) : (
-                    availableAttachmentKinds.map((kind) => (
-                      <label key={kind} className="invoice-attachment-option">
-                        <input
-                          type="checkbox"
-                          checked={attachmentSelection[kind]}
-                          onChange={(event) =>
-                            setAttachmentSelection((current) => ({
-                              ...current,
-                              [kind]: event.target.checked,
-                            }))
-                          }
-                          disabled={!attachmentCounts[kind]}
-                        />
-                        <span>{attachmentKindLabels[kind]}</span>
-                        <small>{attachmentCounts[kind]} file(s)</small>
-                      </label>
-                    ))
+                    availableAttachmentKinds.map((kind) => {
+                      const attachmentsForKind = selectedJobAttachments.filter(
+                        (attachment) => attachment.kind === kind,
+                      );
+                      const selectedCount = attachmentsForKind.filter((attachment) =>
+                        selectedAttachmentIdSet.has(attachment.id),
+                      ).length;
+
+                      return (
+                        <div key={kind} className="invoice-attachment-receipt-list">
+                          <label className="invoice-attachment-option">
+                            <input
+                              type="checkbox"
+                              checked={attachmentsForKind.length > 0 && selectedCount === attachmentsForKind.length}
+                              onChange={(event) => setAttachmentKindSelected(kind, event.target.checked)}
+                              disabled={!attachmentsForKind.length}
+                            />
+                            <span>{attachmentKindLabels[kind]}</span>
+                            <small>
+                              {selectedCount} of {attachmentsForKind.length} selected
+                            </small>
+                          </label>
+
+                          {attachmentsForKind.map((attachment) => (
+                            <label
+                              key={attachment.id}
+                              className="invoice-attachment-option invoice-attachment-option--receipt"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedAttachmentIdSet.has(attachment.id)}
+                                onChange={(event) => setAttachmentSelected(attachment.id, event.target.checked)}
+                              />
+                              <span className="invoice-attachment-receipt-meta">
+                                <span>{attachment.label}</span>
+                                <small>{attachment.fileName}</small>
+                              </span>
+                              <small>{formatPdfDate(attachment.createdAt)}</small>
+                            </label>
+                          ))}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               ) : null}
