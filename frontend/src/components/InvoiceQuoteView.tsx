@@ -2085,7 +2085,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
     .todd-invoice-table .row-continuation .cost { padding-top: 0; }
     .todd-invoice-table .row-no-divider .service,
     .todd-invoice-table .row-no-divider .cost { padding-bottom: 0; }
-    .summary-wrap { flex: 0 0 auto; display: flex; justify-content: center; margin-top: 12px; border-top: 2px solid #1f2328; padding-top: 9px; break-inside: avoid; page-break-inside: avoid; }
+    .summary-wrap { flex: 0 0 auto; width: 94%; display: flex; justify-content: flex-end; margin: 12px auto 0; border-top: 2px solid #1f2328; padding-top: 9px; break-inside: avoid; page-break-inside: avoid; }
     .summary { width: 260px; display: grid; gap: 0; }
     .summary-row { display: grid; grid-template-columns: 1fr 110px; min-height: 27px; align-items: center; border-bottom: 1px solid #c3cbd3; color: #343b43; font-size: 11px; }
     .summary-row span { padding-right: 12px; text-align: center; }
