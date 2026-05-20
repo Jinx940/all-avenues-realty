@@ -2825,6 +2825,13 @@ export function InvoiceQuoteView({
   const [advancePayment, setAdvancePayment] = useState('0');
   const [materialExpense, setMaterialExpense] = useState('0');
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [expandedAttachmentKinds, setExpandedAttachmentKinds] = useState<
+    Record<PdfAttachmentFile['kind'], boolean>
+  >({
+    before: false,
+    after: false,
+    receipt: false,
+  });
   const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([]);
   const [selectedRyanReceiptIds, setSelectedRyanReceiptIds] = useState<string[]>([]);
   const [descriptionEdits, setDescriptionEdits] = useState<Record<string, string>>({});
@@ -3098,6 +3105,13 @@ export function InvoiceQuoteView({
       ids: allSelected ? [] : propertyJobs.map((job) => job.id),
       mode: 'manual',
     });
+  };
+
+  const toggleAttachmentKindOpen = (kind: PdfAttachmentFile['kind']) => {
+    setExpandedAttachmentKinds((current) => ({
+      ...current,
+      [kind]: !current[kind],
+    }));
   };
 
   const setAttachmentKindSelected = (kind: PdfAttachmentFile['kind'], checked: boolean) => {
@@ -3589,8 +3603,8 @@ export function InvoiceQuoteView({
               {attachmentsOpen && documentType === 'Invoice' && hasSelectablePdfAttachments ? (
                 <div className="invoice-attachment-menu">
                   {ownerKey === 'ryan' ? (
-                    <>
-                      <label className="invoice-attachment-option">
+                    <div className="invoice-attachment-kind">
+                      <div className="invoice-attachment-option invoice-attachment-kind-head">
                         <input
                           type="checkbox"
                           checked={allRyanReceiptsSelected}
@@ -3602,46 +3616,59 @@ export function InvoiceQuoteView({
                             )
                           }
                         />
-                        <span>All receipts</span>
+                        <button
+                          type="button"
+                          className="invoice-attachment-kind-toggle"
+                          onClick={() => toggleAttachmentKindOpen('receipt')}
+                          disabled={!propertyReceiptAttachments.length}
+                          aria-expanded={expandedAttachmentKinds.receipt}
+                        >
+                          <span>Receipt</span>
+                          <span className={`invoice-services-caret ${expandedAttachmentKinds.receipt ? 'is-open' : ''}`}>
+                            v
+                          </span>
+                        </button>
                         <small>
                           {selectedRyanReceiptAttachments.length} of {propertyReceiptAttachments.length} selected
                         </small>
-                      </label>
-
-                      <div className="invoice-attachment-receipt-list">
-                        {propertyReceiptAttachments.map((attachment) => {
-                          const isSelected = selectedRyanReceiptIds.includes(attachment.id);
-
-                          return (
-                            <label
-                              key={attachment.id}
-                              className="invoice-attachment-option invoice-attachment-option--receipt"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(event) =>
-                                  setSelectedRyanReceiptIds((current) => {
-                                    if (event.target.checked) {
-                                      return current.includes(attachment.id)
-                                        ? current
-                                        : [...current, attachment.id];
-                                    }
-
-                                    return current.filter((id) => id !== attachment.id);
-                                  })
-                                }
-                              />
-                              <span className="invoice-attachment-receipt-meta">
-                                <span>{attachment.label}</span>
-                                <small>{attachment.fileName}</small>
-                              </span>
-                              <small>{formatPdfDate(attachment.createdAt)}</small>
-                            </label>
-                          );
-                        })}
                       </div>
-                    </>
+
+                      {expandedAttachmentKinds.receipt ? (
+                        <div className="invoice-attachment-receipt-list">
+                          {propertyReceiptAttachments.map((attachment) => {
+                            const isSelected = selectedRyanReceiptIds.includes(attachment.id);
+
+                            return (
+                              <label
+                                key={attachment.id}
+                                className="invoice-attachment-option invoice-attachment-option--receipt"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(event) =>
+                                    setSelectedRyanReceiptIds((current) => {
+                                      if (event.target.checked) {
+                                        return current.includes(attachment.id)
+                                          ? current
+                                          : [...current, attachment.id];
+                                      }
+
+                                      return current.filter((id) => id !== attachment.id);
+                                    })
+                                  }
+                                />
+                                <span className="invoice-attachment-receipt-meta">
+                                  <span>{attachment.label}</span>
+                                  <small>{attachment.fileName}</small>
+                                </span>
+                                <small>{formatPdfDate(attachment.createdAt)}</small>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
                   ) : (
                     availableAttachmentKinds.map((kind) => {
                       const attachmentsForKind = selectedJobAttachments.filter(
@@ -3652,37 +3679,52 @@ export function InvoiceQuoteView({
                       ).length;
 
                       return (
-                        <div key={kind} className="invoice-attachment-receipt-list">
-                          <label className="invoice-attachment-option">
+                        <div key={kind} className="invoice-attachment-kind">
+                          <div className="invoice-attachment-option invoice-attachment-kind-head">
                             <input
                               type="checkbox"
                               checked={attachmentsForKind.length > 0 && selectedCount === attachmentsForKind.length}
                               onChange={(event) => setAttachmentKindSelected(kind, event.target.checked)}
                               disabled={!attachmentsForKind.length}
                             />
-                            <span>{attachmentKindLabels[kind]}</span>
+                            <button
+                              type="button"
+                              className="invoice-attachment-kind-toggle"
+                              onClick={() => toggleAttachmentKindOpen(kind)}
+                              disabled={!attachmentsForKind.length}
+                              aria-expanded={expandedAttachmentKinds[kind]}
+                            >
+                              <span>{attachmentKindLabels[kind]}</span>
+                              <span className={`invoice-services-caret ${expandedAttachmentKinds[kind] ? 'is-open' : ''}`}>
+                                v
+                              </span>
+                            </button>
                             <small>
                               {selectedCount} of {attachmentsForKind.length} selected
                             </small>
-                          </label>
+                          </div>
 
-                          {attachmentsForKind.map((attachment) => (
-                            <label
-                              key={attachment.id}
-                              className="invoice-attachment-option invoice-attachment-option--receipt"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedAttachmentIdSet.has(attachment.id)}
-                                onChange={(event) => setAttachmentSelected(attachment.id, event.target.checked)}
-                              />
-                              <span className="invoice-attachment-receipt-meta">
-                                <span>{attachment.label}</span>
-                                <small>{attachment.fileName}</small>
-                              </span>
-                              <small>{formatPdfDate(attachment.createdAt)}</small>
-                            </label>
-                          ))}
+                          {expandedAttachmentKinds[kind] ? (
+                            <div className="invoice-attachment-receipt-list">
+                              {attachmentsForKind.map((attachment) => (
+                                <label
+                                  key={attachment.id}
+                                  className="invoice-attachment-option invoice-attachment-option--receipt"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedAttachmentIdSet.has(attachment.id)}
+                                    onChange={(event) => setAttachmentSelected(attachment.id, event.target.checked)}
+                                  />
+                                  <span className="invoice-attachment-receipt-meta">
+                                    <span>{attachment.label}</span>
+                                    <small>{attachment.fileName}</small>
+                                  </span>
+                                  <small>{formatPdfDate(attachment.createdAt)}</small>
+                                </label>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                       );
                     })

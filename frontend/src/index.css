@@ -540,11 +540,40 @@ button:disabled {
 }
 
 .invoice-attachment-option {
+  display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 9px 10px;
   background: var(--panel-soft);
+}
+
+.invoice-attachment-kind {
+  display: grid;
+  gap: 8px;
+}
+
+.invoice-attachment-kind-head {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.invoice-attachment-kind-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+
+.invoice-attachment-kind-toggle:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .invoice-attachment-option input {
