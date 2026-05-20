@@ -2001,7 +2001,9 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
   const bodyIntroHtml = `
     <section class="body-intro">
       <div class="brand-lockup">
-        <img class="home-envy-logo" src="${escapeHtml(homeEnvyLogoUrl)}" alt="Home Envy logo">
+        <span class="home-envy-logo">
+          <img class="home-envy-logo-image" src="${escapeHtml(homeEnvyLogoUrl)}" alt="Home Envy logo">
+        </span>
         <div class="brand-copy">
           <strong>Home Envy</strong>
           <span>Todd Goertler</span>
@@ -2045,7 +2047,8 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
     .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .body-intro { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
     .brand-lockup { display: flex; align-items: center; gap: 18px; min-width: 0; }
-    .home-envy-logo { width: 82px; height: 82px; object-fit: contain; display: block; flex: 0 0 82px; }
+    .home-envy-logo { width: 116px; height: 96px; display: block; flex: 0 0 116px; position: relative; overflow: hidden; }
+    .home-envy-logo-image { width: 255px; height: 170px; object-fit: contain; display: block; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
     .brand-copy { display: grid; gap: 4px; }
     .brand-copy strong { display: block; color: #1f2328; font-size: 27px; line-height: 1; letter-spacing: 0; }
     .brand-copy span { display: block; color: #1f2328; font-size: 17px; line-height: 1.05; font-weight: 800; }
@@ -2092,7 +2095,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
     .summary-row-total { margin-top: 5px; min-height: 34px; border-bottom: 0; background: #1f2328; color: #ffffff; padding: 0 10px; }
     .summary-row-total strong,
     .summary-row-total span { color: #ffffff; }
-    .payment-grid { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr 130px; gap: 16px; padding-top: 14px; margin-top: 10px; border-top: 1px solid #b8c0c8; color: #343b43; text-align: center; align-items: center; break-inside: avoid; page-break-inside: avoid; }
+    .payment-grid { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr 130px; gap: 16px; padding-top: 14px; margin-top: 10px; border-top: 1px solid #b8c0c8; color: #343b43; text-align: left; align-items: start; break-inside: avoid; page-break-inside: avoid; }
     .payment-grid span { display: block; color: #69737f; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; }
     .payment-grid strong { display: block; color: #1f2328; font-size: 11px; line-height: 1.25; }
     .payment-grid small { display: block; color: #58636f; font-size: 9px; line-height: 1.35; margin-top: 3px; }
@@ -2113,7 +2116,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
             ? `
               <table class="todd-invoice-table">
                 ${azeInvoiceTableColumnsHtml}
-                ${azeInvoiceTableHeadHtml}
+                ${options.isFirstPage ? azeInvoiceTableHeadHtml : ''}
                 <tbody>${buildAzeInvoiceRowsHtml(pageRows)}</tbody>
               </table>
             `
