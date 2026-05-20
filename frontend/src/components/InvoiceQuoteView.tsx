@@ -1975,7 +1975,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
   `;
 
   const paymentHtml = `
-    <section class="payment-grid">
+    <footer class="payment-grid">
       <div>
         <span>Payment Method</span>
         <strong>Payment due upon receipt</strong>
@@ -1995,7 +1995,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
         <strong>Todd Goertler</strong>
         <small>Owner</small>
       </div>
-    </section>
+    </footer>
   `;
 
   const bodyIntroHtml = `
@@ -2106,7 +2106,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
 
   const buildPageHtml = (
     pageRows: AzeInvoiceRow[],
-    options: { isFirstPage: boolean; tailBlocks?: string[] },
+    options: { isFirstPage: boolean; tailBlocks?: string[]; includeFooter: boolean },
   ) => `
     <div class="page ${options.isFirstPage ? 'page-first' : 'page-continue'}">
       <main class="sheet-body">
@@ -2124,11 +2124,12 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
         }
         ${options.tailBlocks?.join('') ?? ''}
       </main>
+      ${options.includeFooter ? paymentHtml : ''}
     </div>
   `;
 
   const paginateToddInvoiceRowsByLayout = () => {
-    const tailBlocks = [summaryHtml, paymentHtml];
+    const tailBlocks = [summaryHtml];
 
     if (!tableRows.length) {
       return [{ rows: [], tailBlocks }];
@@ -2158,13 +2159,14 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
 
     const pageFits = (
       pageRows: AzeInvoiceRow[],
-      options: { isFirstPage: boolean; tailBlocks?: string[] },
+      options: { isFirstPage: boolean; tailBlocks?: string[]; includeFooter: boolean },
     ) => {
       measurementRoot.innerHTML = `
         <style>${toddModernInvoiceLayoutStyles}</style>
         ${buildPageHtml(pageRows, {
           isFirstPage: options.isFirstPage,
           tailBlocks: options.tailBlocks,
+          includeFooter: options.includeFooter,
         })}
       `;
 
@@ -2175,7 +2177,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
 
       const measuredElements = Array.from(
         measurementRoot.querySelectorAll<HTMLElement>(
-          '.body-intro, .client-grid, .todd-invoice-table, .summary-wrap, .payment-grid',
+          '.body-intro, .client-grid, .todd-invoice-table, .summary-wrap',
         ),
       );
 
@@ -2201,7 +2203,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
         const currentPage = pages[pageIndex];
         const candidatePage = [...currentPage, row];
 
-        if (pageFits(candidatePage, { isFirstPage: pageIndex === 0 })) {
+        if (pageFits(candidatePage, { isFirstPage: pageIndex === 0, includeFooter: false })) {
           currentPage.push(row);
           continue;
         }
@@ -2245,6 +2247,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
           pageFits(currentLayout.rows, {
             isFirstPage: tailPageIndex === 0,
             tailBlocks: candidateTailBlocks,
+            includeFooter: true,
           })
         ) {
           currentLayout.tailBlocks.push(tailBlock);
@@ -2271,6 +2274,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
       buildPageHtml(pageLayout.rows, {
         isFirstPage: pageIndex === 0,
         tailBlocks: pageLayout.tailBlocks,
+        includeFooter: pageIndex === renderedPages.length - 1,
       }),
     )
     .join('');
