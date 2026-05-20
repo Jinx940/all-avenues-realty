@@ -2076,8 +2076,8 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
     .todd-invoice-table .area,
     .todd-invoice-table .service { color: #1f2328; font-size: 10px; font-weight: 800; line-height: 1.18; text-align: center; word-break: break-word; }
     .todd-invoice-table .service.is-empty { color: transparent; }
-    .todd-invoice-table .desc { color: #343b43; font-size: 11px; line-height: 1.35; text-align: center; }
-    .todd-invoice-table .desc ul { margin: 0; padding-left: 0; list-style-position: inside; }
+    .todd-invoice-table .desc { color: #343b43; font-size: 11px; line-height: 1.35; text-align: left; }
+    .todd-invoice-table .desc ul { margin: 0; padding-left: 16px; list-style-position: outside; }
     .todd-invoice-table .desc li + li { margin-top: 3px; }
     .todd-invoice-table .cost { color: #1f2328; font-size: 11px; font-weight: 800; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .todd-invoice-table .cost.is-empty { color: transparent; }
