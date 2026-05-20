@@ -2942,11 +2942,12 @@ export function InvoiceQuoteView({
           .map((kind) => `${attachmentKindLabels[kind]} (${attachmentCounts[kind]})`)
           .join(', ');
 
+  const usesManualAmounts = ownerKey !== 'todd';
   const servicesTotal = selectedItems.reduce((sum, item) => sum + item.unitPrice, 0);
-  const ryanLaborValue = toAmount(ryanLabor);
-  const juanLaborValue = toAmount(juanLabor);
-  const advancePaymentValue = toAmount(advancePayment);
-  const materialExpenseValue = toAmount(materialExpense);
+  const ryanLaborValue = usesManualAmounts ? toAmount(ryanLabor) : 0;
+  const juanLaborValue = usesManualAmounts ? toAmount(juanLabor) : 0;
+  const advancePaymentValue = usesManualAmounts ? toAmount(advancePayment) : 0;
+  const materialExpenseValue = usesManualAmounts ? toAmount(materialExpense) : 0;
   const jobTotal = servicesTotal + ryanLaborValue + juanLaborValue;
   const expenses = materialExpenseValue + advancePaymentValue;
   const totalDue = Math.max(jobTotal - expenses, 0);
@@ -2969,16 +2970,22 @@ export function InvoiceQuoteView({
   const propertyCityLine = activeProperty?.cityLine || '';
   const timeFrame = `${formatPdfDate(firstJobDate)} - ${formatPdfDate(lastJobDate)}`;
 
-  const previewRows = [
-    { label: 'Services Total', value: servicesTotal },
-    { label: ownerKey === 'todd' ? 'Todd Labor' : 'Ryan Labor', value: ryanLaborValue },
-    { label: 'Juan Labor', value: juanLaborValue },
-    { label: 'Job Total', value: jobTotal },
-    { label: 'Material Expense', value: materialExpenseValue },
-    { label: 'Advance Payment', value: advancePaymentValue },
-    { label: 'Expenses', value: expenses },
-    { label: 'Total Due', value: totalDue, strong: true },
-  ];
+  const previewRows = usesManualAmounts
+    ? [
+        { label: 'Services Total', value: servicesTotal },
+        { label: 'Ryan Labor', value: ryanLaborValue },
+        { label: 'Juan Labor', value: juanLaborValue },
+        { label: 'Job Total', value: jobTotal },
+        { label: 'Material Expense', value: materialExpenseValue },
+        { label: 'Advance Payment', value: advancePaymentValue },
+        { label: 'Expenses', value: expenses },
+        { label: 'Total Due', value: totalDue, strong: true },
+      ]
+    : [
+        { label: 'Services Total', value: servicesTotal },
+        { label: 'Job Total', value: jobTotal },
+        { label: 'Total Due', value: totalDue, strong: true },
+      ];
 
   const filteredDocuments = useMemo(() => {
     return documents.filter((document) => {
@@ -3655,66 +3662,70 @@ export function InvoiceQuoteView({
           )}
         </div>
 
-        <div className="invoice-section-card">
-          <div className="invoice-section-head">
-            <div>
-              <p className="eyebrow">Additional Amounts</p>
-              <h3 className="title-with-icon title-with-icon--sm">
-                <UiIcon name="dollar" />
-                <span>Manual amounts</span>
-              </h3>
+        {usesManualAmounts ? (
+          <div className="invoice-section-card">
+            <div className="invoice-section-head">
+              <div>
+                <p className="eyebrow">Additional Amounts</p>
+                <h3 className="title-with-icon title-with-icon--sm">
+                  <UiIcon name="dollar" />
+                  <span>Manual amounts</span>
+                </h3>
+              </div>
+            </div>
+
+            <div className="form-grid">
+              <label>
+                Ryan Labor (USD)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={ryanLabor}
+                  onChange={(event) => setRyanLabor(event.target.value)}
+                />
+              </label>
+
+              <label>
+                Juan Labor (USD)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={juanLabor}
+                  onChange={(event) => setJuanLabor(event.target.value)}
+                />
+              </label>
+
+              <label>
+                Advance Payment (optional)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={advancePayment}
+                  onChange={(event) => setAdvancePayment(event.target.value)}
+                />
+              </label>
+
+              <label>
+                Material Expense (USD)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={materialExpense}
+                  onChange={(event) => setMaterialExpense(event.target.value)}
+                />
+              </label>
             </div>
           </div>
-
-          <div className="form-grid">
-            <label>
-              {ownerKey === 'todd' ? 'Todd Labor (USD)' : 'Ryan Labor (USD)'}
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={ryanLabor}
-                onChange={(event) => setRyanLabor(event.target.value)}
-              />
-            </label>
-
-            <label>
-              Juan Labor (USD)
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={juanLabor}
-                onChange={(event) => setJuanLabor(event.target.value)}
-              />
-            </label>
-
-            <label>
-              Advance Payment (optional)
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={advancePayment}
-                onChange={(event) => setAdvancePayment(event.target.value)}
-              />
-            </label>
-
-            <label>
-              Material Expense (USD)
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={materialExpense}
-                onChange={(event) => setMaterialExpense(event.target.value)}
-              />
-            </label>
-          </div>
-        </div>
+        ) : null}
 
         <div className="invoice-section-card">
-          <p className="invoice-preview-note">Advance Payment is used only to compute Total Due.</p>
+          {usesManualAmounts ? (
+            <p className="invoice-preview-note">Advance Payment is used only to compute Total Due.</p>
+          ) : null}
 
           <div className="invoice-preview-card">
             <div className="invoice-preview-head">
