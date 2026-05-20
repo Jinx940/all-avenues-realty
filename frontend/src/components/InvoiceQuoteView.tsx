@@ -4061,13 +4061,15 @@ function getSuggestedDocumentNumber(
   documents: GeneratedDocumentHistoryItem[],
   documentType: DocumentType,
 ) {
+  const firstAutoDocumentNumber = 4001;
+  const documentNumberFloor = firstAutoDocumentNumber - 1;
   const targetType = documentType === 'Invoice' ? 'INVOICE' : 'QUOTE';
   const numericValues = documents
     .filter((document) => document.documentType === targetType)
     .map((document) => Number.parseInt(document.documentNumber, 10))
     .filter((value) => Number.isFinite(value));
 
-  return String((numericValues.length ? Math.max(...numericValues) : 1000) + 1);
+  return String(Math.max(documentNumberFloor, ...numericValues) + 1);
 }
 
 function matchesDocumentDateRange(

@@ -6,11 +6,15 @@ import {
   nextDocumentNumberFromValues,
 } from '../src/lib/documentNumbers.js';
 
-test('nextDocumentNumberFromValues starts at 1001 and ignores non-numeric entries', () => {
-  assert.equal(nextDocumentNumberFromValues([]), '1001');
+test('nextDocumentNumberFromValues starts at 4001 and ignores non-numeric entries', () => {
+  assert.equal(nextDocumentNumberFromValues([]), '4001');
   assert.equal(
     nextDocumentNumberFromValues(['0999', 'INV-20', ' 1044 ', 'quote']),
-    '1045',
+    '4001',
+  );
+  assert.equal(
+    nextDocumentNumberFromValues(['3999', 'INV-20', ' 4004 ', 'quote']),
+    '4005',
   );
 });
 
@@ -23,6 +27,19 @@ test('nextDocumentNumberFromDatabase reads the next numeric value from sql resul
 
   assert.equal(
     await nextDocumentNumberFromDatabase(client, GeneratedDocumentType.INVOICE),
-    '1068',
+    '4001',
+  );
+});
+
+test('nextDocumentNumberFromDatabase continues values above the starting floor', async () => {
+  const client = {
+    async $queryRaw() {
+      return [{ nextNumber: 4068 }];
+    },
+  };
+
+  assert.equal(
+    await nextDocumentNumberFromDatabase(client, GeneratedDocumentType.INVOICE),
+    '4068',
   );
 });

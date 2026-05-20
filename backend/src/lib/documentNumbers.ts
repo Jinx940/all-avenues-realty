@@ -4,10 +4,13 @@ type DocumentNumberQueryClient =
   | Pick<PrismaClient, '$queryRaw'>
   | Pick<Prisma.TransactionClient, '$queryRaw'>;
 
+const FIRST_AUTO_DOCUMENT_NUMBER = 4001;
+const DOCUMENT_NUMBER_FLOOR = FIRST_AUTO_DOCUMENT_NUMBER - 1;
+
 export const nextDocumentNumberFromValues = (documentNumbers: string[]) =>
   String(
     Math.max(
-      1000,
+      DOCUMENT_NUMBER_FLOOR,
       ...documentNumbers
         .map((value) => Number.parseInt(String(value).trim(), 10))
         .filter((value) => Number.isFinite(value)),
@@ -31,7 +34,7 @@ export const nextDocumentNumberFromDatabase = async (
   documentType: GeneratedDocumentType,
 ) => {
   const rows = await client.$queryRaw<Array<{ nextNumber: number | bigint | string | null }>>`
-    SELECT COALESCE(MAX(CAST("documentNumber" AS INTEGER)), 1000) + 1 AS "nextNumber"
+    SELECT GREATEST(COALESCE(MAX(CAST("documentNumber" AS INTEGER)), ${DOCUMENT_NUMBER_FLOOR}), ${DOCUMENT_NUMBER_FLOOR}) + 1 AS "nextNumber"
     FROM "GeneratedDocument"
     WHERE "documentType" = ${documentType}
       AND "documentNumber" ~ '^[0-9]+$'
@@ -45,5 +48,9 @@ export const nextDocumentNumberFromDatabase = async (
         ? rawValue
         : Number.parseInt(String(rawValue ?? ''), 10);
 
-  return String(Number.isFinite(numericValue) && numericValue > 1000 ? numericValue : 1001);
+  return String(
+    Number.isFinite(numericValue) && numericValue >= FIRST_AUTO_DOCUMENT_NUMBER
+      ? numericValue
+      : FIRST_AUTO_DOCUMENT_NUMBER,
+  );
 };
