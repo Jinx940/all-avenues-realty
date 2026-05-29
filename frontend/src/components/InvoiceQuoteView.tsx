@@ -1,5 +1,5 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ApiError, buildAssetUrl, fetchAssetBlob, requestJson } from '../lib/api';
+import { buildAssetUrl, fetchAssetBlob, requestJson } from '../lib/api';
 import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendix } from '../lib/generatedPdf';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
@@ -2834,9 +2834,7 @@ export function InvoiceQuoteView({
   const [propertyId, setPropertyId] = useState('');
   const [headerOwner, setHeaderOwner] = useState<(typeof headerOwnerOptions)[number]>(headerOwnerOptions[0]);
   const [documentType, setDocumentType] = useState<DocumentType>('Invoice');
-  const [suggestedNumber, setSuggestedNumber] = useState(() =>
-    getSuggestedDocumentNumber(documents, 'Invoice'),
-  );
+  const [documentNumber, setDocumentNumber] = useState('');
   const [billTo, setBillTo] = useState('');
   const [issueDate, setIssueDate] = useState(getLocalTodayIso);
   const [ryanLabor, setRyanLabor] = useState('0');
@@ -2893,35 +2891,9 @@ export function InvoiceQuoteView({
   const activeProperty = properties.find((property) => property.id === normalizedPropertyId) ?? null;
   const ownerKey = ownerKeyFor(headerOwner);
   const ownerLabel = ownerLabelFor(ownerKey);
-  const usesAutoDocumentNumber = true;
-  const effectiveDocumentNumber = suggestedNumber;
+  const effectiveDocumentNumber = documentNumber.trim();
   const descriptionValueFor = (job: JobRow) => descriptionEdits[job.id] ?? normalizeInvoiceDescription(job.description);
   const displayedSelectedCount = selectedJobIds.length;
-
-  useEffect(() => {
-    let cancelled = false;
-    const fallbackNumber = getSuggestedDocumentNumber(documents, documentType);
-
-    setSuggestedNumber(fallbackNumber);
-
-    void requestJson<{ nextNumber: string }>(
-      `/api/generated-documents/next-number?documentType=${encodeURIComponent(documentType)}`,
-    )
-      .then((payload) => {
-        if (!cancelled) {
-          setSuggestedNumber(payload.nextNumber);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSuggestedNumber(fallbackNumber);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [documentType, documents]);
 
   useEffect(() => {
     if (!documentPreviewOpen) return undefined;
@@ -3206,22 +3178,6 @@ export function InvoiceQuoteView({
     window.open(buildAssetUrl(path), '_blank', 'noopener,noreferrer,width=1060,height=900');
   };
 
-  const fetchNextDocumentNumber = async () => {
-    const fallbackNumber = getSuggestedDocumentNumber(documents, documentType);
-
-    try {
-      const payload = await requestJson<{ nextNumber: string }>(
-        `/api/generated-documents/next-number?documentType=${encodeURIComponent(documentType)}`,
-      );
-      return payload.nextNumber || fallbackNumber;
-    } catch {
-      return fallbackNumber;
-    }
-  };
-
-  const isDocumentNumberConflict = (error: unknown) =>
-    error instanceof ApiError && error.status === 409;
-
   const buildGeneratedDocumentContent = useCallback((
     documentNumberOverride?: string,
     attachmentsOverride?: PdfAttachmentFile[],
@@ -3390,6 +3346,11 @@ export function InvoiceQuoteView({
       return;
     }
 
+    if (!effectiveDocumentNumber) {
+      await onDocumentError?.('Enter a document number before opening the document preview.');
+      return;
+    }
+
     setPreviewDocument(null);
     setDocumentPreviewOpen(true);
   };
@@ -3411,6 +3372,11 @@ export function InvoiceQuoteView({
       return;
     }
 
+    if (!effectiveDocumentNumber) {
+      await onDocumentError?.('Enter a document number before generating the PDF.');
+      return;
+    }
+
     setGeneratePdfConfirmOpen(true);
   };
 
@@ -3418,74 +3384,60 @@ export function InvoiceQuoteView({
     setGeneratePdfBusy(true);
 
     try {
-      const maxAttempts = 3;
-      let lastError: unknown = null;
+      const generated = await buildGeneratedDocumentContentForPdf();
 
-      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const activeDocumentNumber = await fetchNextDocumentNumber();
-        const generated = await buildGeneratedDocumentContentForPdf(activeDocumentNumber);
-
-        if (!generated) {
-          setGeneratePdfConfirmOpen(false);
-          await onDocumentError?.('Select at least one service before generating the PDF.');
-          return;
-        }
-
-        const receiptAppendices = await buildReceiptAppendicesForPdf();
-        const pdfBlob = await buildGeneratedPdfBlob({
-          html: generated.html,
-          receiptAppendices,
-        });
-        const pdfBase64 = await blobToBase64(pdfBlob);
-        let saved: SaveGeneratedDocumentResponse | null = null;
-
-        try {
-          saved = await requestJson<SaveGeneratedDocumentResponse>('/api/generated-documents', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              propertyId: normalizedPropertyId,
-              jobIds: selectedJobIds,
-              documentType,
-              ownerKey,
-              documentNumber: generated.safeDocumentNumber,
-              issueDate,
-              fileName: generated.pdfFileName,
-              mimeType: 'application/pdf',
-              content: pdfBase64,
-            }),
-          });
-
-          downloadPdfBlob(pdfBlob, generated.pdfFileName);
-
-          setGeneratePdfConfirmOpen(false);
-          setDocumentPreviewOpen(false);
-          await onDocumentSaved?.(
-            `${documentType} ${saved.documentNumber} issued and downloaded as PDF.`,
-          );
-          return;
-        } catch (error) {
-          if (!saved && isDocumentNumberConflict(error) && attempt < maxAttempts - 1) {
-            lastError = error;
-            continue;
-          }
-
-          if (saved) {
-            const partialMessage =
-              error instanceof Error ? error.message : 'The PDF could not be downloaded.';
-            await onDocumentError?.(
-              `${documentType} ${saved.documentNumber} was saved, but the PDF download failed. ${partialMessage}`,
-            );
-            return;
-          }
-
-          throw error;
-        }
+      if (!generated) {
+        setGeneratePdfConfirmOpen(false);
+        await onDocumentError?.('Select at least one service before generating the PDF.');
+        return;
       }
 
-      throw lastError ?? new Error('Could not save the generated document.');
+      const receiptAppendices = await buildReceiptAppendicesForPdf();
+      const pdfBlob = await buildGeneratedPdfBlob({
+        html: generated.html,
+        receiptAppendices,
+      });
+      const pdfBase64 = await blobToBase64(pdfBlob);
+      let saved: SaveGeneratedDocumentResponse | null = null;
+
+      try {
+        saved = await requestJson<SaveGeneratedDocumentResponse>('/api/generated-documents', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            propertyId: normalizedPropertyId,
+            jobIds: selectedJobIds,
+            documentType,
+            ownerKey,
+            documentNumber: generated.safeDocumentNumber,
+            issueDate,
+            fileName: generated.pdfFileName,
+            mimeType: 'application/pdf',
+            content: pdfBase64,
+          }),
+        });
+
+        downloadPdfBlob(pdfBlob, generated.pdfFileName);
+
+        setGeneratePdfConfirmOpen(false);
+        setDocumentPreviewOpen(false);
+        await onDocumentSaved?.(
+          `${documentType} ${saved.documentNumber} issued and downloaded as PDF.`,
+        );
+      } catch (error) {
+        if (saved) {
+          const partialMessage =
+            error instanceof Error ? error.message : 'The PDF could not be downloaded.';
+          await onDocumentError?.(
+            `${documentType} ${saved.documentNumber} was saved, but the PDF download failed. ${partialMessage}`,
+          );
+          return;
+        }
+
+        throw error;
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not save the generated document.';
       await onDocumentError?.(message);
@@ -3563,15 +3515,12 @@ export function InvoiceQuoteView({
             <label>
               No.
               <input
-                value={suggestedNumber || ''}
-                readOnly
-                aria-readonly="true"
-                placeholder="Automatic"
+                value={documentNumber}
+                onChange={(event) => setDocumentNumber(event.target.value)}
+                placeholder="Enter number"
               />
               <small className="muted-copy">
-                {suggestedNumber
-                  ? `The next available number (${suggestedNumber}) is assigned automatically.`
-                  : 'The next available number is assigned automatically.'}
+                Enter the invoice or quote number manually.
               </small>
             </label>
 
@@ -4129,13 +4078,9 @@ export function InvoiceQuoteView({
         open={generatePdfConfirmOpen}
         title={documentType === 'Invoice' ? 'Issue invoice PDF?' : 'Generate quote PDF?'}
         text={
-          usesAutoDocumentNumber
-            ? documentType === 'Invoice'
-              ? 'The next available invoice number will be assigned and downloaded as a PDF file.'
-              : 'The next available quote number will be assigned and downloaded as a PDF file.'
-            : documentType === 'Invoice'
-              ? `Invoice ${effectiveDocumentNumber || '00000000'} will be issued and downloaded as a PDF file.`
-              : `Quote ${effectiveDocumentNumber || '00000000'} will be generated and downloaded as a PDF file.`
+          documentType === 'Invoice'
+            ? `Invoice ${effectiveDocumentNumber} will be issued and downloaded as a PDF file.`
+            : `Quote ${effectiveDocumentNumber} will be generated and downloaded as a PDF file.`
         }
         confirmLabel={documentType === 'Invoice' ? 'Issue and download PDF' : 'Generate and download PDF'}
         cancelLabel="Cancel"
@@ -4243,21 +4188,6 @@ export function InvoiceQuoteView({
       ) : null}
     </section>
   );
-}
-
-function getSuggestedDocumentNumber(
-  documents: GeneratedDocumentHistoryItem[],
-  documentType: DocumentType,
-) {
-  const firstAutoDocumentNumber = 4001;
-  const documentNumberFloor = firstAutoDocumentNumber - 1;
-  const targetType = documentType === 'Invoice' ? 'INVOICE' : 'QUOTE';
-  const numericValues = documents
-    .filter((document) => document.documentType === targetType)
-    .map((document) => Number.parseInt(document.documentNumber, 10))
-    .filter((value) => Number.isFinite(value));
-
-  return String(Math.max(documentNumberFloor, ...numericValues) + 1);
 }
 
 function matchesDocumentDateRange(
