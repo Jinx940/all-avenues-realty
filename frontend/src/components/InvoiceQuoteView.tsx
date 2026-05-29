@@ -2806,7 +2806,8 @@ const sterlingMechanicalInvoiceStyles = `
   .invoice-table td {
     border: 1px solid #111111;
     padding: 5px 6px;
-    vertical-align: top;
+    vertical-align: middle;
+    text-align: center;
     color: #111111;
     word-break: break-word;
   }
@@ -2826,17 +2827,18 @@ const sterlingMechanicalInvoiceStyles = `
   .invoice-row--open td { border-bottom-color: transparent; }
   .invoice-row--continuation td { border-top-color: #777777; }
   .description-cell {
-    text-align: left;
+    text-align: center;
   }
   .description-stack {
     display: grid;
     gap: 3px;
+    justify-items: center;
   }
   .continuation-cell {
     color: transparent;
   }
   .money-cell {
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
