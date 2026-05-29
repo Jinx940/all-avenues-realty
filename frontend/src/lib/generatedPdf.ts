@@ -188,44 +188,9 @@ const appendReceiptAppendices = async (
     return invoicePdfBlob;
   }
 
-  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const { PDFDocument } = await import('pdf-lib');
   const pdfDocument = await PDFDocument.load(await invoicePdfBlob.arrayBuffer());
-  let hasAddedReceiptsSeparator = false;
-
-  const addReceiptsSeparator = async () => {
-    if (hasAddedReceiptsSeparator) {
-      return;
-    }
-
-    const page = pdfDocument.addPage([A4_PAGE_WIDTH_POINTS, A4_PAGE_HEIGHT_POINTS]);
-    const titleFont = await pdfDocument.embedFont(StandardFonts.HelveticaBold);
-    const labelFont = await pdfDocument.embedFont(StandardFonts.Helvetica);
-    const centerX = page.getWidth() / 2;
-    const centerY = page.getHeight() / 2;
-
-    page.drawText('Attached Receipts', {
-      x: centerX - 122,
-      y: centerY + 16,
-      size: 30,
-      font: titleFont,
-      color: rgb(0.07, 0.07, 0.07),
-    });
-    page.drawLine({
-      start: { x: centerX - 112, y: centerY - 2 },
-      end: { x: centerX + 112, y: centerY - 2 },
-      thickness: 1.5,
-      color: rgb(1, 0.36, 0.36),
-    });
-    page.drawText('Supporting receipt pages are attached after this page.', {
-      x: centerX - 132,
-      y: centerY - 28,
-      size: 11,
-      font: labelFont,
-      color: rgb(0.25, 0.25, 0.25),
-    });
-
-    hasAddedReceiptsSeparator = true;
-  };
+  let hasAddedReceiptAppendix = false;
 
   for (const appendix of receiptAppendices) {
     try {
@@ -243,13 +208,12 @@ const appendReceiptAppendices = async (
           continue;
         }
 
-        await addReceiptsSeparator();
         receiptPages.forEach((page) => pdfDocument.addPage(page));
+        hasAddedReceiptAppendix = true;
         continue;
       }
 
       const receiptImage = await pdfDocument.embedJpg(await imageBlobToJpegBytes(appendix.blob));
-      await addReceiptsSeparator();
       const page = pdfDocument.addPage([A4_PAGE_WIDTH_POINTS, A4_PAGE_HEIGHT_POINTS]);
       const maxWidth = page.getWidth() - RECEIPT_PAGE_MARGIN_POINTS * 2;
       const maxHeight = page.getHeight() - RECEIPT_PAGE_MARGIN_POINTS * 2;
@@ -263,12 +227,13 @@ const appendReceiptAppendices = async (
         width: renderWidth,
         height: renderHeight,
       });
+      hasAddedReceiptAppendix = true;
     } catch {
       throw new Error(`Could not append receipt "${appendix.fileName}" to the PDF.`);
     }
   }
 
-  if (!hasAddedReceiptsSeparator) {
+  if (!hasAddedReceiptAppendix) {
     return invoicePdfBlob;
   }
 
