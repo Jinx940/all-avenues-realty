@@ -2796,8 +2796,8 @@ const sterlingMechanicalInvoiceStyles = `
     line-height: 1.5;
   }
   .last-section {
-    margin-top: auto;
-    padding-top: 7mm;
+    margin-top: 5mm;
+    padding-top: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 66mm;
     gap: 10mm;
