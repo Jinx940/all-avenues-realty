@@ -4979,6 +4979,16 @@ textarea {
   border-bottom: 1px solid var(--line);
 }
 
+.invoice-services-row--sterling {
+  grid-template-columns:
+    minmax(126px, 0.7fr)
+    minmax(122px, 0.68fr)
+    minmax(142px, 0.76fr)
+    minmax(320px, 1.8fr)
+    minmax(122px, 0.68fr)
+    minmax(152px, 0.76fr);
+}
+
 .invoice-services-row--header {
   background: rgba(238, 247, 253, 0.82);
   color: var(--ink);
@@ -5043,6 +5053,25 @@ textarea {
 }
 
 .invoice-description-editor:focus {
+  border-color: rgba(132, 187, 229, 0.98);
+  box-shadow: 0 0 0 4px rgba(168, 211, 243, 0.18);
+  outline: none;
+}
+
+.invoice-money-editor {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid rgba(191, 216, 237, 0.96);
+  border-radius: 14px;
+  background: rgba(251, 253, 255, 0.96);
+  color: var(--ink-strong);
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+}
+
+.invoice-money-editor:focus {
   border-color: rgba(132, 187, 229, 0.98);
   box-shadow: 0 0 0 4px rgba(168, 211, 243, 0.18);
   outline: none;

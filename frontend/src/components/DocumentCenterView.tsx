@@ -301,7 +301,7 @@ export function DocumentCenterView({
               <select value={owner} onChange={(event) => setOwner(event.target.value as typeof owner)}>
                 <option value="ALL">All</option>
                 <option value="AZE">AZE</option>
-                <option value="Ryan">Ryan</option>
+                <option value="Sterling Mechanical">Sterling Mechanical</option>
                 <option value="Todd Goertler">Todd Goertler</option>
               </select>
             </label>

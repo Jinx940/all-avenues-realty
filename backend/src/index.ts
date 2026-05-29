@@ -392,9 +392,9 @@ const generatedDocumentTypeLabels: Record<GeneratedDocumentType, 'Invoice' | 'Qu
   [GeneratedDocumentType.QUOTE]: 'Quote',
 };
 
-const documentOwnerLabels: Record<DocumentOwner, 'AZE' | 'Ryan' | 'Todd Goertler'> = {
+const documentOwnerLabels: Record<DocumentOwner, 'AZE' | 'Sterling Mechanical' | 'Todd Goertler'> = {
   [DocumentOwner.AZE]: 'AZE',
-  [DocumentOwner.RYAN]: 'Ryan',
+  [DocumentOwner.RYAN]: 'Sterling Mechanical',
   [DocumentOwner.TODD]: 'Todd Goertler',
 };
 

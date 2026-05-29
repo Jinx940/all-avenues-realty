@@ -11,7 +11,7 @@ type DocumentType = 'Invoice' | 'Quote';
 type OwnerKey = 'aze' | 'ryan' | 'todd';
 type DocumentOwnerCode = 'AZE' | 'RYAN' | 'TODD';
 type DocumentOwnerFilter = 'ALL' | DocumentOwnerCode;
-type DocumentOwnerLabel = 'AZE' | 'Ryan' | 'Todd Goertler';
+type DocumentOwnerLabel = 'AZE' | 'Sterling Mechanical' | 'Todd Goertler';
 
 type PdfServiceItem = {
   story: string;
@@ -19,6 +19,7 @@ type PdfServiceItem = {
   area: string;
   service: string;
   description: string;
+  labor: number;
   unitPrice: number;
 };
 
@@ -132,6 +133,18 @@ type LegacyPdfData = {
   totalDue: number;
 };
 
+type SterlingMechanicalInvoiceData = {
+  invoiceNumber: string;
+  docDate: string;
+  billTo: string;
+  selectedItems: PdfServiceItem[];
+  expenses: number;
+  invoicingServices: number;
+  jobTotal: number;
+  totalDue: number;
+  observation: string;
+};
+
 type SaveGeneratedDocumentResponse = {
   id: string;
   fileName: string;
@@ -159,7 +172,7 @@ type JobSelectionState = {
   mode: 'auto' | 'manual';
 };
 
-const headerOwnerOptions = ['Juan Azabache (AZE)', 'Ryan Goertler', 'Todd Goertler'] as const;
+const headerOwnerOptions = ['Juan Azabache (AZE)', 'Sterling Mechanical', 'Todd Goertler'] as const;
 
 const formatUsd = (value: number) => `$${value.toFixed(2)}`;
 const formatPdfNumber = (value: number) =>
@@ -297,12 +310,12 @@ const escapeHtml = (value: string) =>
 
 const ownerKeyFor = (owner: (typeof headerOwnerOptions)[number]): OwnerKey => {
   if (owner.includes('Todd')) return 'todd';
-  if (owner.includes('Ryan')) return 'ryan';
+  if (owner.includes('Sterling')) return 'ryan';
   return 'aze';
 };
 
 const ownerLabelFor = (ownerKey: OwnerKey): DocumentOwnerLabel => {
-  if (ownerKey === 'ryan') return 'Ryan';
+  if (ownerKey === 'ryan') return 'Sterling Mechanical';
   if (ownerKey === 'todd') return 'Todd Goertler';
   return 'AZE';
 };
@@ -1469,7 +1482,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
     <div class="summary-section">
       <div class="summary">
         <div class="sum-row teal">
-          <span>Ryan Labor</span>
+          <span>Primary Labor</span>
           <span>${formatPdfMoney(data.ryanLabor)}</span>
         </div>
         <div class="sum-row teal">
@@ -2369,6 +2382,438 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
   `;
 };
 
+const estimateSterlingInvoiceItemUnits = (item: PdfServiceItem) => {
+  const descriptionLines = Math.max(1, Math.ceil(item.description.length / 82));
+  const unitLines = Math.max(1, Math.ceil(displayInvoiceCell(item.unit).length / 16));
+  const areaLines = Math.max(1, Math.ceil(displayInvoiceCell(item.area).length / 18));
+  const serviceLines = Math.max(1, Math.ceil(displayInvoiceCell(item.service, 'General Service').length / 18));
+
+  return 1.15 + descriptionLines * 0.58 + Math.max(unitLines, areaLines, serviceLines) * 0.18;
+};
+
+const paginateSterlingInvoiceItems = (items: PdfServiceItem[]) => {
+  if (!items.length) return [[]];
+
+  const firstPageCapacity = 13.8;
+  const middlePageCapacity = 20.8;
+  const lastPageCapacity = 12.2;
+  const pages: PdfServiceItem[][] = [[]];
+  let pageIndex = 0;
+  let usedUnits = 0;
+
+  items.forEach((item, itemIndex) => {
+    const itemUnits = estimateSterlingInvoiceItemUnits(item);
+    const remainingItems = items.length - itemIndex;
+    const capacity =
+      pageIndex === 0
+        ? remainingItems <= 8
+          ? firstPageCapacity
+          : middlePageCapacity
+        : remainingItems <= 8
+          ? lastPageCapacity
+          : middlePageCapacity;
+
+    if (pages[pageIndex].length && usedUnits + itemUnits > capacity) {
+      pages.push([]);
+      pageIndex += 1;
+      usedUnits = 0;
+    }
+
+    pages[pageIndex].push(item);
+    usedUnits += itemUnits;
+  });
+
+  return pages.length ? pages : [[]];
+};
+
+const buildSterlingMechanicalRowsHtml = (items: PdfServiceItem[]) => {
+  if (!items.length) {
+    return `
+      <tr>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td class="money-cell">${formatPdfMoney(0)}</td>
+        <td class="money-cell">${formatPdfMoney(0)}</td>
+      </tr>
+    `;
+  }
+
+  return items
+    .map((item) => `
+      <tr>
+        <td>${escapeHtml(displayInvoiceCell(item.unit))}</td>
+        <td>${escapeHtml(displayInvoiceCell(item.area))}</td>
+        <td>${escapeHtml(displayInvoiceCell(item.service, 'General Service'))}</td>
+        <td class="description-cell">${escapeHtml(item.description).replace(/\r?\n/g, '<br>')}</td>
+        <td class="money-cell">${formatPdfMoney(item.labor)}</td>
+        <td class="money-cell">${formatPdfMoney(item.unitPrice)}</td>
+      </tr>
+    `)
+    .join('');
+};
+
+const sterlingMechanicalInvoiceStyles = `
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    color: #111111;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body { overflow: auto; }
+  .page {
+    width: 210mm;
+    height: 297mm;
+    margin: 0;
+    padding: 14mm 13mm 12mm;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+  }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .invoice-top {
+    display: grid;
+    grid-template-columns: 1fr 68mm;
+    gap: 12mm;
+    align-items: start;
+    padding-bottom: 9mm;
+    border-bottom: 1.5px solid #111111;
+  }
+  .invoice-title-main {
+    margin: 0;
+    color: #111111;
+    font-size: 43px;
+    line-height: 0.9;
+    letter-spacing: 0;
+    font-weight: 800;
+  }
+  .invoice-meta {
+    display: grid;
+    gap: 5mm;
+    padding-top: 1mm;
+    font-size: 11px;
+  }
+  .meta-row {
+    display: grid;
+    grid-template-columns: 1fr 30mm;
+    gap: 6mm;
+    align-items: end;
+  }
+  .meta-label {
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .meta-value {
+    min-height: 18px;
+    border-bottom: 1px solid #111111;
+    text-align: right;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .party-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12mm;
+    padding: 8mm 0 7mm;
+  }
+  .party-block {
+    min-height: 42mm;
+    border: 1px solid #111111;
+    padding: 6mm;
+  }
+  .block-title {
+    margin: 0 0 4mm;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+  .bill-to-content {
+    min-height: 28mm;
+    white-space: pre-line;
+    line-height: 1.55;
+    color: #111111;
+  }
+  .company-name {
+    margin: 0 0 4mm;
+    font-size: 18px;
+    line-height: 1;
+    font-weight: 800;
+  }
+  .company-info {
+    display: grid;
+    gap: 2.5mm;
+    line-height: 1.35;
+  }
+  .company-info strong {
+    display: block;
+    font-weight: 800;
+  }
+  .invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    border: 1px solid #111111;
+  }
+  .invoice-table col:nth-child(1) { width: 12%; }
+  .invoice-table col:nth-child(2) { width: 13%; }
+  .invoice-table col:nth-child(3) { width: 15%; }
+  .invoice-table col:nth-child(4) { width: 34%; }
+  .invoice-table col:nth-child(5) { width: 13%; }
+  .invoice-table col:nth-child(6) { width: 13%; }
+  .invoice-table th,
+  .invoice-table td {
+    border: 1px solid #111111;
+    padding: 7px 8px;
+    vertical-align: top;
+    color: #111111;
+    word-break: break-word;
+  }
+  .invoice-table th {
+    background: #eeeeee;
+    font-size: 10px;
+    line-height: 1.2;
+    text-align: left;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .invoice-table td {
+    min-height: 28px;
+    line-height: 1.38;
+  }
+  .description-cell {
+    text-align: left;
+  }
+  .money-cell {
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .continue-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10mm;
+    align-items: end;
+    margin-bottom: 8mm;
+    padding-bottom: 5mm;
+    border-bottom: 1px solid #111111;
+  }
+  .continue-head strong {
+    font-size: 18px;
+    text-transform: uppercase;
+  }
+  .continue-meta {
+    font-size: 10px;
+    text-align: right;
+    line-height: 1.5;
+  }
+  .last-section {
+    margin-top: auto;
+    padding-top: 8mm;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 72mm;
+    gap: 10mm;
+    align-items: start;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .observation-box {
+    min-height: 34mm;
+    border: 1px solid #111111;
+    padding: 5mm;
+  }
+  .observation-box .block-title {
+    text-transform: none;
+    font-size: 12px;
+  }
+  .observation-text {
+    min-height: 20mm;
+    white-space: pre-line;
+    line-height: 1.45;
+  }
+  .summary-box {
+    border: 1px solid #111111;
+  }
+  .summary-row {
+    display: grid;
+    grid-template-columns: 1fr 30mm;
+    min-height: 10mm;
+    border-bottom: 1px solid #111111;
+    align-items: center;
+  }
+  .summary-row:last-child { border-bottom: 0; }
+  .summary-row span {
+    padding: 0 4mm;
+  }
+  .summary-row span:first-child {
+    font-weight: 700;
+  }
+  .summary-row span:last-child {
+    text-align: right;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .summary-row.total {
+    background: #eeeeee;
+    border-top: 2px solid #111111;
+    min-height: 12mm;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .footer-note {
+    margin-top: 7mm;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+`;
+
+const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData) => {
+  const pages = paginateSterlingInvoiceItems(data.selectedItems);
+  const billToHtml = escapeHtml(data.billTo.trim()).replace(/\r?\n/g, '<br>');
+  const observationHtml = escapeHtml(data.observation.trim()).replace(/\r?\n/g, '<br>');
+  const tableColumnsHtml = `
+    <colgroup>
+      <col />
+      <col />
+      <col />
+      <col />
+      <col />
+      <col />
+    </colgroup>
+  `;
+  const tableHeadHtml = `
+    <thead>
+      <tr>
+        <th>Unit</th>
+        <th>Area</th>
+        <th>Service</th>
+        <th>Description</th>
+        <th>Labor</th>
+        <th>Unit Price (USD)</th>
+      </tr>
+    </thead>
+  `;
+  const summaryHtml = `
+    <section class="last-section">
+      <div class="observation-box">
+        <p class="block-title">Observation:</p>
+        <div class="observation-text">${observationHtml}</div>
+      </div>
+      <div>
+        <div class="summary-box">
+          <div class="summary-row">
+            <span>Job Total</span>
+            <span>${formatPdfMoney(data.jobTotal)}</span>
+          </div>
+          <div class="summary-row">
+            <span>Expenses</span>
+            <span>${formatPdfMoney(data.expenses)}</span>
+          </div>
+          <div class="summary-row">
+            <span>Invoicing Services</span>
+            <span>${formatPdfMoney(data.invoicingServices)}</span>
+          </div>
+          <div class="summary-row total">
+            <span>Total Due</span>
+            <span>${formatPdfMoney(data.totalDue)}</span>
+          </div>
+        </div>
+        <div class="footer-note">THANK YOU FOR YOUR PURCHASE!</div>
+      </div>
+    </section>
+  `;
+
+  const buildPageHtml = (items: PdfServiceItem[], pageIndex: number) => {
+    const isFirstPage = pageIndex === 0;
+    const isLastPage = pageIndex === pages.length - 1;
+
+    return `
+      <div class="page">
+        ${
+          isFirstPage
+            ? `
+              <header class="invoice-top">
+                <h1 class="invoice-title-main">INVOICE</h1>
+                <div class="invoice-meta">
+                  <div class="meta-row">
+                    <span class="meta-label">Invoice Number:</span>
+                    <span class="meta-value">${escapeHtml(data.invoiceNumber)}</span>
+                  </div>
+                  <div class="meta-row">
+                    <span class="meta-label">Date:</span>
+                    <span class="meta-value">${escapeHtml(formatPdfDate(data.docDate))}</span>
+                  </div>
+                </div>
+              </header>
+
+              <section class="party-grid">
+                <div class="party-block">
+                  <p class="block-title">Bill To:</p>
+                  <div class="bill-to-content">${billToHtml}</div>
+                </div>
+                <div class="party-block">
+                  <p class="block-title">Company Info:</p>
+                  <p class="company-name">STERLING MECHANICAL</p>
+                  <div class="company-info">
+                    <div><strong>Address:</strong>15222 Saranac Rd,<br>Cleveland, OH 44110</div>
+                    <div><strong>Main:</strong>(440) 289-9796</div>
+                    <div><strong>Secondary:</strong>(440) 666-5608</div>
+                    <div><strong>Email:</strong>ryangoertler1313@gmail.com</div>
+                  </div>
+                </div>
+              </section>
+            `
+            : `
+              <header class="continue-head">
+                <strong>Invoice</strong>
+                <div class="continue-meta">
+                  <div>Invoice Number: ${escapeHtml(data.invoiceNumber)}</div>
+                  <div>Date: ${escapeHtml(formatPdfDate(data.docDate))}</div>
+                </div>
+              </header>
+            `
+        }
+
+        <table class="invoice-table">
+          ${tableColumnsHtml}
+          ${tableHeadHtml}
+          <tbody>${buildSterlingMechanicalRowsHtml(items)}</tbody>
+        </table>
+
+        ${isLastPage ? summaryHtml : ''}
+      </div>
+    `;
+  };
+
+  const pagesHtml = pages.map(buildPageHtml).join('');
+
+  return `
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Invoice ${escapeHtml(data.invoiceNumber)}</title>
+        <style>${sterlingMechanicalInvoiceStyles}</style>
+      </head>
+      <body>${pagesHtml}</body>
+    </html>
+  `;
+};
+
 const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
   const companyInfoHtml =
     data.ownerKey === 'ryan'
@@ -2377,7 +2822,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           'Cleveland, OH 44110',
           '<strong>Main (440)289-9796</strong>',
           '<strong>Secondary (440)666-5608</strong>',
-          '<strong>Ryangoertler1313@gmail.com</strong>',
+          '<strong>ryangoertler1313@gmail.com</strong>',
         ].join('<br>')
       : data.ownerKey === 'todd'
         ? [
@@ -2406,7 +2851,8 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         ? 'invoice-header todd'
         : 'invoice-header aze';
   const materialLabel = data.documentType === 'Quote' ? 'Material Expense Estimate' : 'Material Expense';
-  const primaryLaborLabel = data.ownerKey === 'todd' ? 'Todd Labor' : 'Ryan Labor';
+  const primaryLaborLabel =
+    data.ownerKey === 'todd' ? 'Todd Labor' : data.ownerKey === 'ryan' ? 'Labor' : 'Primary Labor';
   const summaryLabelColspan = isRyanInvoice ? 4 : 2;
   const tableHeadHtml = isRyanInvoice ? ryanInvoiceTableHeadHtml : legacyTableHeadHtml;
   const tableClassName = isRyanInvoice ? 'ryan-invoice-table' : '';
@@ -2841,6 +3287,9 @@ export function InvoiceQuoteView({
   const [juanLabor, setJuanLabor] = useState('0');
   const [advancePayment, setAdvancePayment] = useState('0');
   const [materialExpense, setMaterialExpense] = useState('0');
+  const [expensesInput, setExpensesInput] = useState('0');
+  const [invoicingServicesInput, setInvoicingServicesInput] = useState('0');
+  const [observation, setObservation] = useState('');
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [expandedAttachmentKinds, setExpandedAttachmentKinds] = useState<
     Record<PdfAttachmentFile['kind'], boolean>
@@ -2852,6 +3301,8 @@ export function InvoiceQuoteView({
   const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>([]);
   const [selectedRyanReceiptIds, setSelectedRyanReceiptIds] = useState<string[]>([]);
   const [descriptionEdits, setDescriptionEdits] = useState<Record<string, string>>({});
+  const [itemLaborEdits, setItemLaborEdits] = useState<Record<string, string>>({});
+  const [itemUnitPriceEdits, setItemUnitPriceEdits] = useState<Record<string, string>>({});
   const [jobSelection, setJobSelection] = useState<JobSelectionState>({
     propertyId: '',
     ids: [],
@@ -2891,6 +3342,7 @@ export function InvoiceQuoteView({
   const activeProperty = properties.find((property) => property.id === normalizedPropertyId) ?? null;
   const ownerKey = ownerKeyFor(headerOwner);
   const ownerLabel = ownerLabelFor(ownerKey);
+  const usesSterlingInvoice = ownerKey === 'ryan' && documentType === 'Invoice';
   const effectiveDocumentNumber = documentNumber.trim();
   const documentNumberExists = documents.some((document) => {
     const targetType = documentType === 'Invoice' ? 'INVOICE' : 'QUOTE';
@@ -2925,9 +3377,12 @@ export function InvoiceQuoteView({
         area: job.area,
         service: job.service,
         description: normalizeInvoiceDescription(descriptionEdits[job.id] ?? normalizeInvoiceDescription(job.description)),
-        unitPrice: job.totalCost,
+        labor: usesSterlingInvoice ? toAmount(itemLaborEdits[job.id] ?? '0') : 0,
+        unitPrice: usesSterlingInvoice
+          ? toAmount(itemUnitPriceEdits[job.id] ?? String(job.totalCost))
+          : job.totalCost,
       })),
-    [descriptionEdits, selectedJobs],
+    [descriptionEdits, itemLaborEdits, itemUnitPriceEdits, selectedJobs, usesSterlingInvoice],
   );
   const selectedPhotoAttachments = useMemo(
     () => buildPdfAttachmentsForJobs(selectedJobs, invoicePhotoAttachmentKinds),
@@ -3020,15 +3475,25 @@ export function InvoiceQuoteView({
           .filter(Boolean)
           .join(', ');
 
-  const usesManualAmounts = ownerKey !== 'todd';
+  const usesManualAmounts = ownerKey !== 'todd' && !usesSterlingInvoice;
   const servicesTotal = selectedItems.reduce((sum, item) => sum + item.unitPrice, 0);
+  const sterlingJobTotal = selectedItems.reduce((sum, item) => {
+    const labor = Number(item.labor || 0);
+    const unitPrice = Number(item.unitPrice || 0);
+    return sum + labor + unitPrice;
+  }, 0);
+  const sterlingExpensesValue = usesSterlingInvoice ? toAmount(expensesInput) : 0;
+  const sterlingInvoicingServicesValue = usesSterlingInvoice ? toAmount(invoicingServicesInput) : 0;
   const ryanLaborValue = usesManualAmounts ? toAmount(ryanLabor) : 0;
   const juanLaborValue = usesManualAmounts ? toAmount(juanLabor) : 0;
   const advancePaymentValue = usesManualAmounts ? toAmount(advancePayment) : 0;
   const materialExpenseValue = usesManualAmounts ? toAmount(materialExpense) : 0;
-  const jobTotal = servicesTotal + ryanLaborValue + juanLaborValue;
-  const expenses = materialExpenseValue + advancePaymentValue;
-  const totalDue = Math.max(jobTotal - expenses, 0);
+  const jobTotal = usesSterlingInvoice ? sterlingJobTotal : servicesTotal + ryanLaborValue + juanLaborValue;
+  const expenses = usesSterlingInvoice ? sterlingExpensesValue : materialExpenseValue + advancePaymentValue;
+  const invoicingServices = usesSterlingInvoice ? sterlingInvoicingServicesValue : 0;
+  const totalDue = usesSterlingInvoice
+    ? jobTotal - expenses - invoicingServices
+    : Math.max(jobTotal - expenses, 0);
 
   const billToLines = billTo
     .split('\n')
@@ -3048,10 +3513,17 @@ export function InvoiceQuoteView({
   const propertyCityLine = activeProperty?.cityLine || '';
   const timeFrame = `${formatPdfDate(firstJobDate)} - ${formatPdfDate(lastJobDate)}`;
 
-  const previewRows = usesManualAmounts
+  const previewRows = usesSterlingInvoice
+    ? [
+        { label: 'Job Total', value: jobTotal },
+        { label: 'Expenses', value: expenses },
+        { label: 'Invoicing Services', value: invoicingServices },
+        { label: 'Total Due', value: totalDue, strong: true },
+      ]
+    : usesManualAmounts
     ? [
         { label: 'Services Total', value: servicesTotal },
-        { label: 'Ryan Labor', value: ryanLaborValue },
+        { label: 'Primary Labor', value: ryanLaborValue },
         { label: 'Juan Labor', value: juanLaborValue },
         { label: 'Job Total', value: jobTotal },
         { label: 'Material Expense', value: materialExpenseValue },
@@ -3167,12 +3639,29 @@ export function InvoiceQuoteView({
     setJuanLabor('0');
     setAdvancePayment('0');
     setMaterialExpense('0');
+    setExpensesInput('0');
+    setInvoicingServicesInput('0');
+    setObservation('');
     setJobSelection({
       propertyId: normalizedPropertyId,
       ids: propertyJobs.map((job) => job.id),
       mode: 'auto',
     });
     setDescriptionEdits((current) => {
+      const next = { ...current };
+      propertyJobs.forEach((job) => {
+        delete next[job.id];
+      });
+      return next;
+    });
+    setItemLaborEdits((current) => {
+      const next = { ...current };
+      propertyJobs.forEach((job) => {
+        delete next[job.id];
+      });
+      return next;
+    });
+    setItemUnitPriceEdits((current) => {
       const next = { ...current };
       propertyJobs.forEach((job) => {
         delete next[job.id];
@@ -3193,6 +3682,7 @@ export function InvoiceQuoteView({
       return null;
     }
 
+    const useSterlingMechanicalInvoice = ownerKey === 'ryan' && documentType === 'Invoice';
     const useAzeModernInvoice = ownerKey === 'aze' && documentType === 'Invoice';
     const useToddModernInvoice = ownerKey === 'todd' && documentType === 'Invoice';
     const safeDocumentNumber =
@@ -3203,8 +3693,20 @@ export function InvoiceQuoteView({
       .replace(/\s+/g, '_')}_${safeDocumentNumber}`;
     const pdfFileName = `${safeBaseName}.pdf`;
 
-    const html = useAzeModernInvoice
-      ? buildAzeModernInvoiceHtml({
+    const html = useSterlingMechanicalInvoice
+      ? buildSterlingMechanicalInvoiceHtml({
+          invoiceNumber: safeDocumentNumber,
+          docDate: issueDate,
+          billTo,
+          selectedItems,
+          expenses,
+          invoicingServices,
+          jobTotal,
+          totalDue,
+          observation,
+        })
+      : useAzeModernInvoice
+        ? buildAzeModernInvoiceHtml({
           invoiceNumber: safeDocumentNumber,
           docDate: issueDate,
           clientName,
@@ -3269,12 +3771,15 @@ export function InvoiceQuoteView({
     clientName,
     documentType,
     effectiveDocumentNumber,
+    expenses,
     firstJobDate,
     includeAzeInvoicePhotosInPdf,
+    invoicingServices,
     issueDate,
     jobTotal,
     juanLaborValue,
     materialExpenseValue,
+    observation,
     ownerKey,
     propertyAddress,
     propertyCityLine,
@@ -3283,7 +3788,6 @@ export function InvoiceQuoteView({
     selectedItems,
     timeFrame,
     totalDue,
-    expenses,
     lastJobDate,
   ]);
 
@@ -3729,7 +4233,9 @@ export function InvoiceQuoteView({
                 <span>{propertyJobs.length} loaded</span>
               </h3>
               <p className="invoice-description-note">
-                You can edit only the description here. We automatically remove list dashes and add a final period.
+                {usesSterlingInvoice
+                  ? 'Edit the invoice rows before previewing or generating the PDF.'
+                  : 'You can edit only the description here. We automatically remove list dashes and add a final period.'}
               </p>
             </div>
             <div className="invoice-section-actions">
@@ -3760,17 +4266,18 @@ export function InvoiceQuoteView({
           {isServicesOpen ? (
             <div className="invoice-services-shell">
               <div className="invoice-services-table">
-                <div className="invoice-services-row invoice-services-row--header">
+                <div className={`invoice-services-row invoice-services-row--header${usesSterlingInvoice ? ' invoice-services-row--sterling' : ''}`}>
                   <span>Unit</span>
                   <span>Area</span>
                   <span>Service</span>
                   <span>Description</span>
+                  {usesSterlingInvoice ? <span>Labor</span> : null}
                   <span>Unit Price (USD)</span>
                 </div>
 
                 {propertyJobs.length ? (
                   propertyJobs.map((job) => (
-                    <div key={job.id} className="invoice-services-row">
+                    <div key={job.id} className={`invoice-services-row${usesSterlingInvoice ? ' invoice-services-row--sterling' : ''}`}>
                       <span className="invoice-services-cell invoice-services-cell--unit">
                         <label className="invoice-service-select">
                           <input
@@ -3798,8 +4305,43 @@ export function InvoiceQuoteView({
                           placeholder="Edit the description used for this invoice or quote"
                         />
                       </span>
+                      {usesSterlingInvoice ? (
+                        <span className="invoice-services-cell invoice-services-cell--labor">
+                          <input
+                            className="invoice-money-editor"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={itemLaborEdits[job.id] ?? '0'}
+                            onChange={(event) =>
+                              setItemLaborEdits((current) => ({
+                                ...current,
+                                [job.id]: event.target.value,
+                              }))
+                            }
+                            aria-label={`Labor for ${displayInvoiceCell(job.service, 'service')}`}
+                          />
+                        </span>
+                      ) : null}
                       <span className="invoice-services-cell invoice-services-cell--price">
-                        <strong>{formatUsd(job.totalCost)}</strong>
+                        {usesSterlingInvoice ? (
+                          <input
+                            className="invoice-money-editor"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={itemUnitPriceEdits[job.id] ?? String(job.totalCost)}
+                            onChange={(event) =>
+                              setItemUnitPriceEdits((current) => ({
+                                ...current,
+                                [job.id]: event.target.value,
+                              }))
+                            }
+                            aria-label={`Unit price for ${displayInvoiceCell(job.service, 'service')}`}
+                          />
+                        ) : (
+                          <strong>{formatUsd(job.totalCost)}</strong>
+                        )}
                       </span>
                     </div>
                   ))
@@ -3816,6 +4358,54 @@ export function InvoiceQuoteView({
           )}
         </div>
 
+        {usesSterlingInvoice ? (
+          <div className="invoice-section-card">
+            <div className="invoice-section-head">
+              <div>
+                <p className="eyebrow">Invoice Adjustments</p>
+                <h3 className="title-with-icon title-with-icon--sm">
+                  <UiIcon name="dollar" />
+                  <span>Sterling totals</span>
+                </h3>
+              </div>
+            </div>
+
+            <div className="form-grid">
+              <label>
+                Expenses (USD)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={expensesInput}
+                  onChange={(event) => setExpensesInput(event.target.value)}
+                />
+              </label>
+
+              <label>
+                Invoicing Services (USD)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={invoicingServicesInput}
+                  onChange={(event) => setInvoicingServicesInput(event.target.value)}
+                />
+              </label>
+
+              <label className="span-2">
+                Observation
+                <textarea
+                  rows={4}
+                  value={observation}
+                  onChange={(event) => setObservation(event.target.value)}
+                  placeholder="Optional invoice observation"
+                />
+              </label>
+            </div>
+          </div>
+        ) : null}
+
         {usesManualAmounts ? (
           <div className="invoice-section-card">
             <div className="invoice-section-head">
@@ -3830,7 +4420,7 @@ export function InvoiceQuoteView({
 
             <div className="form-grid">
               <label>
-                Ryan Labor (USD)
+                Primary Labor (USD)
                 <input
                   type="number"
                   min="0"
@@ -3989,7 +4579,7 @@ export function InvoiceQuoteView({
               >
                 <option value="ALL">All owners</option>
                 <option value="AZE">AZE</option>
-                <option value="RYAN">Ryan</option>
+                <option value="RYAN">Sterling Mechanical</option>
                 <option value="TODD">Todd Goertler</option>
               </select>
             </label>
