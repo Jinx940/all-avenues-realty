@@ -159,6 +159,13 @@ type SterlingInvoiceRow = {
   showDivider?: boolean;
 };
 
+type SterlingInvoiceDisplayRow = SterlingInvoiceRow & {
+  showUnitCell: boolean;
+  unitRowSpan: number;
+  showAreaCell: boolean;
+  areaRowSpan: number;
+};
+
 type SaveGeneratedDocumentResponse = {
   id: string;
   fileName: string;
@@ -2520,26 +2527,73 @@ const splitSterlingInvoiceRow = (row: SterlingInvoiceRow) => {
 };
 
 const buildSterlingInvoiceTableRows = (items: PdfServiceItem[]): SterlingInvoiceRow[] =>
-  items.flatMap((item) => {
-    const descriptionLines = item.description
-      .split(/\r?\n+/)
-      .map((line) => line.replace(/\s+/g, ' ').trim())
-      .filter(Boolean)
-      .flatMap(splitLongSterlingInvoiceLine);
-    const baseRow: SterlingInvoiceRow = {
-      unit: displayInvoiceCell(item.unit),
-      area: displayInvoiceCell(item.area),
-      service: displayInvoiceCell(item.service, 'General Service'),
-      descriptionLines: descriptionLines.length ? descriptionLines : ['-'],
-      labor: item.labor,
-      unitPrice: item.unitPrice,
-      showDetails: true,
-      showMoney: true,
-      showDivider: true,
-    };
+  [...items]
+    .sort(
+      (left, right) =>
+        compareInvoiceCells(displayInvoiceCell(left.unit), displayInvoiceCell(right.unit)) ||
+        compareInvoiceCells(displayInvoiceCell(left.area), displayInvoiceCell(right.area)) ||
+        compareInvoiceCells(displayInvoiceCell(left.service, 'General Service'), displayInvoiceCell(right.service, 'General Service')) ||
+        invoiceCellCollator.compare(left.description, right.description),
+    )
+    .flatMap((item) => {
+      const descriptionLines = item.description
+        .split(/\r?\n+/)
+        .map((line) => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .flatMap(splitLongSterlingInvoiceLine);
+      const baseRow: SterlingInvoiceRow = {
+        unit: displayInvoiceCell(item.unit),
+        area: displayInvoiceCell(item.area),
+        service: displayInvoiceCell(item.service, 'General Service'),
+        descriptionLines: descriptionLines.length ? descriptionLines : ['-'],
+        labor: item.labor,
+        unitPrice: item.unitPrice,
+        showDetails: true,
+        showMoney: true,
+        showDivider: true,
+      };
 
-    return splitSterlingInvoiceRow(baseRow);
-  });
+      return splitSterlingInvoiceRow(baseRow);
+    });
+
+const buildSterlingInvoiceDisplayRows = (rows: SterlingInvoiceRow[]): SterlingInvoiceDisplayRow[] => {
+  const displayRows: SterlingInvoiceDisplayRow[] = rows.map((row) => ({
+    ...row,
+    showUnitCell: false,
+    unitRowSpan: 1,
+    showAreaCell: false,
+    areaRowSpan: 1,
+  }));
+
+  for (let unitStart = 0; unitStart < displayRows.length;) {
+    const unit = displayRows[unitStart].unit;
+    let unitEnd = unitStart + 1;
+
+    while (unitEnd < displayRows.length && displayRows[unitEnd].unit === unit) {
+      unitEnd += 1;
+    }
+
+    displayRows[unitStart].showUnitCell = true;
+    displayRows[unitStart].unitRowSpan = unitEnd - unitStart;
+
+    for (let areaStart = unitStart; areaStart < unitEnd;) {
+      const area = displayRows[areaStart].area;
+      let areaEnd = areaStart + 1;
+
+      while (areaEnd < unitEnd && displayRows[areaEnd].area === area) {
+        areaEnd += 1;
+      }
+
+      displayRows[areaStart].showAreaCell = true;
+      displayRows[areaStart].areaRowSpan = areaEnd - areaStart;
+      areaStart = areaEnd;
+    }
+
+    unitStart = unitEnd;
+  }
+
+  return displayRows;
+};
 
 const buildSterlingDescriptionHtml = (lines: string[]) => {
   const normalizedLines = lines.filter(Boolean);
@@ -2558,7 +2612,7 @@ const buildSterlingDescriptionHtml = (lines: string[]) => {
 };
 
 const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
-  rows
+  buildSterlingInvoiceDisplayRows(rows)
     .map((row) => {
       const showDetails = row.showDetails !== false;
       const showMoney = row.showMoney !== false;
@@ -2572,8 +2626,16 @@ const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
 
       return `
         <tr class="${rowClass}">
-          <td class="${showDetails ? '' : 'continuation-cell'}">${showDetails ? escapeHtml(row.unit) : '&nbsp;'}</td>
-          <td class="${showDetails ? '' : 'continuation-cell'}">${showDetails ? escapeHtml(row.area) : '&nbsp;'}</td>
+          ${
+            row.showUnitCell
+              ? `<td rowspan="${row.unitRowSpan}">${escapeHtml(row.unit)}</td>`
+              : ''
+          }
+          ${
+            row.showAreaCell
+              ? `<td rowspan="${row.areaRowSpan}">${escapeHtml(row.area)}</td>`
+              : ''
+          }
           <td class="${showDetails ? '' : 'continuation-cell'}">${
             showDetails ? escapeHtml(row.continuation ? `${row.service} (cont.)` : row.service) : '&nbsp;'
           }</td>
