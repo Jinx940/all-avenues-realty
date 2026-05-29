@@ -11,7 +11,7 @@ type DocumentType = 'Invoice' | 'Quote';
 type OwnerKey = 'aze' | 'ryan' | 'todd';
 type DocumentOwnerCode = 'AZE' | 'RYAN' | 'TODD';
 type DocumentOwnerFilter = 'ALL' | DocumentOwnerCode;
-type DocumentOwnerLabel = 'AZE' | 'Sterling Mechanical' | 'Todd Goertler';
+type DocumentOwnerLabel = 'AZE' | 'Ryan Goertler' | 'Todd Goertler';
 
 type PdfServiceItem = {
   story: string;
@@ -186,7 +186,7 @@ type JobSelectionState = {
   mode: 'auto' | 'manual';
 };
 
-const headerOwnerOptions = ['Juan Azabache (AZE)', 'Sterling Mechanical', 'Todd Goertler'] as const;
+const headerOwnerOptions = ['Juan Azabache (AZE)', 'Ryan Goertler', 'Todd Goertler'] as const;
 
 const formatUsd = (value: number) => `$${value.toFixed(2)}`;
 const formatPdfNumber = (value: number) =>
@@ -324,12 +324,12 @@ const escapeHtml = (value: string) =>
 
 const ownerKeyFor = (owner: (typeof headerOwnerOptions)[number]): OwnerKey => {
   if (owner.includes('Todd')) return 'todd';
-  if (owner.includes('Sterling')) return 'ryan';
+  if (owner.includes('Ryan')) return 'ryan';
   return 'aze';
 };
 
 const ownerLabelFor = (ownerKey: OwnerKey): DocumentOwnerLabel => {
-  if (ownerKey === 'ryan') return 'Sterling Mechanical';
+  if (ownerKey === 'ryan') return 'Ryan Goertler';
   if (ownerKey === 'todd') return 'Todd Goertler';
   return 'AZE';
 };
@@ -3030,7 +3030,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                   </div>
                   <div class="party-block">
                     <p class="block-title">Company Info:</p>
-                    <p class="company-name">STERLING MECHANICAL</p>
+                    <p class="company-name">RYAN GOERTLER</p>
                     <div class="company-info">
                       <div><strong>Address:</strong>15222 Saranac Rd,<br>Cleveland, OH 44110</div>
                       <div><strong>Main:</strong>(440) 289-9796</div>
@@ -3143,7 +3143,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
   const ryanColumnLayout = buildRyanInvoiceColumnLayout(ryanGroups);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const docDateHtml = escapeHtml(data.docDate);
-  const companyNameHtml = data.ownerKey === 'todd' ? 'Todd<br>Goertler' : 'Sterling<br>Mechanical';
+  const companyNameHtml = data.ownerKey === 'todd' ? 'Todd<br>Goertler' : 'Ryan<br>Goertler';
   const headerClass =
     data.ownerKey === 'ryan'
       ? 'invoice-header ryan'
@@ -4624,7 +4624,7 @@ export function InvoiceQuoteView({
                 <p className="eyebrow">Invoice Adjustments</p>
                 <h3 className="title-with-icon title-with-icon--sm">
                   <UiIcon name="dollar" />
-                  <span>Sterling totals</span>
+                  <span>Ryan totals</span>
                 </h3>
               </div>
             </div>
@@ -4838,7 +4838,7 @@ export function InvoiceQuoteView({
               >
                 <option value="ALL">All owners</option>
                 <option value="AZE">AZE</option>
-                <option value="RYAN">Sterling Mechanical</option>
+                <option value="RYAN">Ryan Goertler</option>
                 <option value="TODD">Todd Goertler</option>
               </select>
             </label>
