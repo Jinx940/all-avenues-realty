@@ -143,6 +143,20 @@ type SterlingMechanicalInvoiceData = {
   jobTotal: number;
   totalDue: number;
   observation: string;
+  attachments: PdfAttachmentFile[];
+};
+
+type SterlingInvoiceRow = {
+  unit: string;
+  area: string;
+  service: string;
+  descriptionLines: string[];
+  labor: number;
+  unitPrice: number;
+  continuation?: boolean;
+  showDetails?: boolean;
+  showMoney?: boolean;
+  showDivider?: boolean;
 };
 
 type SaveGeneratedDocumentResponse = {
@@ -2382,77 +2396,209 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
   `;
 };
 
-const estimateSterlingInvoiceItemUnits = (item: PdfServiceItem) => {
-  const descriptionLines = Math.max(1, Math.ceil(item.description.length / 82));
-  const unitLines = Math.max(1, Math.ceil(displayInvoiceCell(item.unit).length / 16));
-  const areaLines = Math.max(1, Math.ceil(displayInvoiceCell(item.area).length / 18));
-  const serviceLines = Math.max(1, Math.ceil(displayInvoiceCell(item.service, 'General Service').length / 18));
+const splitLongSterlingInvoiceLine = (value: string) => {
+  const maxLength = 170;
 
-  return 1.15 + descriptionLines * 0.58 + Math.max(unitLines, areaLines, serviceLines) * 0.18;
-};
-
-const paginateSterlingInvoiceItems = (items: PdfServiceItem[]) => {
-  if (!items.length) return [[]];
-
-  const firstPageCapacity = 13.8;
-  const middlePageCapacity = 20.8;
-  const lastPageCapacity = 12.2;
-  const pages: PdfServiceItem[][] = [[]];
-  let pageIndex = 0;
-  let usedUnits = 0;
-
-  items.forEach((item, itemIndex) => {
-    const itemUnits = estimateSterlingInvoiceItemUnits(item);
-    const remainingItems = items.length - itemIndex;
-    const capacity =
-      pageIndex === 0
-        ? remainingItems <= 8
-          ? firstPageCapacity
-          : middlePageCapacity
-        : remainingItems <= 8
-          ? lastPageCapacity
-          : middlePageCapacity;
-
-    if (pages[pageIndex].length && usedUnits + itemUnits > capacity) {
-      pages.push([]);
-      pageIndex += 1;
-      usedUnits = 0;
-    }
-
-    pages[pageIndex].push(item);
-    usedUnits += itemUnits;
-  });
-
-  return pages.length ? pages : [[]];
-};
-
-const buildSterlingMechanicalRowsHtml = (items: PdfServiceItem[]) => {
-  if (!items.length) {
-    return `
-      <tr>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td class="money-cell">${formatPdfMoney(0)}</td>
-        <td class="money-cell">${formatPdfMoney(0)}</td>
-      </tr>
-    `;
+  if (value.length <= maxLength) {
+    return [value];
   }
 
-  return items
-    .map((item) => `
-      <tr>
-        <td>${escapeHtml(displayInvoiceCell(item.unit))}</td>
-        <td>${escapeHtml(displayInvoiceCell(item.area))}</td>
-        <td>${escapeHtml(displayInvoiceCell(item.service, 'General Service'))}</td>
-        <td class="description-cell">${escapeHtml(item.description).replace(/\r?\n/g, '<br>')}</td>
-        <td class="money-cell">${formatPdfMoney(item.labor)}</td>
-        <td class="money-cell">${formatPdfMoney(item.unitPrice)}</td>
-      </tr>
-    `)
-    .join('');
+  const words = value.split(/\s+/).filter(Boolean);
+
+  if (!words.length) {
+    return [value];
+  }
+
+  const chunks: string[] = [];
+  let currentChunk = '';
+
+  words.forEach((word) => {
+    if (word.length > maxLength) {
+      if (currentChunk) {
+        chunks.push(currentChunk);
+        currentChunk = '';
+      }
+
+      for (let index = 0; index < word.length; index += maxLength) {
+        chunks.push(word.slice(index, index + maxLength));
+      }
+
+      return;
+    }
+
+    const candidateChunk = currentChunk ? `${currentChunk} ${word}` : word;
+
+    if (candidateChunk.length > maxLength && currentChunk) {
+      chunks.push(currentChunk);
+      currentChunk = word;
+      return;
+    }
+
+    currentChunk = candidateChunk;
+  });
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks.length ? chunks : [value];
 };
+
+const estimateSterlingInvoiceRowUnits = (row: SterlingInvoiceRow) => {
+  const unitLines = Math.max(1, Math.ceil(row.unit.length / 14));
+  const areaLines = Math.max(1, Math.ceil(row.area.length / 16));
+  const serviceLines = Math.max(1, Math.ceil(row.service.length / 16));
+  const descriptionLines = row.descriptionLines.reduce(
+    (sum, line) => sum + Math.max(1, Math.ceil(line.length / 68)),
+    0,
+  );
+
+  return 0.92 + Math.max(unitLines, areaLines, serviceLines) * 0.18 + descriptionLines * 0.5;
+};
+
+const splitSterlingInvoiceRow = (row: SterlingInvoiceRow) => {
+  const normalizedRow = {
+    ...row,
+    descriptionLines: row.descriptionLines.flatMap(splitLongSterlingInvoiceLine),
+  };
+  const maxChunkUnits = 7.8;
+
+  if (estimateSterlingInvoiceRowUnits(normalizedRow) <= maxChunkUnits || normalizedRow.descriptionLines.length <= 1) {
+    return [normalizedRow];
+  }
+
+  const chunks: SterlingInvoiceRow[] = [];
+  let chunkLines: string[] = [];
+  let chunkIndex = 0;
+
+  const flushChunk = () => {
+    if (!chunkLines.length) return;
+
+    chunks.push({
+      unit: normalizedRow.unit,
+      area: normalizedRow.area,
+      service: normalizedRow.service,
+      descriptionLines: chunkLines,
+      labor: normalizedRow.labor,
+      unitPrice: normalizedRow.unitPrice,
+      continuation: chunkIndex > 0,
+      showDetails: chunkIndex === 0,
+      showMoney: chunkIndex === 0,
+      showDivider: true,
+    });
+
+    chunkLines = [];
+    chunkIndex += 1;
+  };
+
+  normalizedRow.descriptionLines.forEach((line) => {
+    const candidateLines = [...chunkLines, line];
+    const candidateRow: SterlingInvoiceRow = {
+      ...normalizedRow,
+      descriptionLines: candidateLines,
+      continuation: chunkIndex > 0,
+      showDetails: chunkIndex === 0,
+      showMoney: chunkIndex === 0,
+    };
+
+    if (chunkLines.length && estimateSterlingInvoiceRowUnits(candidateRow) > maxChunkUnits) {
+      flushChunk();
+      chunkLines = [line];
+      return;
+    }
+
+    chunkLines = candidateLines;
+  });
+
+  flushChunk();
+
+  chunks.forEach((chunk, index) => {
+    chunk.showDivider = index === chunks.length - 1;
+  });
+
+  return chunks.length ? chunks : [normalizedRow];
+};
+
+const splitSterlingInvoiceRowByLine = (row: SterlingInvoiceRow) => {
+  if (row.descriptionLines.length <= 1) {
+    return [row];
+  }
+
+  return row.descriptionLines.map<SterlingInvoiceRow>((line, index) => ({
+    ...row,
+    descriptionLines: [line],
+    continuation: row.continuation || index > 0,
+    showDetails: index === 0 ? row.showDetails : false,
+    showMoney: index === 0 ? row.showMoney : false,
+    showDivider: index === row.descriptionLines.length - 1 ? row.showDivider : false,
+  }));
+};
+
+const buildSterlingInvoiceTableRows = (items: PdfServiceItem[]): SterlingInvoiceRow[] =>
+  items.flatMap((item) => {
+    const descriptionLines = item.description
+      .split(/\r?\n+/)
+      .map((line) => line.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .flatMap(splitLongSterlingInvoiceLine);
+    const baseRow: SterlingInvoiceRow = {
+      unit: displayInvoiceCell(item.unit),
+      area: displayInvoiceCell(item.area),
+      service: displayInvoiceCell(item.service, 'General Service'),
+      descriptionLines: descriptionLines.length ? descriptionLines : ['-'],
+      labor: item.labor,
+      unitPrice: item.unitPrice,
+      showDetails: true,
+      showMoney: true,
+      showDivider: true,
+    };
+
+    return splitSterlingInvoiceRow(baseRow);
+  });
+
+const buildSterlingDescriptionHtml = (lines: string[]) => {
+  const normalizedLines = lines.filter(Boolean);
+
+  if (!normalizedLines.length) {
+    return '-';
+  }
+
+  if (normalizedLines.length === 1) {
+    return escapeHtml(normalizedLines[0]);
+  }
+
+  return `<div class="description-stack">${normalizedLines
+    .map((line) => `<div>${escapeHtml(line)}</div>`)
+    .join('')}</div>`;
+};
+
+const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
+  rows
+    .map((row) => {
+      const showDetails = row.showDetails !== false;
+      const showMoney = row.showMoney !== false;
+      const rowClass = [
+        'invoice-row',
+        row.continuation ? 'invoice-row--continuation' : '',
+        row.showDivider === false ? 'invoice-row--open' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      return `
+        <tr class="${rowClass}">
+          <td class="${showDetails ? '' : 'continuation-cell'}">${showDetails ? escapeHtml(row.unit) : '&nbsp;'}</td>
+          <td class="${showDetails ? '' : 'continuation-cell'}">${showDetails ? escapeHtml(row.area) : '&nbsp;'}</td>
+          <td class="${showDetails ? '' : 'continuation-cell'}">${
+            showDetails ? escapeHtml(row.continuation ? `${row.service} (cont.)` : row.service) : '&nbsp;'
+          }</td>
+          <td class="description-cell">${buildSterlingDescriptionHtml(row.descriptionLines)}</td>
+          <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatPdfMoney(row.labor) : '&nbsp;'}</td>
+          <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatPdfMoney(row.unitPrice) : '&nbsp;'}</td>
+        </tr>
+      `;
+    })
+    .join('');
 
 const sterlingMechanicalInvoiceStyles = `
   @page { size: A4; margin: 0; }
@@ -2464,8 +2610,8 @@ const sterlingMechanicalInvoiceStyles = `
     padding: 0;
     background: #ffffff;
     color: #111111;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 11px;
+    font-family: Aptos, "Segoe UI", Arial, Helvetica, sans-serif;
+    font-size: 10.5px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -2474,7 +2620,7 @@ const sterlingMechanicalInvoiceStyles = `
     width: 210mm;
     height: 297mm;
     margin: 0;
-    padding: 14mm 13mm 12mm;
+    padding: 13mm 13mm 12mm;
     background: #ffffff;
     display: flex;
     flex-direction: column;
@@ -2483,13 +2629,22 @@ const sterlingMechanicalInvoiceStyles = `
     break-after: page;
   }
   .page:last-child { page-break-after: auto; break-after: auto; }
+  .page-continue { padding-top: 11mm; }
+  .page-header { flex: 0 0 auto; }
+  .invoice-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
   .invoice-top {
     display: grid;
     grid-template-columns: 1fr 68mm;
     gap: 12mm;
     align-items: start;
-    padding-bottom: 9mm;
-    border-bottom: 1.5px solid #111111;
+    padding-bottom: 8mm;
+    border-bottom: 1.4px solid #111111;
   }
   .invoice-title-main {
     margin: 0;
@@ -2526,35 +2681,34 @@ const sterlingMechanicalInvoiceStyles = `
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12mm;
-    padding: 8mm 0 7mm;
+    padding: 7mm 0 6mm;
   }
   .party-block {
-    min-height: 42mm;
-    border: 1px solid #111111;
-    padding: 6mm;
+    min-height: 36mm;
+    padding: 0;
   }
   .block-title {
-    margin: 0 0 4mm;
-    font-size: 11px;
+    margin: 0 0 3mm;
+    font-size: 10px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0;
   }
   .bill-to-content {
-    min-height: 28mm;
     white-space: pre-line;
     line-height: 1.55;
     color: #111111;
+    font-size: 11px;
   }
   .company-name {
-    margin: 0 0 4mm;
+    margin: 0 0 3.5mm;
     font-size: 18px;
     line-height: 1;
     font-weight: 800;
   }
   .company-info {
     display: grid;
-    gap: 2.5mm;
+    gap: 2mm;
     line-height: 1.35;
   }
   .company-info strong {
@@ -2576,13 +2730,13 @@ const sterlingMechanicalInvoiceStyles = `
   .invoice-table th,
   .invoice-table td {
     border: 1px solid #111111;
-    padding: 7px 8px;
+    padding: 6px 7px;
     vertical-align: top;
     color: #111111;
     word-break: break-word;
   }
   .invoice-table th {
-    background: #eeeeee;
+    background: #ffffff;
     font-size: 10px;
     line-height: 1.2;
     text-align: left;
@@ -2591,10 +2745,19 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-table td {
     min-height: 28px;
-    line-height: 1.38;
+    line-height: 1.34;
   }
+  .invoice-row--open td { border-bottom-color: transparent; }
+  .invoice-row--continuation td { border-top-color: #777777; }
   .description-cell {
     text-align: left;
+  }
+  .description-stack {
+    display: grid;
+    gap: 3px;
+  }
+  .continuation-cell {
+    color: transparent;
   }
   .money-cell {
     text-align: right;
@@ -2606,7 +2769,7 @@ const sterlingMechanicalInvoiceStyles = `
     justify-content: space-between;
     gap: 10mm;
     align-items: end;
-    margin-bottom: 8mm;
+    margin-bottom: 7mm;
     padding-bottom: 5mm;
     border-bottom: 1px solid #111111;
   }
@@ -2621,68 +2784,149 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .last-section {
     margin-top: auto;
-    padding-top: 8mm;
+    padding-top: 7mm;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 72mm;
+    grid-template-columns: minmax(0, 1fr) 66mm;
     gap: 10mm;
     align-items: start;
     break-inside: avoid;
     page-break-inside: avoid;
   }
   .observation-box {
-    min-height: 34mm;
+    min-height: 31mm;
     border: 1px solid #111111;
-    padding: 5mm;
+    padding: 4.5mm;
   }
   .observation-box .block-title {
     text-transform: none;
     font-size: 12px;
   }
   .observation-text {
-    min-height: 20mm;
     white-space: pre-line;
     line-height: 1.45;
   }
-  .summary-box {
-    border: 1px solid #111111;
+  .totals-panel {
+    padding-top: 1mm;
   }
-  .summary-row {
+  .total-line {
     display: grid;
     grid-template-columns: 1fr 30mm;
-    min-height: 10mm;
-    border-bottom: 1px solid #111111;
+    min-height: 8.6mm;
     align-items: center;
+    border-bottom: 1px solid #d7d7d7;
+    font-size: 11px;
   }
-  .summary-row:last-child { border-bottom: 0; }
-  .summary-row span {
-    padding: 0 4mm;
+  .total-line span {
+    padding: 0 1mm;
   }
-  .summary-row span:first-child {
+  .total-line span:first-child {
     font-weight: 700;
   }
-  .summary-row span:last-child {
+  .total-line span:last-child {
     text-align: right;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
-  .summary-row.total {
-    background: #eeeeee;
+  .total-line.total {
+    margin-top: 2mm;
     border-top: 2px solid #111111;
-    min-height: 12mm;
+    border-bottom: 2px solid #111111;
+    min-height: 10.5mm;
     font-size: 12px;
     font-weight: 800;
   }
   .footer-note {
-    margin-top: 7mm;
+    margin-top: 6mm;
     text-align: center;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 800;
     letter-spacing: 0;
+  }
+  .attachment-section-start {
+    flex: 0 0 auto;
+    margin-top: 7mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .attachment-heading {
+    padding: 0 0 3mm;
+    border-bottom: 1.5px solid #111111;
+    color: #111111;
+    font-size: 13px;
+    line-height: 1.2;
+    font-weight: 800;
+    text-transform: uppercase;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .attachment-row {
+    flex: 0 0 76mm;
+    height: 76mm;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10mm;
+    margin-top: 5mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .attachment-card {
+    height: 100%;
+    background: #ffffff;
+    border: 1px solid #111111;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .attachment-card--empty {
+    background: transparent;
+    border-color: transparent;
+  }
+  .attachment-frame {
+    flex: 1 1 auto;
+    min-height: 0;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .attachment-frame--empty { background: transparent; }
+  .attachment-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .attachment-caption {
+    flex: 0 0 auto;
+    display: grid;
+    gap: 2px;
+    padding: 8px 10px 10px;
+    color: #111111;
+  }
+  .attachment-caption--empty {
+    min-height: 40px;
+    padding: 8px 10px 10px;
+  }
+  .attachment-caption span {
+    color: #111111;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .attachment-caption strong {
+    color: #111111;
+    font-size: 11px;
+    line-height: 1.25;
   }
 `;
 
 const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData) => {
-  const pages = paginateSterlingInvoiceItems(data.selectedItems);
+  const tableRows = buildSterlingInvoiceTableRows(data.selectedItems);
+  const attachmentTailBlocks = buildAttachmentTailBlocks(data.attachments);
   const billToHtml = escapeHtml(data.billTo.trim()).replace(/\r?\n/g, '<br>');
   const observationHtml = escapeHtml(data.observation.trim()).replace(/\r?\n/g, '<br>');
   const tableColumnsHtml = `
@@ -2714,20 +2958,20 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         <div class="observation-text">${observationHtml}</div>
       </div>
       <div>
-        <div class="summary-box">
-          <div class="summary-row">
+        <div class="totals-panel">
+          <div class="total-line">
             <span>Job Total</span>
             <span>${formatPdfMoney(data.jobTotal)}</span>
           </div>
-          <div class="summary-row">
+          <div class="total-line">
             <span>Expenses</span>
             <span>${formatPdfMoney(data.expenses)}</span>
           </div>
-          <div class="summary-row">
+          <div class="total-line">
             <span>Invoicing Services</span>
             <span>${formatPdfMoney(data.invoicingServices)}</span>
           </div>
-          <div class="summary-row total">
+          <div class="total-line total">
             <span>Total Due</span>
             <span>${formatPdfMoney(data.totalDue)}</span>
           </div>
@@ -2737,69 +2981,242 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
     </section>
   `;
 
-  const buildPageHtml = (items: PdfServiceItem[], pageIndex: number) => {
-    const isFirstPage = pageIndex === 0;
-    const isLastPage = pageIndex === pages.length - 1;
+  type SterlingMechanicalPageLayout = {
+    rows: SterlingInvoiceRow[];
+    tailBlocks: string[];
+  };
 
-    return `
-      <div class="page">
-        ${
-          isFirstPage
-            ? `
-              <header class="invoice-top">
-                <h1 class="invoice-title-main">INVOICE</h1>
-                <div class="invoice-meta">
-                  <div class="meta-row">
-                    <span class="meta-label">Invoice Number:</span>
-                    <span class="meta-value">${escapeHtml(data.invoiceNumber)}</span>
-                  </div>
-                  <div class="meta-row">
-                    <span class="meta-label">Date:</span>
-                    <span class="meta-value">${escapeHtml(formatPdfDate(data.docDate))}</span>
-                  </div>
-                </div>
-              </header>
-
-              <section class="party-grid">
-                <div class="party-block">
-                  <p class="block-title">Bill To:</p>
-                  <div class="bill-to-content">${billToHtml}</div>
-                </div>
-                <div class="party-block">
-                  <p class="block-title">Company Info:</p>
-                  <p class="company-name">STERLING MECHANICAL</p>
-                  <div class="company-info">
-                    <div><strong>Address:</strong>15222 Saranac Rd,<br>Cleveland, OH 44110</div>
-                    <div><strong>Main:</strong>(440) 289-9796</div>
-                    <div><strong>Secondary:</strong>(440) 666-5608</div>
-                    <div><strong>Email:</strong>ryangoertler1313@gmail.com</div>
-                  </div>
-                </div>
-              </section>
-            `
-            : `
-              <header class="continue-head">
-                <strong>Invoice</strong>
-                <div class="continue-meta">
-                  <div>Invoice Number: ${escapeHtml(data.invoiceNumber)}</div>
-                  <div>Date: ${escapeHtml(formatPdfDate(data.docDate))}</div>
-                </div>
-              </header>
-            `
-        }
-
+  const buildPageHtml = (
+    rows: SterlingInvoiceRow[],
+    options: { isFirstPage: boolean; tailBlocks?: string[] },
+  ) => {
+    const rowsHtml = rows.length ? buildSterlingMechanicalRowsHtml(rows) : '';
+    const tableHtml = rowsHtml
+      ? `
         <table class="invoice-table">
           ${tableColumnsHtml}
           ${tableHeadHtml}
-          <tbody>${buildSterlingMechanicalRowsHtml(items)}</tbody>
+          <tbody>${rowsHtml}</tbody>
         </table>
+      `
+      : '';
+    const tailBlocksHtml = options.tailBlocks?.join('') ?? '';
+    const pageClassName = ['page', options.isFirstPage ? 'page-first' : 'page-continue'].join(' ');
 
-        ${isLastPage ? summaryHtml : ''}
+    return `
+      <div class="${pageClassName}">
+        <header class="page-header">
+          ${
+            options.isFirstPage
+              ? `
+                <div class="invoice-top">
+                  <h1 class="invoice-title-main">INVOICE</h1>
+                  <div class="invoice-meta">
+                    <div class="meta-row">
+                      <span class="meta-label">Invoice Number:</span>
+                      <span class="meta-value">${escapeHtml(data.invoiceNumber)}</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="meta-label">Date:</span>
+                      <span class="meta-value">${escapeHtml(formatPdfDate(data.docDate))}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <section class="party-grid">
+                  <div class="party-block">
+                    <p class="block-title">Bill To:</p>
+                    <div class="bill-to-content">${billToHtml}</div>
+                  </div>
+                  <div class="party-block">
+                    <p class="block-title">Company Info:</p>
+                    <p class="company-name">STERLING MECHANICAL</p>
+                    <div class="company-info">
+                      <div><strong>Address:</strong>15222 Saranac Rd,<br>Cleveland, OH 44110</div>
+                      <div><strong>Main:</strong>(440) 289-9796</div>
+                      <div><strong>Secondary:</strong>(440) 666-5608</div>
+                      <div><strong>Email:</strong>ryangoertler1313@gmail.com</div>
+                    </div>
+                  </div>
+                </section>
+              `
+              : `
+                <div class="continue-head">
+                  <strong>Invoice</strong>
+                  <div class="continue-meta">
+                    <div>Invoice Number: ${escapeHtml(data.invoiceNumber)}</div>
+                    <div>Date: ${escapeHtml(formatPdfDate(data.docDate))}</div>
+                  </div>
+                </div>
+              `
+          }
+        </header>
+
+        <main class="invoice-body">
+          ${tableHtml}
+          ${tailBlocksHtml}
+        </main>
       </div>
     `;
   };
 
-  const pagesHtml = pages.map(buildPageHtml).join('');
+  const fallbackLayouts = (): SterlingMechanicalPageLayout[] => [
+    { rows: tableRows, tailBlocks: [summaryHtml] },
+    ...(attachmentTailBlocks.length
+      ? [{ rows: [], tailBlocks: attachmentTailBlocks }]
+      : []),
+  ];
+
+  const paginateSterlingInvoiceRowsByLayout = () => {
+    if (typeof document === 'undefined') {
+      return fallbackLayouts();
+    }
+
+    const measurementHost = document.createElement('div');
+    Object.assign(measurementHost.style, {
+      position: 'fixed',
+      left: '-250vw',
+      top: '0',
+      width: '210mm',
+      minHeight: '297mm',
+      visibility: 'hidden',
+      pointerEvents: 'none',
+      zIndex: '-1',
+    });
+    document.body.appendChild(measurementHost);
+    const measurementRoot = measurementHost.attachShadow({ mode: 'open' });
+
+    const pageFits = (
+      rows: SterlingInvoiceRow[],
+      options: { isFirstPage: boolean; tailBlocks?: string[] },
+    ) => {
+      measurementRoot.innerHTML = `
+        <style>${sterlingMechanicalInvoiceStyles}</style>
+        ${buildPageHtml(rows, options)}
+      `;
+
+      const body = measurementRoot.querySelector<HTMLElement>('.invoice-body');
+      if (!body) {
+        return true;
+      }
+
+      const measuredElements = Array.from(
+        measurementRoot.querySelectorAll<HTMLElement>(
+          '.invoice-table, .last-section, .attachment-section-start, .attachment-row',
+        ),
+      );
+
+      if (!measuredElements.length) {
+        return true;
+      }
+
+      const bodyBottom = body.getBoundingClientRect().bottom;
+      const contentBottom = Math.max(
+        ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
+      );
+
+      return contentBottom <= bodyBottom + 0.5;
+    };
+
+    try {
+      const pages: SterlingInvoiceRow[][] = [[]];
+      let pageIndex = 0;
+      const pendingRows = [...tableRows];
+
+      while (pendingRows.length) {
+        const row = pendingRows.shift() as SterlingInvoiceRow;
+        const currentPage = pages[pageIndex];
+        const candidateRows = [...currentPage, row];
+
+        if (pageFits(candidateRows, { isFirstPage: pageIndex === 0 })) {
+          currentPage.push(row);
+          continue;
+        }
+
+        const splitRows = splitSterlingInvoiceRowByLine(row);
+
+        if (currentPage.length === 0 && splitRows.length > 1) {
+          pendingRows.unshift(...splitRows);
+          continue;
+        }
+
+        if (currentPage.length === 0) {
+          currentPage.push(row);
+          continue;
+        }
+
+        pages.push([]);
+        pageIndex += 1;
+        pendingRows.unshift(row);
+      }
+
+      while (pages.length > 1 && pages[pages.length - 1].length === 0) {
+        pages.pop();
+      }
+
+      const pageLayouts: SterlingMechanicalPageLayout[] = pages.map((rows) => ({
+        rows,
+        tailBlocks: [],
+      }));
+      if (!pageLayouts.length) {
+        pageLayouts.push({ rows: [], tailBlocks: [] });
+      }
+
+      let summaryPageIndex = pageLayouts.length - 1;
+      const summaryLayout = pageLayouts[summaryPageIndex];
+
+      if (
+        pageFits(summaryLayout.rows, {
+          isFirstPage: summaryPageIndex === 0,
+          tailBlocks: [summaryHtml],
+        })
+      ) {
+        summaryLayout.tailBlocks = [summaryHtml];
+      } else {
+        pageLayouts.push({ rows: [], tailBlocks: [summaryHtml] });
+        summaryPageIndex = pageLayouts.length - 1;
+      }
+
+      if (attachmentTailBlocks.length) {
+        pageLayouts.push({ rows: [], tailBlocks: [] });
+        let attachmentPageIndex = pageLayouts.length - 1;
+
+        for (const tailBlock of attachmentTailBlocks) {
+          const currentLayout = pageLayouts[attachmentPageIndex];
+          const candidateTailBlocks = [...currentLayout.tailBlocks, tailBlock];
+
+          if (
+            pageFits(currentLayout.rows, {
+              isFirstPage: attachmentPageIndex === 0,
+              tailBlocks: candidateTailBlocks,
+            })
+          ) {
+            currentLayout.tailBlocks.push(tailBlock);
+            continue;
+          }
+
+          pageLayouts.push({ rows: [], tailBlocks: [tailBlock] });
+          attachmentPageIndex = pageLayouts.length - 1;
+        }
+      }
+
+      return pageLayouts.filter((layout) => layout.rows.length || layout.tailBlocks.length);
+    } catch {
+      return fallbackLayouts();
+    } finally {
+      measurementHost.remove();
+    }
+  };
+
+  const pages = paginateSterlingInvoiceRowsByLayout();
+  const pagesHtml = pages
+    .map((pageLayout, pageIndex) =>
+      buildPageHtml(pageLayout.rows, {
+        isFirstPage: pageIndex === 0,
+        tailBlocks: pageLayout.tailBlocks,
+      }),
+    )
+    .join('');
 
   return `
     <!doctype html>
@@ -3445,35 +3862,32 @@ export function InvoiceQuoteView({
         : selectedAttachments.filter((attachment) => attachment.kind === 'receipt'),
     [ownerKey, selectedAttachments, selectedRyanReceiptAttachments],
   );
-  const availableAttachmentKinds = useMemo<Array<PdfAttachmentFile['kind']>>(
-    () => (ownerKey === 'ryan' ? ['receipt'] : selectableAttachmentKinds),
-    [ownerKey],
-  );
+  const availableAttachmentKinds = selectableAttachmentKinds;
   const hasSelectablePdfAttachments = availableAttachmentKinds.some((kind) => attachmentCounts[kind] > 0);
   const allRyanReceiptsSelected =
     ownerKey === 'ryan' &&
     propertyReceiptAttachments.length > 0 &&
     selectedRyanReceiptAttachments.length === propertyReceiptAttachments.length;
-  const includeAzeInvoicePhotosInPdf =
+  const includeInlineInvoicePhotosInPdf =
     documentType === 'Invoice' &&
-    (ownerKey === 'aze' || ownerKey === 'todd') &&
+    (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd') &&
     selectedInvoicePhotoAttachments.length > 0;
   const includeReceiptAppendicesInPdf =
     documentType === 'Invoice' &&
     (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd') &&
     selectedReceiptAttachments.length > 0;
-  const selectedAttachmentSummary =
-    ownerKey === 'ryan'
-      ? selectedRyanReceiptAttachments.length > 0
-        ? `Receipt (${selectedRyanReceiptAttachments.length} of ${propertyReceiptAttachments.length})`
-        : ''
-      : availableAttachmentKinds
-          .map((kind) => {
-            const selectedCount = selectedAttachments.filter((attachment) => attachment.kind === kind).length;
-            return selectedCount > 0 ? `${attachmentKindLabels[kind]} (${selectedCount} of ${attachmentCounts[kind]})` : '';
-          })
-          .filter(Boolean)
-          .join(', ');
+  const selectedAttachmentSummary = availableAttachmentKinds
+    .map((kind) => {
+      const usesRyanReceiptSelection = ownerKey === 'ryan' && kind === 'receipt';
+      const selectedCount = usesRyanReceiptSelection
+        ? selectedRyanReceiptAttachments.length
+        : selectedAttachments.filter((attachment) => attachment.kind === kind).length;
+      const totalCount = usesRyanReceiptSelection ? propertyReceiptAttachments.length : attachmentCounts[kind];
+
+      return selectedCount > 0 ? `${attachmentKindLabels[kind]} (${selectedCount} of ${totalCount})` : '';
+    })
+    .filter(Boolean)
+    .join(', ');
 
   const usesManualAmounts = ownerKey !== 'todd' && !usesSterlingInvoice;
   const servicesTotal = selectedItems.reduce((sum, item) => sum + item.unitPrice, 0);
@@ -3704,6 +4118,7 @@ export function InvoiceQuoteView({
           jobTotal,
           totalDue,
           observation,
+          attachments: includeInlineInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
         })
       : useAzeModernInvoice
         ? buildAzeModernInvoiceHtml({
@@ -3722,7 +4137,7 @@ export function InvoiceQuoteView({
           jobTotal,
           expenses,
           totalDue,
-          attachments: includeAzeInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
+          attachments: includeInlineInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
         })
       : useToddModernInvoice
         ? buildToddModernInvoiceHtml({
@@ -3741,7 +4156,7 @@ export function InvoiceQuoteView({
             jobTotal,
             expenses,
             totalDue,
-            attachments: includeAzeInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
+            attachments: includeInlineInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
           })
       : buildLegacySterlingPdfHtml({
           ownerKey,
@@ -3773,7 +4188,7 @@ export function InvoiceQuoteView({
     effectiveDocumentNumber,
     expenses,
     firstJobDate,
-    includeAzeInvoicePhotosInPdf,
+    includeInlineInvoicePhotosInPdf,
     invoicingServices,
     issueDate,
     jobTotal,
@@ -3794,13 +4209,13 @@ export function InvoiceQuoteView({
   const buildGeneratedDocumentContentForPdf = useCallback(async (
     documentNumberOverride?: string,
   ): Promise<GeneratedDocumentContent | null> => {
-    if (!includeAzeInvoicePhotosInPdf) {
+    if (!includeInlineInvoicePhotosInPdf) {
       return buildGeneratedDocumentContent(documentNumberOverride);
     }
 
     const embeddedAttachments = await inlinePdfAttachmentImages(selectedInvoicePhotoAttachments);
     return buildGeneratedDocumentContent(documentNumberOverride, embeddedAttachments);
-  }, [buildGeneratedDocumentContent, includeAzeInvoicePhotosInPdf, selectedInvoicePhotoAttachments]);
+  }, [buildGeneratedDocumentContent, includeInlineInvoicePhotosInPdf, selectedInvoicePhotoAttachments]);
 
   const buildReceiptAppendicesForPdf = useCallback(async (): Promise<GeneratedPdfReceiptAppendix[]> => {
     if (!includeReceiptAppendicesInPdf) {
@@ -4076,12 +4491,8 @@ export function InvoiceQuoteView({
                   <small>
                     {selectedAttachmentSummary ||
                       (hasSelectablePdfAttachments
-                        ? ownerKey === 'ryan'
-                          ? `Choose receipts (${attachmentCounts.receipt} available)`
-                          : 'Choose Before, After or Receipts'
-                        : ownerKey === 'ryan'
-                          ? 'Select jobs with receipt files to enable this.'
-                          : 'Select jobs with before, after or receipt files to enable this.')}
+                        ? 'Choose Before, After or Receipts'
+                        : 'Select jobs with before, after or receipt files to enable this.')}
                   </small>
                 </span>
                 <span className={`invoice-services-caret ${attachmentsOpen ? 'is-open' : ''}`}>
@@ -4091,119 +4502,84 @@ export function InvoiceQuoteView({
 
               {attachmentsOpen && documentType === 'Invoice' && hasSelectablePdfAttachments ? (
                 <div className="invoice-attachment-menu">
-                  {ownerKey === 'ryan' ? (
-                    <div className="invoice-attachment-kind">
-                      <div className="invoice-attachment-option invoice-attachment-kind-head">
-                        <input
-                          type="checkbox"
-                          checked={allRyanReceiptsSelected}
-                          onChange={(event) =>
-                            setSelectedRyanReceiptIds(
-                              event.target.checked
-                                ? propertyReceiptAttachments.map((attachment) => attachment.id)
-                                : [],
-                            )
-                          }
-                        />
-                        <button
-                          type="button"
-                          className="invoice-attachment-kind-toggle"
-                          onClick={() => toggleAttachmentKindOpen('receipt')}
-                          disabled={!propertyReceiptAttachments.length}
-                          aria-expanded={expandedAttachmentKinds.receipt}
-                        >
-                          <span>Receipt</span>
-                          <span className={`invoice-services-caret ${expandedAttachmentKinds.receipt ? 'is-open' : ''}`}>
-                            v
-                          </span>
-                        </button>
-                        <small>
-                          {selectedRyanReceiptAttachments.length} of {propertyReceiptAttachments.length} selected
-                        </small>
-                      </div>
+                  {availableAttachmentKinds.map((kind) => {
+                    const usesRyanReceiptSelection = ownerKey === 'ryan' && kind === 'receipt';
+                    const attachmentsForKind = usesRyanReceiptSelection
+                      ? propertyReceiptAttachments
+                      : selectedJobAttachments.filter((attachment) => attachment.kind === kind);
+                    const selectedCount = usesRyanReceiptSelection
+                      ? selectedRyanReceiptAttachments.length
+                      : attachmentsForKind.filter((attachment) => selectedAttachmentIdSet.has(attachment.id)).length;
+                    const checked = usesRyanReceiptSelection
+                      ? allRyanReceiptsSelected
+                      : attachmentsForKind.length > 0 && selectedCount === attachmentsForKind.length;
+                    const setKindChecked = (nextChecked: boolean) => {
+                      if (usesRyanReceiptSelection) {
+                        setSelectedRyanReceiptIds(
+                          nextChecked ? attachmentsForKind.map((attachment) => attachment.id) : [],
+                        );
+                        return;
+                      }
 
-                      {expandedAttachmentKinds.receipt ? (
-                        <div className="invoice-attachment-receipt-list">
-                          {propertyReceiptAttachments.map((attachment) => {
-                            const isSelected = selectedRyanReceiptIds.includes(attachment.id);
+                      setAttachmentKindSelected(kind, nextChecked);
+                    };
+                    const setAttachmentChecked = (attachmentId: string, nextChecked: boolean) => {
+                      if (!usesRyanReceiptSelection) {
+                        setAttachmentSelected(attachmentId, nextChecked);
+                        return;
+                      }
 
-                            return (
-                              <label
-                                key={attachment.id}
-                                className="invoice-attachment-option invoice-attachment-option--receipt"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={(event) =>
-                                    setSelectedRyanReceiptIds((current) => {
-                                      if (event.target.checked) {
-                                        return current.includes(attachment.id)
-                                          ? current
-                                          : [...current, attachment.id];
-                                      }
+                      setSelectedRyanReceiptIds((current) => {
+                        if (nextChecked) {
+                          return current.includes(attachmentId) ? current : [...current, attachmentId];
+                        }
 
-                                      return current.filter((id) => id !== attachment.id);
-                                    })
-                                  }
-                                />
-                                <span className="invoice-attachment-receipt-meta">
-                                  <span>{attachment.label}</span>
-                                  <small>{attachment.fileName}</small>
-                                </span>
-                                <small>{formatPdfDate(attachment.createdAt)}</small>
-                              </label>
-                            );
-                          })}
+                        return current.filter((id) => id !== attachmentId);
+                      });
+                    };
+
+                    return (
+                      <div key={kind} className="invoice-attachment-kind">
+                        <div className="invoice-attachment-option invoice-attachment-kind-head">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => setKindChecked(event.target.checked)}
+                            disabled={!attachmentsForKind.length}
+                          />
+                          <button
+                            type="button"
+                            className="invoice-attachment-kind-toggle"
+                            onClick={() => toggleAttachmentKindOpen(kind)}
+                            disabled={!attachmentsForKind.length}
+                            aria-expanded={expandedAttachmentKinds[kind]}
+                          >
+                            <span>{attachmentKindLabels[kind]}</span>
+                            <span className={`invoice-services-caret ${expandedAttachmentKinds[kind] ? 'is-open' : ''}`}>
+                              v
+                            </span>
+                          </button>
+                          <small>
+                            {selectedCount} of {attachmentsForKind.length} selected
+                          </small>
                         </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    availableAttachmentKinds.map((kind) => {
-                      const attachmentsForKind = selectedJobAttachments.filter(
-                        (attachment) => attachment.kind === kind,
-                      );
-                      const selectedCount = attachmentsForKind.filter((attachment) =>
-                        selectedAttachmentIdSet.has(attachment.id),
-                      ).length;
 
-                      return (
-                        <div key={kind} className="invoice-attachment-kind">
-                          <div className="invoice-attachment-option invoice-attachment-kind-head">
-                            <input
-                              type="checkbox"
-                              checked={attachmentsForKind.length > 0 && selectedCount === attachmentsForKind.length}
-                              onChange={(event) => setAttachmentKindSelected(kind, event.target.checked)}
-                              disabled={!attachmentsForKind.length}
-                            />
-                            <button
-                              type="button"
-                              className="invoice-attachment-kind-toggle"
-                              onClick={() => toggleAttachmentKindOpen(kind)}
-                              disabled={!attachmentsForKind.length}
-                              aria-expanded={expandedAttachmentKinds[kind]}
-                            >
-                              <span>{attachmentKindLabels[kind]}</span>
-                              <span className={`invoice-services-caret ${expandedAttachmentKinds[kind] ? 'is-open' : ''}`}>
-                                v
-                              </span>
-                            </button>
-                            <small>
-                              {selectedCount} of {attachmentsForKind.length} selected
-                            </small>
-                          </div>
+                        {expandedAttachmentKinds[kind] ? (
+                          <div className="invoice-attachment-receipt-list">
+                            {attachmentsForKind.map((attachment) => {
+                              const isSelected = usesRyanReceiptSelection
+                                ? selectedRyanReceiptIds.includes(attachment.id)
+                                : selectedAttachmentIdSet.has(attachment.id);
 
-                          {expandedAttachmentKinds[kind] ? (
-                            <div className="invoice-attachment-receipt-list">
-                              {attachmentsForKind.map((attachment) => (
+                              return (
                                 <label
                                   key={attachment.id}
                                   className="invoice-attachment-option invoice-attachment-option--receipt"
                                 >
                                   <input
                                     type="checkbox"
-                                    checked={selectedAttachmentIdSet.has(attachment.id)}
-                                    onChange={(event) => setAttachmentSelected(attachment.id, event.target.checked)}
+                                    checked={isSelected}
+                                    onChange={(event) => setAttachmentChecked(attachment.id, event.target.checked)}
                                   />
                                   <span className="invoice-attachment-receipt-meta">
                                     <span>{attachment.label}</span>
@@ -4211,13 +4587,13 @@ export function InvoiceQuoteView({
                                   </span>
                                   <small>{formatPdfDate(attachment.createdAt)}</small>
                                 </label>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })
-                  )}
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
