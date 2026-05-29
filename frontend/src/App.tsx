@@ -2121,7 +2121,7 @@ export default function App() {
             documents={generatedDocuments}
             canDelete={currentUser.role === 'ADMIN'}
             onDeleteDocument={(documentId, options) => deleteGeneratedDocument(documentId, options)}
-            onDocumentSaved={(text) => void refreshAll({ type: 'success', text })}
+            onDocumentSaved={(text) => refreshAll({ type: 'success', text }, { includeDocuments: true })}
             onDocumentError={(text) => setMessage({ type: 'error', text })}
           />
         ) : null}

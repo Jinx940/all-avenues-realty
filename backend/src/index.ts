@@ -929,7 +929,7 @@ app.use(
       credentials: true,
     })(request, response, next),
 );
-app.use(express.json({ limit: '4mb' }));
+app.use(express.json({ limit: '25mb' }));
 app.use(
   compression({
     threshold: 1024,

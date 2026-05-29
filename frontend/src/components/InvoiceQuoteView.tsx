@@ -1,5 +1,5 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildAssetUrl, fetchAssetBlob, requestJson } from '../lib/api';
+import { ApiError, buildAssetUrl, fetchAssetBlob, requestJson } from '../lib/api';
 import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendix } from '../lib/generatedPdf';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
@@ -2892,6 +2892,13 @@ export function InvoiceQuoteView({
   const ownerKey = ownerKeyFor(headerOwner);
   const ownerLabel = ownerLabelFor(ownerKey);
   const effectiveDocumentNumber = documentNumber.trim();
+  const documentNumberExists = documents.some((document) => {
+    const targetType = documentType === 'Invoice' ? 'INVOICE' : 'QUOTE';
+    return (
+      document.documentType === targetType &&
+      document.documentNumber.trim().toLowerCase() === effectiveDocumentNumber.toLowerCase()
+    );
+  });
   const descriptionValueFor = (job: JobRow) => descriptionEdits[job.id] ?? normalizeInvoiceDescription(job.description);
   const displayedSelectedCount = selectedJobIds.length;
 
@@ -3377,6 +3384,11 @@ export function InvoiceQuoteView({
       return;
     }
 
+    if (documentNumberExists) {
+      await onDocumentError?.(`This ${documentType.toLowerCase()} number is already in use. Enter another number.`);
+      return;
+    }
+
     setGeneratePdfConfirmOpen(true);
   };
 
@@ -3439,7 +3451,12 @@ export function InvoiceQuoteView({
         throw error;
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not save the generated document.';
+      const message =
+        error instanceof ApiError && error.status === 413
+          ? 'The PDF is too large to save. Try generating it with fewer attachments.'
+          : error instanceof Error
+            ? error.message
+            : 'Could not save the generated document.';
       await onDocumentError?.(message);
     } finally {
       setGeneratePdfBusy(false);
@@ -3920,10 +3937,10 @@ export function InvoiceQuoteView({
                 type="button"
                 className="invoice-generate-button"
                 onClick={() => void handleGeneratePdf()}
-                disabled={!selectedItems.length}
+                disabled={!selectedItems.length || !effectiveDocumentNumber || generatePdfBusy}
               >
                 <UiIcon name="file" />
-                Generate PDF
+                {generatePdfBusy ? 'Generating...' : 'Generate PDF'}
               </button>
             </div>
           </div>
