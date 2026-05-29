@@ -2592,7 +2592,7 @@ const paginateSterlingInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
   if (!rows.length) return [[]];
 
   const pages: SterlingInvoiceRow[][] = [[]];
-  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 19.4 : 31.8);
+  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 18.2 : 30.6);
   let pageIndex = 0;
   let usedUnits = 0;
 
@@ -2750,11 +2750,12 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-table th {
     background: #ffffff;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.2;
-    text-align: left;
+    text-align: center;
     font-weight: 800;
-    text-transform: uppercase;
+    text-transform: none;
+    vertical-align: middle;
   }
   .invoice-table td {
     min-height: 28px;
@@ -2952,6 +2953,18 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
       <col />
     </colgroup>
   `;
+  const tableHeadHtml = `
+    <thead>
+      <tr>
+        <th>Unit</th>
+        <th>Area</th>
+        <th>Service</th>
+        <th>Description</th>
+        <th>Labor</th>
+        <th>Unit Price<br>(USD)</th>
+      </tr>
+    </thead>
+  `;
   const summaryHtml = `
     <section class="last-section">
       <div class="observation-box">
@@ -2996,6 +3009,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
       ? `
         <table class="invoice-table">
           ${tableColumnsHtml}
+          ${tableHeadHtml}
           <tbody>${rowsHtml}</tbody>
         </table>
       `
@@ -3072,7 +3086,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
     }
 
     const summaryUnits = 6.6;
-    const summaryCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 18.2 : 27.2);
+    const summaryCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 17 : 26);
     const lastPageIndex = pageLayouts.length - 1;
     const lastLayout = pageLayouts[lastPageIndex];
 
