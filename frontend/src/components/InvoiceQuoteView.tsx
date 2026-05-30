@@ -2746,10 +2746,10 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-number-main {
     margin: 0;
-    font-size: 18px;
-    line-height: 1;
-    font-weight: 700;
-    letter-spacing: 1px;
+    font-size: 58px;
+    line-height: 0.82;
+    font-weight: 800;
+    letter-spacing: 8px;
   }
   .invoice-meta {
     display: grid;
@@ -2782,22 +2782,16 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .party-grid {
     display: grid;
-    grid-template-columns: 1.05fr 1.35fr 1fr;
-    gap: 0;
-    padding: 9mm 0 13mm;
+    grid-template-columns: 0.95fr 1.05fr 1.9fr;
+    gap: 9mm;
+    padding: 9mm 2mm 13mm;
   }
   .party-block {
-    min-height: 34mm;
-    padding: 0 6.5mm;
-  }
-  .party-block:first-child {
-    padding-left: 2mm;
-  }
-  .party-block:not(:first-child) {
-    border-left: 1px solid #b8b8b8;
+    min-height: auto;
+    padding: 0;
   }
   .block-title {
-    margin: 0 0 5mm;
+    margin: 0 0 3mm;
     font-size: 20px;
     line-height: 1;
     font-weight: 800;
@@ -2810,33 +2804,26 @@ const sterlingMechanicalInvoiceStyles = `
     color: #111111;
     font-size: 18px;
   }
-  .company-name {
-    margin: 0 0 6mm;
-    font-size: 20px;
-    line-height: 1;
-    font-weight: 800;
-    text-transform: uppercase;
-  }
   .company-info {
     display: grid;
-    gap: 3.2mm;
-    line-height: 1.45;
+    gap: 0;
+    line-height: 1.55;
     font-size: 18px;
   }
   .company-info strong {
-    display: block;
+    display: inline;
     font-weight: 800;
-    margin-bottom: 1.8mm;
+    margin: 0 2mm 0 0;
   }
   .contact-info {
     display: grid;
-    gap: 7mm;
+    gap: 2.8mm;
     font-size: 18px;
-    line-height: 1.35;
+    line-height: 1.45;
   }
   .contact-info strong {
-    display: block;
-    margin-bottom: 2.3mm;
+    display: inline;
+    margin: 0 2mm 0 0;
     font-weight: 800;
   }
   .invoice-table {
@@ -3179,15 +3166,14 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                     <div class="bill-to-content">${billToHtml}</div>
                   </div>
                   <div class="party-block">
-                    <p class="company-name">RYAN GOERTLER</p>
-                    <div class="company-info">
-                      <div><strong>Address:</strong>15222 Saranac Rd,<br>Cleveland, OH 44110</div>
-                    </div>
-                  </div>
-                  <div class="party-block">
                     <div class="contact-info">
                       <div><strong>Main:</strong>(440) 289-9796</div>
                       <div><strong>Secondary:</strong>(440) 666-5608</div>
+                    </div>
+                  </div>
+                  <div class="party-block">
+                    <div class="company-info">
+                      <div><strong>Address:</strong>15222 Saranac Rd, Cleveland, OH 44110</div>
                     </div>
                   </div>
                 </section>
