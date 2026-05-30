@@ -4,7 +4,7 @@ import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendi
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import homeEnvyLogoUrl from '../assets/Home_envy_logo.png';
-import ryanLogoUrl from '../assets/Logo.jpg';
+import ryanLogoUrl from '../assets/ryan-logo-transparent.png';
 import { ConfirmDialog } from './ConfirmDialog';
 import { UiIcon } from './UiIcon';
 
@@ -2727,11 +2727,11 @@ const sterlingMechanicalInvoiceStyles = `
     display: grid;
     justify-items: center;
     align-content: end;
-    gap: 5mm;
+    gap: 3.2mm;
   }
   .invoice-logo {
-    width: 28mm;
-    height: 28mm;
+    width: 36mm;
+    height: 36mm;
     object-fit: contain;
     display: block;
   }
@@ -2744,17 +2744,24 @@ const sterlingMechanicalInvoiceStyles = `
     font-weight: 800;
     text-transform: uppercase;
   }
+  .invoice-number-main {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
   .invoice-meta {
     display: grid;
-    gap: 8mm;
+    gap: 6mm;
     padding: 0 0 8mm;
-    font-size: 18px;
+    font-size: 17px;
     line-height: 1;
   }
   .meta-row {
     display: grid;
-    grid-template-columns: 34mm 1fr;
-    gap: 9mm;
+    grid-template-columns: 17mm minmax(0, 1fr);
+    gap: 7mm;
     align-items: baseline;
   }
   .meta-label {
@@ -2769,9 +2776,13 @@ const sterlingMechanicalInvoiceStyles = `
     font-weight: 400;
     font-variant-numeric: tabular-nums;
   }
+  .meta-value--email {
+    font-size: 15px;
+    word-break: break-word;
+  }
   .party-grid {
     display: grid;
-    grid-template-columns: 1.05fr 1.25fr 1fr 1.35fr;
+    grid-template-columns: 1.05fr 1.35fr 1fr;
     gap: 0;
     padding: 9mm 0 13mm;
   }
@@ -3148,15 +3159,16 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                   <div class="invoice-brand">
                     <img class="invoice-logo" src="${escapeHtml(ryanLogoUrl)}" alt="Ryan Goertler logo">
                     <h1 class="invoice-title-main">INVOICE</h1>
+                    <p class="invoice-number-main">Nr. ${escapeHtml(data.invoiceNumber)}</p>
                   </div>
                   <div class="invoice-meta">
                     <div class="meta-row">
-                      <span class="meta-label">Invoice Number:</span>
-                      <span class="meta-value">${escapeHtml(data.invoiceNumber)}</span>
-                    </div>
-                    <div class="meta-row">
                       <span class="meta-label">Date:</span>
                       <span class="meta-value">${escapeHtml(formatPdfDate(data.docDate))}</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="meta-label">Email:</span>
+                      <span class="meta-value meta-value--email">ryangoertler1313@gmail.com</span>
                     </div>
                   </div>
                 </div>
@@ -3176,11 +3188,6 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                     <div class="contact-info">
                       <div><strong>Main:</strong>(440) 289-9796</div>
                       <div><strong>Secondary:</strong>(440) 666-5608</div>
-                    </div>
-                  </div>
-                  <div class="party-block">
-                    <div class="contact-info">
-                      <div><strong>Email:</strong>ryangoertler1313@gmail.com</div>
                     </div>
                   </div>
                 </section>
