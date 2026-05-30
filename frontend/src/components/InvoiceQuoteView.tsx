@@ -203,6 +203,7 @@ const formatPdfNumber = (value: number) =>
     maximumFractionDigits: 2,
   });
 const formatPdfMoney = (value: number) => `$ ${formatPdfNumber(value)}`;
+const formatSterlingTableAmount = (value: number) => (Math.abs(value) < 0.005 ? '0' : formatPdfNumber(value));
 const invoiceCellCollator = new Intl.Collator('en-US', {
   numeric: true,
   sensitivity: 'base',
@@ -2642,8 +2643,8 @@ const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
             showDetails ? escapeHtml(row.continuation ? `${row.service} (cont.)` : row.service) : '&nbsp;'
           }</td>
           <td class="description-cell">${buildSterlingDescriptionHtml(row.descriptionLines)}</td>
-          <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatPdfMoney(row.labor) : '&nbsp;'}</td>
-          <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatPdfMoney(row.unitPrice) : '&nbsp;'}</td>
+          <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatSterlingTableAmount(row.labor) : '&nbsp;'}</td>
+          <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatSterlingTableAmount(row.unitPrice) : '&nbsp;'}</td>
         </tr>
       `;
     })
@@ -2840,12 +2841,12 @@ const sterlingMechanicalInvoiceStyles = `
     border: 0;
     margin-top: 1mm;
   }
-  .invoice-table col:nth-child(1) { width: 11%; }
-  .invoice-table col:nth-child(2) { width: 14%; }
-  .invoice-table col:nth-child(3) { width: 16%; }
-  .invoice-table col:nth-child(4) { width: 32%; }
-  .invoice-table col:nth-child(5) { width: 13%; }
-  .invoice-table col:nth-child(6) { width: 14%; }
+  .invoice-table col:nth-child(1) { width: 10%; }
+  .invoice-table col:nth-child(2) { width: 13%; }
+  .invoice-table col:nth-child(3) { width: 15%; }
+  .invoice-table col:nth-child(4) { width: 34%; }
+  .invoice-table col:nth-child(5) { width: 10%; }
+  .invoice-table col:nth-child(6) { width: 18%; }
   .invoice-table th,
   .invoice-table td {
     border: 0;
@@ -2853,18 +2854,20 @@ const sterlingMechanicalInvoiceStyles = `
     vertical-align: top;
     text-align: center;
     color: #111111;
-    word-break: break-word;
+    word-break: normal;
+    overflow-wrap: normal;
   }
   .invoice-table th {
     background: #ffffff;
     border-bottom: 1.5px solid #111111;
-    font-size: 20px;
+    font-size: 16px;
     line-height: 1.05;
     text-align: center;
     font-weight: 800;
     text-transform: none;
     vertical-align: bottom;
     padding-bottom: 4mm;
+    white-space: nowrap;
   }
   .invoice-table td {
     padding-top: 8mm;
@@ -2888,6 +2891,7 @@ const sterlingMechanicalInvoiceStyles = `
     text-align: left;
     padding-left: 2mm;
     padding-right: 4mm;
+    vertical-align: top;
   }
   .description-stack {
     display: grid;
@@ -3097,7 +3101,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         <th>Service</th>
         <th>Description</th>
         <th>Labor</th>
-        <th>Unit Price<br>(USD)</th>
+        <th class="unit-price-head">Unit Price (USD)</th>
       </tr>
     </thead>
   `;
