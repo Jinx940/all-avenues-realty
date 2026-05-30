@@ -2716,8 +2716,8 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-top {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 63mm;
-    gap: 12mm;
+    grid-template-columns: minmax(0, 1fr) 82mm;
+    gap: 8mm;
     align-items: end;
     min-height: 54mm;
     padding: 0 2mm 8mm;
@@ -2753,15 +2753,15 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-meta {
     display: grid;
-    gap: 6mm;
+    gap: 4.2mm;
     padding: 0 0 8mm;
     font-size: 17px;
-    line-height: 1;
+    line-height: 1.15;
   }
   .meta-row {
     display: grid;
     grid-template-columns: 17mm minmax(0, 1fr);
-    gap: 7mm;
+    gap: 4mm;
     align-items: baseline;
   }
   .meta-label {
@@ -2778,12 +2778,27 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .meta-value--email {
     font-size: 15px;
-    word-break: break-word;
+    white-space: nowrap;
+    word-break: normal;
+  }
+  .meta-row--stack {
+    align-items: start;
+  }
+  .meta-value--stack {
+    display: grid;
+    gap: 2.2mm;
+  }
+  .meta-phone-line {
+    white-space: nowrap;
+  }
+  .meta-phone-line strong {
+    font-weight: 800;
+    margin-right: 2mm;
   }
   .party-grid {
     display: grid;
-    grid-template-columns: 0.95fr 1.05fr 1.9fr;
-    gap: 9mm;
+    grid-template-columns: 0.85fr 2.15fr;
+    gap: 16mm;
     padding: 9mm 2mm 13mm;
   }
   .party-block {
@@ -3157,6 +3172,13 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                       <span class="meta-label">Email:</span>
                       <span class="meta-value meta-value--email">ryangoertler1313@gmail.com</span>
                     </div>
+                    <div class="meta-row meta-row--stack">
+                      <span class="meta-label">&nbsp;</span>
+                      <span class="meta-value meta-value--stack">
+                        <span class="meta-phone-line"><strong>Main:</strong>(440) 289-9796</span>
+                        <span class="meta-phone-line"><strong>Secondary:</strong>(440) 666-5608</span>
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -3164,12 +3186,6 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                   <div class="party-block">
                     <p class="block-title">Bill To:</p>
                     <div class="bill-to-content">${billToHtml}</div>
-                  </div>
-                  <div class="party-block">
-                    <div class="contact-info">
-                      <div><strong>Main:</strong>(440) 289-9796</div>
-                      <div><strong>Secondary:</strong>(440) 666-5608</div>
-                    </div>
                   </div>
                   <div class="party-block">
                     <div class="company-info">
