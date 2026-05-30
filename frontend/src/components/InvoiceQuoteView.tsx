@@ -2731,32 +2731,32 @@ const sterlingMechanicalInvoiceStyles = `
     gap: 3.2mm;
   }
   .invoice-logo {
-    width: 36mm;
-    height: 36mm;
+    width: 34mm;
+    height: 34mm;
     object-fit: contain;
     display: block;
   }
   .invoice-title-main {
     margin: 0;
     color: #111111;
-    font-size: 58px;
-    line-height: 0.82;
-    letter-spacing: 8px;
+    font-size: 52px;
+    line-height: 0.86;
+    letter-spacing: 7px;
     font-weight: 800;
     text-transform: uppercase;
   }
   .invoice-number-main {
     margin: 0;
-    font-size: 58px;
-    line-height: 0.82;
+    font-size: 52px;
+    line-height: 0.86;
     font-weight: 800;
-    letter-spacing: 8px;
+    letter-spacing: 7px;
   }
   .invoice-meta {
     display: grid;
-    gap: 3.6mm;
+    gap: 3.3mm;
     padding: 0 0 8mm;
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1.15;
   }
   .meta-row {
@@ -2778,7 +2778,7 @@ const sterlingMechanicalInvoiceStyles = `
     font-variant-numeric: tabular-nums;
   }
   .meta-value--email {
-    font-size: 13.5px;
+    font-size: 12.5px;
     white-space: nowrap;
     word-break: normal;
   }
@@ -3158,7 +3158,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                   <div class="invoice-brand">
                     <img class="invoice-logo" src="${escapeHtml(ryanLogoUrl)}" alt="Ryan Goertler logo">
                     <h1 class="invoice-title-main">INVOICE</h1>
-                    <p class="invoice-number-main">Nr. ${escapeHtml(data.invoiceNumber)}</p>
+                    <p class="invoice-number-main">Nro. ${escapeHtml(data.invoiceNumber)}</p>
                   </div>
                   <div class="invoice-meta">
                     <div class="meta-row">
