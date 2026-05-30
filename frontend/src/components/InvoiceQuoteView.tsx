@@ -2621,26 +2621,96 @@ const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
 const estimateSterlingRowsUnits = (rows: SterlingInvoiceRow[]) =>
   rows.reduce((sum, row) => sum + estimateSterlingInvoiceRowUnits(row), 0);
 
+const splitSterlingRowForCapacity = (
+  row: SterlingInvoiceRow,
+  capacityUnits: number,
+): { chunk: SterlingInvoiceRow; remaining: SterlingInvoiceRow | null } => {
+  const targetUnits = Math.max(1.4, capacityUnits);
+  const chunkLines: string[] = [];
+
+  for (const line of row.descriptionLines) {
+    const candidateLines = [...chunkLines, line];
+    const candidateRow = { ...row, descriptionLines: candidateLines };
+
+    if (chunkLines.length && estimateSterlingInvoiceRowUnits(candidateRow) > targetUnits) {
+      break;
+    }
+
+    chunkLines.push(line);
+
+    if (estimateSterlingInvoiceRowUnits(candidateRow) > targetUnits) {
+      break;
+    }
+  }
+
+  const safeChunkLines = chunkLines.length ? chunkLines : [row.descriptionLines[0] ?? '-'];
+  const remainingLines = row.descriptionLines.slice(safeChunkLines.length);
+
+  return {
+    chunk: {
+      ...row,
+      descriptionLines: safeChunkLines,
+      showDivider: remainingLines.length ? false : row.showDivider,
+    },
+    remaining: remainingLines.length
+      ? {
+          ...row,
+          descriptionLines: remainingLines,
+          continuation: true,
+          showDivider: row.showDivider,
+        }
+      : null,
+  };
+};
+
 const paginateSterlingInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
   if (!rows.length) return [[]];
 
   const pages: SterlingInvoiceRow[][] = [[]];
   const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 18.8 : 28.5);
+  const minimumUsefulChunkUnits = 4;
   let pageIndex = 0;
   let usedUnits = 0;
 
-  rows.forEach((row) => {
-    const rowUnits = estimateSterlingInvoiceRowUnits(row);
-    const currentPage = pages[pageIndex];
+  const startNextPage = () => {
+    pages.push([]);
+    pageIndex += 1;
+    usedUnits = 0;
+  };
 
-    if (currentPage.length && usedUnits + rowUnits > pageCapacityFor(pageIndex)) {
-      pages.push([]);
-      pageIndex += 1;
-      usedUnits = 0;
+  rows.forEach((sourceRow) => {
+    let remainingRow: SterlingInvoiceRow | null = sourceRow;
+
+    while (remainingRow) {
+      const currentPage = pages[pageIndex];
+      const capacity = pageCapacityFor(pageIndex);
+      const availableUnits = capacity - usedUnits;
+      const rowUnits = estimateSterlingInvoiceRowUnits(remainingRow);
+
+      if (rowUnits <= availableUnits) {
+        currentPage.push(remainingRow);
+        usedUnits += rowUnits;
+        remainingRow = null;
+        continue;
+      }
+
+      if (
+        currentPage.length &&
+        (rowUnits <= capacity || availableUnits < minimumUsefulChunkUnits)
+      ) {
+        startNextPage();
+        continue;
+      }
+
+      const { chunk, remaining } = splitSterlingRowForCapacity(remainingRow, availableUnits || capacity);
+      currentPage.push(chunk);
+      usedUnits += estimateSterlingInvoiceRowUnits(chunk);
+      remainingRow = remaining;
+
+      if (remainingRow) {
+        startNextPage();
+      }
     }
-
-    pages[pageIndex].push(row);
-    usedUnits += rowUnits;
   });
 
   return pages.length ? pages : [[]];
