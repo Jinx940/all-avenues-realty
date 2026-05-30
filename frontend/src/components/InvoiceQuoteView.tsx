@@ -2716,8 +2716,8 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-top {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 82mm;
-    gap: 8mm;
+    grid-template-columns: minmax(0, 1fr) 92mm;
+    gap: 6mm;
     align-items: end;
     min-height: 54mm;
     padding: 0 2mm 8mm;
@@ -2753,15 +2753,15 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-meta {
     display: grid;
-    gap: 4.2mm;
+    gap: 3.6mm;
     padding: 0 0 8mm;
-    font-size: 17px;
+    font-size: 16px;
     line-height: 1.15;
   }
   .meta-row {
     display: grid;
-    grid-template-columns: 17mm minmax(0, 1fr);
-    gap: 4mm;
+    grid-template-columns: 24mm minmax(0, 1fr);
+    gap: 5mm;
     align-items: baseline;
   }
   .meta-label {
@@ -2777,28 +2777,14 @@ const sterlingMechanicalInvoiceStyles = `
     font-variant-numeric: tabular-nums;
   }
   .meta-value--email {
-    font-size: 15px;
+    font-size: 14px;
     white-space: nowrap;
     word-break: normal;
   }
-  .meta-row--stack {
-    align-items: start;
-  }
-  .meta-value--stack {
-    display: grid;
-    gap: 2.2mm;
-  }
-  .meta-phone-line {
-    white-space: nowrap;
-  }
-  .meta-phone-line strong {
-    font-weight: 800;
-    margin-right: 2mm;
-  }
   .party-grid {
     display: grid;
-    grid-template-columns: 0.85fr 2.15fr;
-    gap: 16mm;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 2.1fr);
+    gap: 18mm;
     padding: 9mm 2mm 13mm;
   }
   .party-block {
@@ -2819,16 +2805,11 @@ const sterlingMechanicalInvoiceStyles = `
     color: #111111;
     font-size: 18px;
   }
-  .company-info {
-    display: grid;
-    gap: 0;
+  .address-content {
+    white-space: pre-line;
     line-height: 1.55;
+    color: #111111;
     font-size: 18px;
-  }
-  .company-info strong {
-    display: inline;
-    font-weight: 800;
-    margin: 0 2mm 0 0;
   }
   .contact-info {
     display: grid;
@@ -3143,7 +3124,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
       ? `
         <table class="invoice-table">
           ${tableColumnsHtml}
-          ${tableHeadHtml}
+          ${options.isFirstPage ? tableHeadHtml : ''}
           <tbody>${rowsHtml}</tbody>
         </table>
       `
@@ -3172,12 +3153,13 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                       <span class="meta-label">Email:</span>
                       <span class="meta-value meta-value--email">ryangoertler1313@gmail.com</span>
                     </div>
-                    <div class="meta-row meta-row--stack">
-                      <span class="meta-label">&nbsp;</span>
-                      <span class="meta-value meta-value--stack">
-                        <span class="meta-phone-line"><strong>Main:</strong>(440) 289-9796</span>
-                        <span class="meta-phone-line"><strong>Secondary:</strong>(440) 666-5608</span>
-                      </span>
+                    <div class="meta-row">
+                      <span class="meta-label">Main:</span>
+                      <span class="meta-value">(440) 289-9796</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="meta-label">Secondary:</span>
+                      <span class="meta-value">(440) 666-5608</span>
                     </div>
                   </div>
                 </div>
@@ -3188,21 +3170,12 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                     <div class="bill-to-content">${billToHtml}</div>
                   </div>
                   <div class="party-block">
-                    <div class="company-info">
-                      <div><strong>Address:</strong>15222 Saranac Rd, Cleveland, OH 44110</div>
-                    </div>
+                    <p class="block-title">Address:</p>
+                    <div class="address-content">15222 Saranac Rd, Cleveland, OH 44110</div>
                   </div>
                 </section>
               `
-              : `
-                <div class="continue-head">
-                  <strong>Invoice</strong>
-                  <div class="continue-meta">
-                    <div>Invoice Number: ${escapeHtml(data.invoiceNumber)}</div>
-                    <div>Date: ${escapeHtml(formatPdfDate(data.docDate))}</div>
-                  </div>
-                </div>
-              `
+              : ''
           }
         </header>
 
