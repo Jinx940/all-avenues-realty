@@ -2869,9 +2869,10 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-row--open td { border-bottom-color: transparent; }
   .invoice-row--continuation td { padding-top: 2mm; }
-  .unit-cell,
-  .area-cell {
+  .invoice-table td.unit-cell,
+  .invoice-table td.area-cell {
     vertical-align: middle;
+    text-align: center;
   }
   .invoice-row--separated .service-cell,
   .invoice-row--separated .description-cell,
