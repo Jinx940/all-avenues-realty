@@ -3435,6 +3435,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     th.ryan-service-head, td.ryan-service-cell { width: var(--ryan-service-col); }
     th.ryan-desc-head, td.ryan-desc-cell { width: var(--ryan-desc-col); }
     th.ryan-price-head, td.ryan-price-cell { width: var(--ryan-price-col); }
+    th.ryan-desc-head { text-align: center; vertical-align: middle; }
     .legacy-group-row td { break-inside: avoid; page-break-inside: avoid; }
     td.service-cell { text-align: center; vertical-align: middle; font-weight: 800; width: 22%; }
     td.service-cell--continuation { font-size: 11px; }
@@ -3443,7 +3444,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     td.ryan-area-cell,
     td.ryan-service-cell,
     td.ryan-price-cell { text-align: center; vertical-align: middle; font-weight: 800; font-size: 10px; line-height: 1.3; }
-    td.ryan-desc-cell { font-size: 10px; line-height: 1.35; }
+    td.ryan-desc-cell { text-align: left; font-size: 10px; line-height: 1.35; }
     .ryan-area-address { display: grid; gap: 1px; }
     .ryan-area-line { display: block; line-height: 1.12; }
     .ryan-area-line--city { font-size: 9px; }
