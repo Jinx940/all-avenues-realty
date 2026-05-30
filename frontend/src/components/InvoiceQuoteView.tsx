@@ -2717,51 +2717,56 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-top {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 88mm;
-    gap: 6mm;
-    align-items: end;
-    min-height: 54mm;
-    padding: 0 2mm 8mm;
+    grid-template-columns: minmax(0, 1fr) 73mm;
+    gap: 8mm;
+    align-items: center;
+    min-height: 46mm;
+    padding: 0 2mm 7mm;
     border-bottom: 1.5px solid #111111;
   }
   .invoice-brand {
     display: grid;
-    justify-items: center;
-    align-content: end;
-    gap: 3.2mm;
+    grid-template-columns: auto minmax(0, max-content);
+    grid-template-rows: auto auto;
+    column-gap: 9mm;
+    row-gap: 2.5mm;
+    align-items: center;
+    justify-content: start;
+    justify-items: start;
   }
   .invoice-logo {
-    width: 34mm;
-    height: 34mm;
+    grid-row: 1 / 3;
+    width: 31mm;
+    height: 31mm;
     object-fit: contain;
     display: block;
   }
   .invoice-title-main {
     margin: 0;
     color: #111111;
-    font-size: 52px;
-    line-height: 0.86;
-    letter-spacing: 7px;
-    font-weight: 800;
+    font-size: 32px;
+    line-height: 1;
+    letter-spacing: 5px;
+    font-weight: 500;
     text-transform: uppercase;
   }
   .invoice-number-main {
     margin: 0;
-    font-size: 52px;
-    line-height: 0.86;
-    font-weight: 800;
-    letter-spacing: 7px;
+    font-size: 30px;
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: 1px;
   }
   .invoice-meta {
     display: grid;
-    gap: 3.3mm;
-    padding: 0 0 8mm;
-    font-size: 15px;
+    gap: 3mm;
+    padding: 0 0 4mm;
+    font-size: 13px;
     line-height: 1.15;
   }
   .meta-row {
     display: grid;
-    grid-template-columns: 24mm minmax(0, 1fr);
+    grid-template-columns: 22mm minmax(0, 1fr);
     gap: 4mm;
     align-items: baseline;
   }
@@ -2778,7 +2783,7 @@ const sterlingMechanicalInvoiceStyles = `
     font-variant-numeric: tabular-nums;
   }
   .meta-value--email {
-    font-size: 12.5px;
+    font-size: 11px;
     white-space: nowrap;
     word-break: normal;
   }
