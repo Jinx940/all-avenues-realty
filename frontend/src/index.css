@@ -5008,6 +5008,16 @@ textarea {
   text-align: center;
 }
 
+.invoice-services-row:not(.invoice-services-row--header) > span {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.invoice-services-row--header > span {
+  justify-content: center;
+  text-align: center;
+}
+
 .invoice-services-cell {
   min-height: 100%;
 }
@@ -5025,6 +5035,11 @@ textarea {
   width: 100%;
   min-height: 100%;
   text-align: center;
+}
+
+.invoice-services-row:not(.invoice-services-row--header) .invoice-service-select {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .invoice-service-name {
@@ -5049,7 +5064,7 @@ textarea {
   font: inherit;
   line-height: 1.45;
   resize: vertical;
-  text-align: center;
+  text-align: left;
 }
 
 .invoice-description-editor:focus {
