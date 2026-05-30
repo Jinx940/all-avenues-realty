@@ -2405,7 +2405,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
 };
 
 const splitLongSterlingInvoiceLine = (value: string) => {
-  const maxLength = 170;
+  const maxLength = 150;
 
   if (value.length <= maxLength) {
     return [value];
@@ -2453,15 +2453,15 @@ const splitLongSterlingInvoiceLine = (value: string) => {
 };
 
 const estimateSterlingInvoiceRowUnits = (row: SterlingInvoiceRow) => {
-  const unitLines = Math.max(1, Math.ceil(row.unit.length / 14));
-  const areaLines = Math.max(1, Math.ceil(row.area.length / 16));
-  const serviceLines = Math.max(1, Math.ceil(row.service.length / 16));
+  const unitLines = Math.max(1, Math.ceil(row.unit.length / 12));
+  const areaLines = Math.max(1, Math.ceil(row.area.length / 13));
+  const serviceLines = Math.max(1, Math.ceil(row.service.length / 14));
   const descriptionLines = row.descriptionLines.reduce(
-    (sum, line) => sum + Math.max(1, Math.ceil(line.length / 68)),
+    (sum, line) => sum + Math.max(1, Math.ceil(line.length / 32)),
     0,
   );
 
-  return 0.92 + Math.max(unitLines, areaLines, serviceLines) * 0.18 + descriptionLines * 0.5;
+  return 0.95 + Math.max(unitLines, areaLines, serviceLines) * 0.22 + descriptionLines * 0.72;
 };
 
 const splitSterlingInvoiceRow = (row: SterlingInvoiceRow) => {
@@ -2469,7 +2469,7 @@ const splitSterlingInvoiceRow = (row: SterlingInvoiceRow) => {
     ...row,
     descriptionLines: row.descriptionLines.flatMap(splitLongSterlingInvoiceLine),
   };
-  const maxChunkUnits = 7.8;
+  const maxChunkUnits = 6.8;
 
   if (estimateSterlingInvoiceRowUnits(normalizedRow) <= maxChunkUnits || normalizedRow.descriptionLines.length <= 1) {
     return [normalizedRow];
@@ -2656,7 +2656,7 @@ const paginateSterlingInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
   if (!rows.length) return [[]];
 
   const pages: SterlingInvoiceRow[][] = [[]];
-  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 18.2 : 30.6);
+  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 11.8 : 24.5);
   let pageIndex = 0;
   let usedUnits = 0;
 
@@ -3215,7 +3215,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
     }
 
     const summaryUnits = 6.6;
-    const summaryCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 17 : 26);
+    const summaryCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 10.8 : 22.5);
     const lastPageIndex = pageLayouts.length - 1;
     const lastLayout = pageLayouts[lastPageIndex];
 
