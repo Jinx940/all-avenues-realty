@@ -3444,12 +3444,13 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     td.ryan-area-cell,
     td.ryan-service-cell,
     td.ryan-price-cell { text-align: center; vertical-align: middle; font-weight: 800; font-size: 10px; line-height: 1.3; }
-    td.ryan-desc-cell { text-align: left; font-size: 10px; line-height: 1.35; }
+    td.ryan-desc-cell { text-align: left !important; font-size: 10px; line-height: 1.35; }
     .ryan-area-address { display: grid; gap: 1px; }
     .ryan-area-line { display: block; line-height: 1.12; }
     .ryan-area-line--city { font-size: 9px; }
-    .ryan-desc-stack { display: grid; gap: 3px; }
-    .ryan-desc-line { display: block; }
+    .ryan-desc-stack { display: block; width: 100%; margin: 0; text-align: left !important; }
+    .ryan-desc-line { display: block; width: 100%; margin: 0 0 3px 0; text-align: left !important; }
+    .ryan-desc-line:last-child { margin-bottom: 0; }
     td.ryan-service-cell { word-break: break-word; }
     td.ryan-meta-cell--continuation { font-size: 9px; }
     .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
