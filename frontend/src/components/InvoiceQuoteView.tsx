@@ -2614,11 +2614,12 @@ const buildSterlingDescriptionHtml = (lines: string[]) => {
 
 const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
   buildSterlingInvoiceDisplayRows(rows)
-    .map((row) => {
+    .map((row, index) => {
       const showDetails = row.showDetails !== false;
       const showMoney = row.showMoney !== false;
       const rowClass = [
         'invoice-row',
+        index > 0 && !row.continuation ? 'invoice-row--separated' : '',
         row.continuation ? 'invoice-row--continuation' : '',
         row.showDivider === false ? 'invoice-row--open' : '',
       ]
@@ -2629,15 +2630,15 @@ const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
         <tr class="${rowClass}">
           ${
             row.showUnitCell
-              ? `<td rowspan="${row.unitRowSpan}">${escapeHtml(row.unit)}</td>`
+              ? `<td class="unit-cell" rowspan="${row.unitRowSpan}">${escapeHtml(row.unit)}</td>`
               : ''
           }
           ${
             row.showAreaCell
-              ? `<td rowspan="${row.areaRowSpan}">${escapeHtml(row.area)}</td>`
+              ? `<td class="area-cell" rowspan="${row.areaRowSpan}">${escapeHtml(row.area)}</td>`
               : ''
           }
-          <td class="${showDetails ? '' : 'continuation-cell'}">${
+          <td class="service-cell${showDetails ? '' : ' continuation-cell'}">${
             showDetails ? escapeHtml(row.continuation ? `${row.service} (cont.)` : row.service) : '&nbsp;'
           }</td>
           <td class="description-cell">${buildSterlingDescriptionHtml(row.descriptionLines)}</td>
@@ -2716,7 +2717,7 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-top {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 92mm;
+    grid-template-columns: minmax(0, 1fr) 88mm;
     gap: 6mm;
     align-items: end;
     min-height: 54mm;
@@ -2761,7 +2762,7 @@ const sterlingMechanicalInvoiceStyles = `
   .meta-row {
     display: grid;
     grid-template-columns: 24mm minmax(0, 1fr);
-    gap: 5mm;
+    gap: 4mm;
     align-items: baseline;
   }
   .meta-label {
@@ -2777,19 +2778,23 @@ const sterlingMechanicalInvoiceStyles = `
     font-variant-numeric: tabular-nums;
   }
   .meta-value--email {
-    font-size: 14px;
+    font-size: 13.5px;
     white-space: nowrap;
     word-break: normal;
   }
   .party-grid {
     display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 2.1fr);
-    gap: 18mm;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0;
     padding: 9mm 2mm 13mm;
   }
   .party-block {
     min-height: auto;
     padding: 0;
+  }
+  .party-block + .party-block {
+    border-left: 1px solid #b8b8b8;
+    padding-left: 12mm;
   }
   .block-title {
     margin: 0 0 3mm;
@@ -2809,7 +2814,8 @@ const sterlingMechanicalInvoiceStyles = `
     white-space: pre-line;
     line-height: 1.55;
     color: #111111;
-    font-size: 18px;
+    font-size: 17px;
+    white-space: nowrap;
   }
   .contact-info {
     display: grid;
@@ -2863,6 +2869,15 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-row--open td { border-bottom-color: transparent; }
   .invoice-row--continuation td { padding-top: 2mm; }
+  .unit-cell,
+  .area-cell {
+    vertical-align: middle;
+  }
+  .invoice-row--separated .service-cell,
+  .invoice-row--separated .description-cell,
+  .invoice-row--separated .money-cell {
+    border-top: 1px solid #111111;
+  }
   .description-cell {
     text-align: left;
     padding-left: 2mm;
