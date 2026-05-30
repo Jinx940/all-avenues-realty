@@ -165,6 +165,8 @@ type SterlingInvoiceDisplayRow = SterlingInvoiceRow & {
   unitRowSpan: number;
   showAreaCell: boolean;
   areaRowSpan: number;
+  showServiceCell: boolean;
+  serviceRowSpan: number;
 };
 
 type SaveGeneratedDocumentResponse = {
@@ -2406,7 +2408,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
 };
 
 const splitLongSterlingInvoiceLine = (value: string) => {
-  const maxLength = 150;
+  const maxLength = 170;
 
   if (value.length <= maxLength) {
     return [value];
@@ -2454,15 +2456,15 @@ const splitLongSterlingInvoiceLine = (value: string) => {
 };
 
 const estimateSterlingInvoiceRowUnits = (row: SterlingInvoiceRow) => {
-  const unitLines = Math.max(1, Math.ceil(row.unit.length / 12));
-  const areaLines = Math.max(1, Math.ceil(row.area.length / 13));
-  const serviceLines = Math.max(1, Math.ceil(row.service.length / 14));
+  const unitLines = Math.max(1, Math.ceil(row.unit.length / 14));
+  const areaLines = Math.max(1, Math.ceil(row.area.length / 16));
+  const serviceLines = Math.max(1, Math.ceil(row.service.length / 16));
   const descriptionLines = row.descriptionLines.reduce(
-    (sum, line) => sum + Math.max(1, Math.ceil(line.length / 32)),
+    (sum, line) => sum + Math.max(1, Math.ceil(line.length / 58)),
     0,
   );
 
-  return 0.95 + Math.max(unitLines, areaLines, serviceLines) * 0.22 + descriptionLines * 0.72;
+  return 0.92 + Math.max(unitLines, areaLines, serviceLines) * 0.18 + descriptionLines * 0.58;
 };
 
 const splitSterlingInvoiceRow = (row: SterlingInvoiceRow) => {
@@ -2470,62 +2472,8 @@ const splitSterlingInvoiceRow = (row: SterlingInvoiceRow) => {
     ...row,
     descriptionLines: row.descriptionLines.flatMap(splitLongSterlingInvoiceLine),
   };
-  const maxChunkUnits = 6.8;
 
-  if (estimateSterlingInvoiceRowUnits(normalizedRow) <= maxChunkUnits || normalizedRow.descriptionLines.length <= 1) {
-    return [normalizedRow];
-  }
-
-  const chunks: SterlingInvoiceRow[] = [];
-  let chunkLines: string[] = [];
-  let chunkIndex = 0;
-
-  const flushChunk = () => {
-    if (!chunkLines.length) return;
-
-    chunks.push({
-      unit: normalizedRow.unit,
-      area: normalizedRow.area,
-      service: normalizedRow.service,
-      descriptionLines: chunkLines,
-      labor: normalizedRow.labor,
-      unitPrice: normalizedRow.unitPrice,
-      continuation: chunkIndex > 0,
-      showDetails: chunkIndex === 0,
-      showMoney: chunkIndex === 0,
-      showDivider: true,
-    });
-
-    chunkLines = [];
-    chunkIndex += 1;
-  };
-
-  normalizedRow.descriptionLines.forEach((line) => {
-    const candidateLines = [...chunkLines, line];
-    const candidateRow: SterlingInvoiceRow = {
-      ...normalizedRow,
-      descriptionLines: candidateLines,
-      continuation: chunkIndex > 0,
-      showDetails: chunkIndex === 0,
-      showMoney: chunkIndex === 0,
-    };
-
-    if (chunkLines.length && estimateSterlingInvoiceRowUnits(candidateRow) > maxChunkUnits) {
-      flushChunk();
-      chunkLines = [line];
-      return;
-    }
-
-    chunkLines = candidateLines;
-  });
-
-  flushChunk();
-
-  chunks.forEach((chunk, index) => {
-    chunk.showDivider = index === chunks.length - 1;
-  });
-
-  return chunks.length ? chunks : [normalizedRow];
+  return [normalizedRow];
 };
 
 const buildSterlingInvoiceTableRows = (items: PdfServiceItem[]): SterlingInvoiceRow[] =>
@@ -2565,6 +2513,8 @@ const buildSterlingInvoiceDisplayRows = (rows: SterlingInvoiceRow[]): SterlingIn
     unitRowSpan: 1,
     showAreaCell: false,
     areaRowSpan: 1,
+    showServiceCell: false,
+    serviceRowSpan: 1,
   }));
 
   for (let unitStart = 0; unitStart < displayRows.length;) {
@@ -2588,6 +2538,20 @@ const buildSterlingInvoiceDisplayRows = (rows: SterlingInvoiceRow[]): SterlingIn
 
       displayRows[areaStart].showAreaCell = true;
       displayRows[areaStart].areaRowSpan = areaEnd - areaStart;
+
+      for (let serviceStart = areaStart; serviceStart < areaEnd;) {
+        const service = displayRows[serviceStart].service;
+        let serviceEnd = serviceStart + 1;
+
+        while (serviceEnd < areaEnd && displayRows[serviceEnd].service === service) {
+          serviceEnd += 1;
+        }
+
+        displayRows[serviceStart].showServiceCell = true;
+        displayRows[serviceStart].serviceRowSpan = serviceEnd - serviceStart;
+        serviceStart = serviceEnd;
+      }
+
       areaStart = areaEnd;
     }
 
@@ -2639,9 +2603,13 @@ const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
               ? `<td class="area-cell" rowspan="${row.areaRowSpan}">${escapeHtml(row.area)}</td>`
               : ''
           }
-          <td class="service-cell${showDetails ? '' : ' continuation-cell'}">${
-            showDetails ? escapeHtml(row.continuation ? `${row.service} (cont.)` : row.service) : '&nbsp;'
-          }</td>
+          ${
+            row.showServiceCell
+              ? `<td class="service-cell${showDetails ? '' : ' continuation-cell'}" rowspan="${row.serviceRowSpan}">${
+                  showDetails ? escapeHtml(row.continuation ? `${row.service} (cont.)` : row.service) : '&nbsp;'
+                }</td>`
+              : ''
+          }
           <td class="description-cell">${buildSterlingDescriptionHtml(row.descriptionLines)}</td>
           <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatSterlingTableAmount(row.labor) : '&nbsp;'}</td>
           <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatSterlingTableAmount(row.unitPrice) : '&nbsp;'}</td>
@@ -2657,7 +2625,7 @@ const paginateSterlingInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
   if (!rows.length) return [[]];
 
   const pages: SterlingInvoiceRow[][] = [[]];
-  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 11.8 : 24.5);
+  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 18.8 : 28.5);
   let pageIndex = 0;
   let usedUnits = 0;
 
@@ -2843,10 +2811,10 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-table col:nth-child(1) { width: 10%; }
   .invoice-table col:nth-child(2) { width: 13%; }
-  .invoice-table col:nth-child(3) { width: 15%; }
-  .invoice-table col:nth-child(4) { width: 34%; }
-  .invoice-table col:nth-child(5) { width: 10%; }
-  .invoice-table col:nth-child(6) { width: 18%; }
+  .invoice-table col:nth-child(3) { width: 17%; }
+  .invoice-table col:nth-child(4) { width: 41%; }
+  .invoice-table col:nth-child(5) { width: 9%; }
+  .invoice-table col:nth-child(6) { width: 10%; }
   .invoice-table th,
   .invoice-table td {
     border: 0;
@@ -2860,7 +2828,7 @@ const sterlingMechanicalInvoiceStyles = `
   .invoice-table th {
     background: #ffffff;
     border-bottom: 1.5px solid #111111;
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1.05;
     text-align: center;
     font-weight: 800;
@@ -2870,19 +2838,24 @@ const sterlingMechanicalInvoiceStyles = `
     white-space: nowrap;
   }
   .invoice-table td {
-    padding-top: 8mm;
+    padding-top: 7mm;
     padding-bottom: 2mm;
-    font-size: 16px;
-    line-height: 1.55;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .invoice-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
   .invoice-row--open td { border-bottom-color: transparent; }
   .invoice-row--continuation td { padding-top: 2mm; }
   .invoice-table td.unit-cell,
-  .invoice-table td.area-cell {
+  .invoice-table td.area-cell,
+  .invoice-table td.service-cell,
+  .invoice-table td.money-cell {
     vertical-align: middle;
     text-align: center;
   }
-  .invoice-row--separated .service-cell,
   .invoice-row--separated .description-cell,
   .invoice-row--separated .money-cell {
     border-top: 1px solid #111111;
@@ -2906,6 +2879,13 @@ const sterlingMechanicalInvoiceStyles = `
     text-align: center;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+  }
+  .unit-price-head {
+    white-space: normal;
+  }
+  .unit-price-head span {
+    display: block;
+    white-space: nowrap;
   }
   .continue-head {
     display: flex;
@@ -3101,7 +3081,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         <th>Service</th>
         <th>Description</th>
         <th>Labor</th>
-        <th class="unit-price-head">Unit Price (USD)</th>
+        <th class="unit-price-head"><span>Unit Price</span><span>(USD)</span></th>
       </tr>
     </thead>
   `;
