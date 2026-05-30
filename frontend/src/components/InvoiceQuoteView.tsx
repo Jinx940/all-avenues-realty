@@ -2827,12 +2827,13 @@ const sterlingMechanicalInvoiceStyles = `
   .invoice-row--open td { border-bottom-color: transparent; }
   .invoice-row--continuation td { border-top-color: #777777; }
   .description-cell {
-    text-align: center;
+    text-align: left;
   }
   .description-stack {
     display: grid;
     gap: 3px;
-    justify-items: center;
+    justify-items: stretch;
+    text-align: left;
   }
   .continuation-cell {
     color: transparent;
