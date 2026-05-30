@@ -4,6 +4,7 @@ import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendi
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import homeEnvyLogoUrl from '../assets/Home_envy_logo.png';
+import ryanLogoUrl from '../assets/Logo.jpg';
 import { ConfirmDialog } from './ConfirmDialog';
 import { UiIcon } from './UiIcon';
 
@@ -2685,8 +2686,8 @@ const sterlingMechanicalInvoiceStyles = `
     padding: 0;
     background: #ffffff;
     color: #111111;
-    font-family: Aptos, "Segoe UI", Arial, Helvetica, sans-serif;
-    font-size: 10.5px;
+    font-family: "Arial Narrow", "Bahnschrift Condensed", Bahnschrift, Aptos, "Segoe UI", Arial, Helvetica, sans-serif;
+    font-size: 11px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -2695,7 +2696,7 @@ const sterlingMechanicalInvoiceStyles = `
     width: 210mm;
     height: 297mm;
     margin: 0;
-    padding: 10mm 13mm 11mm;
+    padding: 12mm 13mm 10mm;
     background: #ffffff;
     display: flex;
     flex-direction: column;
@@ -2704,7 +2705,7 @@ const sterlingMechanicalInvoiceStyles = `
     break-after: page;
   }
   .page:last-child { page-break-after: auto; break-after: auto; }
-  .page-continue { padding-top: 9mm; }
+  .page-continue { padding-top: 11mm; }
   .page-header { flex: 0 0 auto; }
   .invoice-body {
     flex: 1 1 auto;
@@ -2715,56 +2716,79 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-top {
     display: grid;
-    grid-template-columns: 1fr 68mm;
+    grid-template-columns: minmax(0, 1fr) 63mm;
     gap: 12mm;
-    align-items: start;
-    padding-bottom: 5.5mm;
-    border-bottom: 1.4px solid #111111;
+    align-items: end;
+    min-height: 54mm;
+    padding: 0 2mm 8mm;
+    border-bottom: 1.5px solid #111111;
+  }
+  .invoice-brand {
+    display: grid;
+    justify-items: center;
+    align-content: end;
+    gap: 5mm;
+  }
+  .invoice-logo {
+    width: 28mm;
+    height: 28mm;
+    object-fit: contain;
+    display: block;
   }
   .invoice-title-main {
     margin: 0;
     color: #111111;
-    font-size: 39px;
-    line-height: 0.9;
-    letter-spacing: 0;
+    font-size: 58px;
+    line-height: 0.82;
+    letter-spacing: 8px;
     font-weight: 800;
+    text-transform: uppercase;
   }
   .invoice-meta {
     display: grid;
-    gap: 4mm;
-    padding-top: 1mm;
-    font-size: 11px;
+    gap: 8mm;
+    padding: 0 0 8mm;
+    font-size: 18px;
+    line-height: 1;
   }
   .meta-row {
     display: grid;
-    grid-template-columns: 1fr 30mm;
-    gap: 6mm;
-    align-items: end;
+    grid-template-columns: 34mm 1fr;
+    gap: 9mm;
+    align-items: baseline;
   }
   .meta-label {
     font-weight: 800;
     text-transform: uppercase;
+    white-space: nowrap;
   }
   .meta-value {
-    min-height: 18px;
-    border-bottom: 1px solid #111111;
-    text-align: right;
-    font-weight: 700;
+    min-height: 0;
+    border-bottom: 0;
+    text-align: left;
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
   }
   .party-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12mm;
-    padding: 4.5mm 0 4.5mm;
+    grid-template-columns: 1.05fr 1.25fr 1fr 1.35fr;
+    gap: 0;
+    padding: 9mm 0 13mm;
   }
   .party-block {
-    min-height: 29mm;
-    padding: 0;
+    min-height: 34mm;
+    padding: 0 6.5mm;
+  }
+  .party-block:first-child {
+    padding-left: 2mm;
+  }
+  .party-block:not(:first-child) {
+    border-left: 1px solid #b8b8b8;
   }
   .block-title {
-    margin: 0 0 3mm;
-    font-size: 10px;
+    margin: 0 0 5mm;
+    font-size: 20px;
+    line-height: 1;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0;
@@ -2773,65 +2797,86 @@ const sterlingMechanicalInvoiceStyles = `
     white-space: pre-line;
     line-height: 1.55;
     color: #111111;
-    font-size: 11px;
+    font-size: 18px;
   }
   .company-name {
-    margin: 0 0 2.5mm;
-    font-size: 17px;
+    margin: 0 0 6mm;
+    font-size: 20px;
     line-height: 1;
     font-weight: 800;
+    text-transform: uppercase;
   }
   .company-info {
     display: grid;
-    gap: 1.4mm;
-    line-height: 1.35;
+    gap: 3.2mm;
+    line-height: 1.45;
+    font-size: 18px;
   }
   .company-info strong {
     display: block;
+    font-weight: 800;
+    margin-bottom: 1.8mm;
+  }
+  .contact-info {
+    display: grid;
+    gap: 7mm;
+    font-size: 18px;
+    line-height: 1.35;
+  }
+  .contact-info strong {
+    display: block;
+    margin-bottom: 2.3mm;
     font-weight: 800;
   }
   .invoice-table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    border: 1px solid #111111;
+    border: 0;
+    margin-top: 1mm;
   }
-  .invoice-table col:nth-child(1) { width: 12%; }
-  .invoice-table col:nth-child(2) { width: 13%; }
-  .invoice-table col:nth-child(3) { width: 15%; }
-  .invoice-table col:nth-child(4) { width: 34%; }
+  .invoice-table col:nth-child(1) { width: 11%; }
+  .invoice-table col:nth-child(2) { width: 14%; }
+  .invoice-table col:nth-child(3) { width: 16%; }
+  .invoice-table col:nth-child(4) { width: 32%; }
   .invoice-table col:nth-child(5) { width: 13%; }
-  .invoice-table col:nth-child(6) { width: 13%; }
+  .invoice-table col:nth-child(6) { width: 14%; }
   .invoice-table th,
   .invoice-table td {
-    border: 1px solid #111111;
-    padding: 5px 6px;
-    vertical-align: middle;
+    border: 0;
+    padding: 0 3mm;
+    vertical-align: top;
     text-align: center;
     color: #111111;
     word-break: break-word;
   }
   .invoice-table th {
     background: #ffffff;
-    font-size: 11px;
-    line-height: 1.2;
+    border-bottom: 1.5px solid #111111;
+    font-size: 20px;
+    line-height: 1.05;
     text-align: center;
     font-weight: 800;
     text-transform: none;
-    vertical-align: middle;
+    vertical-align: bottom;
+    padding-bottom: 4mm;
   }
   .invoice-table td {
-    min-height: 28px;
-    line-height: 1.3;
+    padding-top: 8mm;
+    padding-bottom: 2mm;
+    font-size: 16px;
+    line-height: 1.55;
   }
   .invoice-row--open td { border-bottom-color: transparent; }
-  .invoice-row--continuation td { border-top-color: #777777; }
+  .invoice-row--continuation td { padding-top: 2mm; }
   .description-cell {
     text-align: left;
+    padding-left: 2mm;
+    padding-right: 4mm;
   }
   .description-stack {
     display: grid;
-    gap: 3px;
+    gap: 2mm;
     justify-items: stretch;
     text-align: left;
   }
@@ -2862,64 +2907,75 @@ const sterlingMechanicalInvoiceStyles = `
     line-height: 1.5;
   }
   .last-section {
-    margin-top: 5mm;
+    margin-top: 16mm;
     padding-top: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 66mm;
-    gap: 10mm;
+    grid-template-columns: minmax(0, 1fr) 82mm;
+    gap: 17mm;
     align-items: start;
     break-inside: avoid;
     page-break-inside: avoid;
   }
   .observation-box {
-    min-height: 31mm;
-    border: 1px solid #111111;
-    padding: 4.5mm;
+    min-height: 28mm;
+    border: 0;
+    padding: 0;
   }
   .observation-box .block-title {
     text-transform: none;
-    font-size: 12px;
+    font-size: 20px;
+    margin-bottom: 7mm;
   }
   .observation-text {
+    min-height: 13mm;
+    border: 1.2px solid #111111;
+    padding: 3mm;
     white-space: pre-line;
     line-height: 1.45;
+    font-size: 14px;
   }
   .totals-panel {
-    padding-top: 1mm;
+    padding-top: 0;
   }
   .total-line {
     display: grid;
-    grid-template-columns: 1fr 30mm;
-    min-height: 8.6mm;
+    grid-template-columns: 1fr 31mm;
+    min-height: 12.5mm;
     align-items: center;
-    border-bottom: 1px solid #d7d7d7;
-    font-size: 11px;
+    border-bottom: 1px solid #c9c9c9;
+    font-size: 18px;
   }
   .total-line span {
     padding: 0 1mm;
   }
   .total-line span:first-child {
-    font-weight: 700;
+    font-weight: 800;
   }
   .total-line span:last-child {
     text-align: right;
-    font-weight: 700;
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
   }
   .total-line.total {
-    margin-top: 2mm;
+    margin-top: 3mm;
     border-top: 2px solid #111111;
-    border-bottom: 2px solid #111111;
-    min-height: 10.5mm;
-    font-size: 12px;
+    border-bottom: 0;
+    min-height: 13mm;
+    font-size: 21px;
+    font-weight: 800;
+  }
+  .total-line.total span:last-child {
     font-weight: 800;
   }
   .footer-note {
-    margin-top: 6mm;
+    margin-top: 20mm;
     text-align: center;
-    font-size: 10.5px;
-    font-weight: 800;
-    letter-spacing: 0;
+    font-size: 21px;
+    font-weight: 400;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
   .attachment-section-start {
     flex: 0 0 auto;
@@ -3055,9 +3111,9 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
             <span>${formatPdfMoney(data.totalDue)}</span>
           </div>
         </div>
-        <div class="footer-note">THANK YOU FOR YOUR PURCHASE!</div>
       </div>
     </section>
+    <div class="footer-note">THANK YOU FOR YOUR PURCHASE!</div>
   `;
 
   type SterlingMechanicalPageLayout = {
@@ -3089,7 +3145,10 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
             options.isFirstPage
               ? `
                 <div class="invoice-top">
-                  <h1 class="invoice-title-main">INVOICE</h1>
+                  <div class="invoice-brand">
+                    <img class="invoice-logo" src="${escapeHtml(ryanLogoUrl)}" alt="Ryan Goertler logo">
+                    <h1 class="invoice-title-main">INVOICE</h1>
+                  </div>
                   <div class="invoice-meta">
                     <div class="meta-row">
                       <span class="meta-label">Invoice Number:</span>
@@ -3108,12 +3167,19 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                     <div class="bill-to-content">${billToHtml}</div>
                   </div>
                   <div class="party-block">
-                    <p class="block-title">Company Info:</p>
                     <p class="company-name">RYAN GOERTLER</p>
                     <div class="company-info">
                       <div><strong>Address:</strong>15222 Saranac Rd,<br>Cleveland, OH 44110</div>
+                    </div>
+                  </div>
+                  <div class="party-block">
+                    <div class="contact-info">
                       <div><strong>Main:</strong>(440) 289-9796</div>
                       <div><strong>Secondary:</strong>(440) 666-5608</div>
+                    </div>
+                  </div>
+                  <div class="party-block">
+                    <div class="contact-info">
                       <div><strong>Email:</strong>ryangoertler1313@gmail.com</div>
                     </div>
                   </div>
