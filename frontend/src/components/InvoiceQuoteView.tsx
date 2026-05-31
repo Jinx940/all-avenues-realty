@@ -2878,14 +2878,14 @@ const sterlingMechanicalInvoiceStyles = `
     font-size: 32px;
     line-height: 1;
     letter-spacing: 5px;
-    font-weight: 500;
+    font-weight: 800;
     text-transform: uppercase;
   }
   .invoice-number-main {
     margin: 0;
     font-size: 30px;
     line-height: 1;
-    font-weight: 500;
+    font-weight: 800;
     letter-spacing: 1px;
   }
   .invoice-meta {
@@ -3594,8 +3594,13 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
 
       appendTailBlock(footerNoteHtml);
 
-      for (const tailBlock of attachmentTailBlocks) {
-        appendTailBlock(tailBlock);
+      if (attachmentTailBlocks.length) {
+        pageLayouts.push({ rows: [], tailBlocks: [] });
+        tailPageIndex = pageLayouts.length - 1;
+
+        for (const tailBlock of attachmentTailBlocks) {
+          appendTailBlock(tailBlock);
+        }
       }
 
       return pageLayouts.filter((layout) => layout.rows.length || layout.tailBlocks.length);
