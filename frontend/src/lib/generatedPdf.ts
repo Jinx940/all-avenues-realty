@@ -1,3 +1,4 @@
+const PDF_EXPORT_ROOT_CLASS = 'generated-pdf-export-root';
 const A4_PAGE_WIDTH_POINTS = 595.28;
 const A4_PAGE_HEIGHT_POINTS = 841.89;
 const RECEIPT_PAGE_MARGIN_POINTS = 36;
@@ -8,37 +9,52 @@ export type GeneratedPdfReceiptAppendix = {
   blob: Blob;
 };
 
-const mountPdfExportRoot = async (html: string) => {
-  const exportShell = document.createElement('iframe');
+const normalizePdfStyles = (css: string) =>
+  css
+    .replace(/html\s*,\s*body\s*\{/g, `.${PDF_EXPORT_ROOT_CLASS} {`)
+    .replace(/body\s*,\s*html\s*\{/g, `.${PDF_EXPORT_ROOT_CLASS} {`)
+    .replace(/body\s*\{/g, `.${PDF_EXPORT_ROOT_CLASS} {`)
+    .replace(/html\s*\{/g, `.${PDF_EXPORT_ROOT_CLASS} {`);
+
+const mountPdfExportRoot = (html: string) => {
+  const parser = new DOMParser();
+  const parsed = parser.parseFromString(html, 'text/html');
+  const styleContent = Array.from(parsed.querySelectorAll('style'))
+    .map((styleNode) => normalizePdfStyles(styleNode.textContent ?? ''))
+    .join('\n');
+
+  const exportShell = document.createElement('div');
   Object.assign(exportShell.style, {
     position: 'fixed',
     left: '-250vw',
     top: '0',
     width: '210mm',
-    height: '297mm',
+    minHeight: '297mm',
     background: '#ffffff',
-    border: '0',
     overflow: 'hidden',
     pointerEvents: 'none',
     zIndex: '-1',
   });
 
-  const loaded = new Promise<void>((resolve, reject) => {
-    exportShell.addEventListener('load', () => resolve(), { once: true });
-    exportShell.addEventListener('error', () => reject(new Error('Could not prepare PDF export frame.')), {
-      once: true,
-    });
-  });
+  const exportShadow = exportShell.attachShadow({ mode: 'open' });
+  const exportRoot = document.createElement('div');
+  exportRoot.className = PDF_EXPORT_ROOT_CLASS;
 
-  document.body.appendChild(exportShell);
-  exportShell.srcdoc = html;
-  await loaded;
-
-  const exportRoot = exportShell.contentDocument?.body;
-  if (!exportRoot) {
-    exportShell.remove();
-    throw new Error('Could not prepare PDF export content.');
+  if (styleContent) {
+    const styleNode = document.createElement('style');
+    styleNode.textContent = styleContent;
+    exportShadow.appendChild(styleNode);
   }
+
+  const bodyContainer = document.createElement('div');
+  bodyContainer.innerHTML = parsed.body.innerHTML;
+
+  while (bodyContainer.firstChild) {
+    exportRoot.appendChild(bodyContainer.firstChild);
+  }
+
+  exportShadow.appendChild(exportRoot);
+  document.body.appendChild(exportShell);
 
   return { exportShell, exportRoot };
 };
@@ -235,7 +251,7 @@ export async function buildGeneratedPdfBlob({
     import('html2canvas'),
     import('jspdf'),
   ]);
-  const { exportShell, exportRoot } = await mountPdfExportRoot(html);
+  const { exportShell, exportRoot } = mountPdfExportRoot(html);
 
   try {
     await waitForExportLayout(exportRoot);
