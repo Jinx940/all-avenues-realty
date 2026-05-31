@@ -3260,33 +3260,228 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
 
   const paginateSterlingInvoiceRowsByLayout = () => {
     const estimatedPages = paginateSterlingInvoiceRowsByEstimate(tableRows);
-    const pageLayouts: SterlingMechanicalPageLayout[] = estimatedPages.map((rows) => ({
-      rows,
-      tailBlocks: [],
-    }));
 
-    if (!pageLayouts.length) {
-      pageLayouts.push({ rows: [], tailBlocks: [] });
-    }
+    const buildFallbackLayouts = () => {
+      const pageLayouts: SterlingMechanicalPageLayout[] = estimatedPages.map((rows) => ({
+        rows,
+        tailBlocks: [],
+      }));
 
-    const summaryUnits = 6.6;
-    const summaryCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 10.8 : 22.5);
-    const lastPageIndex = pageLayouts.length - 1;
-    const lastLayout = pageLayouts[lastPageIndex];
-
-    if (estimateSterlingRowsUnits(lastLayout.rows) + summaryUnits <= summaryCapacityFor(lastPageIndex)) {
-      lastLayout.tailBlocks = [summaryHtml];
-    } else {
-      pageLayouts.push({ rows: [], tailBlocks: [summaryHtml] });
-    }
-
-    if (attachmentTailBlocks.length) {
-      for (let index = 0; index < attachmentTailBlocks.length; index += 2) {
-        pageLayouts.push({ rows: [], tailBlocks: attachmentTailBlocks.slice(index, index + 2) });
+      if (!pageLayouts.length) {
+        pageLayouts.push({ rows: [], tailBlocks: [] });
       }
+
+      const summaryUnits = 6.6;
+      const summaryCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 10.8 : 22.5);
+      const lastPageIndex = pageLayouts.length - 1;
+      const lastLayout = pageLayouts[lastPageIndex];
+
+      if (estimateSterlingRowsUnits(lastLayout.rows) + summaryUnits <= summaryCapacityFor(lastPageIndex)) {
+        lastLayout.tailBlocks = [summaryHtml];
+      } else {
+        pageLayouts.push({ rows: [], tailBlocks: [summaryHtml] });
+      }
+
+      if (attachmentTailBlocks.length) {
+        for (let index = 0; index < attachmentTailBlocks.length; index += 2) {
+          pageLayouts.push({ rows: [], tailBlocks: attachmentTailBlocks.slice(index, index + 2) });
+        }
+      }
+
+      return pageLayouts.filter((layout) => layout.rows.length || layout.tailBlocks.length);
+    };
+
+    const fallbackLayouts = buildFallbackLayouts();
+
+    if (typeof document === 'undefined') {
+      return fallbackLayouts;
     }
 
-    return pageLayouts.filter((layout) => layout.rows.length || layout.tailBlocks.length);
+    const measurementHost = document.createElement('div');
+    Object.assign(measurementHost.style, {
+      position: 'fixed',
+      left: '-250vw',
+      top: '0',
+      width: '210mm',
+      minHeight: '297mm',
+      visibility: 'hidden',
+      pointerEvents: 'none',
+      zIndex: '-1',
+    });
+    document.body.appendChild(measurementHost);
+    const measurementRoot = measurementHost.attachShadow({ mode: 'open' });
+
+    const pageFits = (
+      rows: SterlingInvoiceRow[],
+      options: { isFirstPage: boolean; tailBlocks?: string[] },
+    ) => {
+      measurementRoot.innerHTML = `
+        <style>${sterlingMechanicalInvoiceStyles}</style>
+        ${buildPageHtml(rows, {
+          isFirstPage: options.isFirstPage,
+          tailBlocks: options.tailBlocks,
+        })}
+      `;
+
+      const body = measurementRoot.querySelector<HTMLElement>('.invoice-body');
+      if (!body) {
+        return true;
+      }
+
+      const measuredElements = Array.from(
+        measurementRoot.querySelectorAll<HTMLElement>(
+          '.invoice-table, .last-section, .footer-note, .attachment-section-start, .attachment-row',
+        ),
+      );
+
+      if (!measuredElements.length) {
+        return true;
+      }
+
+      const bodyBottom = body.getBoundingClientRect().bottom;
+      const contentBottom = Math.max(
+        ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
+      );
+
+      return contentBottom <= bodyBottom + 0.5;
+    };
+
+    const splitRowForPage = (
+      row: SterlingInvoiceRow,
+      isFirstPage: boolean,
+    ): { chunk: SterlingInvoiceRow; remaining: SterlingInvoiceRow | null } => {
+      let bestLineCount = 0;
+      let low = 1;
+      let high = row.descriptionLines.length;
+
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const isCompleteRow = mid >= row.descriptionLines.length;
+        const candidateChunk: SterlingInvoiceRow = {
+          ...row,
+          descriptionLines: row.descriptionLines.slice(0, mid),
+          showDivider: isCompleteRow ? row.showDivider : false,
+        };
+
+        if (pageFits([candidateChunk], { isFirstPage })) {
+          bestLineCount = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      if (bestLineCount <= 0) {
+        return { chunk: row, remaining: null };
+      }
+
+      const remainingLines = row.descriptionLines.slice(bestLineCount);
+      const isCompleteRow = remainingLines.length === 0;
+
+      return {
+        chunk: {
+          ...row,
+          descriptionLines: row.descriptionLines.slice(0, bestLineCount),
+          showDivider: isCompleteRow ? row.showDivider : false,
+        },
+        remaining: isCompleteRow
+          ? null
+          : {
+              ...row,
+              descriptionLines: remainingLines,
+              continuation: true,
+              showDivider: row.showDivider,
+            },
+      };
+    };
+
+    try {
+      const pages: SterlingInvoiceRow[][] = [[]];
+      let pageIndex = 0;
+      const pendingRows = [...tableRows];
+
+      const startNextPage = () => {
+        pages.push([]);
+        pageIndex += 1;
+      };
+
+      while (pendingRows.length) {
+        const row = pendingRows.shift() as SterlingInvoiceRow;
+        const currentPage = pages[pageIndex];
+        const candidatePage = [...currentPage, row];
+
+        if (pageFits(candidatePage, { isFirstPage: pageIndex === 0 })) {
+          currentPage.push(row);
+          continue;
+        }
+
+        if (currentPage.length) {
+          startNextPage();
+          pendingRows.unshift(row);
+          continue;
+        }
+
+        const { chunk, remaining } = splitRowForPage(row, pageIndex === 0);
+        currentPage.push(chunk);
+
+        if (remaining) {
+          startNextPage();
+          pendingRows.unshift(remaining);
+        }
+      }
+
+      while (pages.length > 1 && pages[pages.length - 1].length === 0) {
+        pages.pop();
+      }
+
+      const pageLayouts: SterlingMechanicalPageLayout[] = pages.map((rows) => ({
+        rows,
+        tailBlocks: [],
+      }));
+
+      if (!pageLayouts.length) {
+        pageLayouts.push({ rows: [], tailBlocks: [] });
+      }
+
+      let tailPageIndex = pageLayouts.length - 1;
+      const summaryLayout = pageLayouts[tailPageIndex];
+
+      if (
+        pageFits(summaryLayout.rows, {
+          isFirstPage: tailPageIndex === 0,
+          tailBlocks: [summaryHtml],
+        })
+      ) {
+        summaryLayout.tailBlocks = [summaryHtml];
+      } else {
+        pageLayouts.push({ rows: [], tailBlocks: [summaryHtml] });
+        tailPageIndex = pageLayouts.length - 1;
+      }
+
+      for (const tailBlock of attachmentTailBlocks) {
+        const currentLayout = pageLayouts[tailPageIndex];
+        const candidateTailBlocks = [...currentLayout.tailBlocks, tailBlock];
+
+        if (
+          pageFits(currentLayout.rows, {
+            isFirstPage: tailPageIndex === 0,
+            tailBlocks: candidateTailBlocks,
+          })
+        ) {
+          currentLayout.tailBlocks.push(tailBlock);
+          continue;
+        }
+
+        pageLayouts.push({ rows: [], tailBlocks: [tailBlock] });
+        tailPageIndex = pageLayouts.length - 1;
+      }
+
+      return pageLayouts.filter((layout) => layout.rows.length || layout.tailBlocks.length);
+    } catch {
+      return fallbackLayouts;
+    } finally {
+      measurementHost.remove();
+    }
   };
 
   const pages = paginateSterlingInvoiceRowsByLayout();
