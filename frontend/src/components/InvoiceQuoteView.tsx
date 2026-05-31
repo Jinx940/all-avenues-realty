@@ -2667,8 +2667,7 @@ const paginateSterlingInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
   if (!rows.length) return [[]];
 
   const pages: SterlingInvoiceRow[][] = [[]];
-  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 18.8 : 28.5);
-  const minimumUsefulChunkUnits = 4;
+  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 17.8 : 26.8);
   let pageIndex = 0;
   let usedUnits = 0;
 
@@ -2694,15 +2693,12 @@ const paginateSterlingInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
         continue;
       }
 
-      if (
-        currentPage.length &&
-        (rowUnits <= capacity || availableUnits < minimumUsefulChunkUnits)
-      ) {
+      if (currentPage.length) {
         startNextPage();
         continue;
       }
 
-      const { chunk, remaining } = splitSterlingRowForCapacity(remainingRow, availableUnits || capacity);
+      const { chunk, remaining } = splitSterlingRowForCapacity(remainingRow, capacity);
       currentPage.push(chunk);
       usedUnits += estimateSterlingInvoiceRowUnits(chunk);
       remainingRow = remaining;
