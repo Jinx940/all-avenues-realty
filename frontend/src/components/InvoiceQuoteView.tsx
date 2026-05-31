@@ -2987,6 +2987,7 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-table th {
     background: #ffffff;
+    border-top: 1.5px solid #111111;
     border-bottom: 1.5px solid #111111;
     font-size: 15px;
     line-height: 1.05;
