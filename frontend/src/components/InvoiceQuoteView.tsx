@@ -3246,7 +3246,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
       </tr>
     </thead>
   `;
-  const summaryHtml = `
+  const summarySectionHtml = `
     <section class="last-section">
       <div class="observation-box">
         <p class="block-title">Observation:</p>
@@ -3273,8 +3273,9 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         </div>
       </div>
     </section>
-    <div class="footer-note">THANK YOU FOR YOUR PURCHASE!</div>
   `;
+  const footerNoteHtml = '<div class="footer-note">THANK YOU FOR YOUR PURCHASE!</div>';
+  const summaryHtml = `${summarySectionHtml}${footerNoteHtml}`;
 
   type SterlingMechanicalPageLayout = {
     rows: SterlingInvoiceRow[];
@@ -3554,16 +3555,16 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
       if (
         pageFits(summaryLayout.rows, {
           isFirstPage: tailPageIndex === 0,
-          tailBlocks: [summaryHtml],
+          tailBlocks: [summarySectionHtml],
         })
       ) {
-        summaryLayout.tailBlocks = [summaryHtml];
+        summaryLayout.tailBlocks = [summarySectionHtml];
       } else {
-        pageLayouts.push({ rows: [], tailBlocks: [summaryHtml] });
+        pageLayouts.push({ rows: [], tailBlocks: [summarySectionHtml] });
         tailPageIndex = pageLayouts.length - 1;
       }
 
-      for (const tailBlock of attachmentTailBlocks) {
+      const appendTailBlock = (tailBlock: string) => {
         const currentLayout = pageLayouts[tailPageIndex];
         const candidateTailBlocks = [...currentLayout.tailBlocks, tailBlock];
 
@@ -3574,11 +3575,17 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
           })
         ) {
           currentLayout.tailBlocks.push(tailBlock);
-          continue;
+          return;
         }
 
         pageLayouts.push({ rows: [], tailBlocks: [tailBlock] });
         tailPageIndex = pageLayouts.length - 1;
+      };
+
+      appendTailBlock(footerNoteHtml);
+
+      for (const tailBlock of attachmentTailBlocks) {
+        appendTailBlock(tailBlock);
       }
 
       return pageLayouts.filter((layout) => layout.rows.length || layout.tailBlocks.length);
