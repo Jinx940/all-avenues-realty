@@ -3021,11 +3021,15 @@ const sterlingMechanicalInvoiceStyles = `
   .invoice-row--separated .money-cell {
     border-top: 1px solid #111111;
   }
-  .description-cell {
+  .invoice-table td.description-cell {
     text-align: left;
     padding-left: 2mm;
     padding-right: 4mm;
     vertical-align: top;
+  }
+  .invoice-table td.description-cell .description-stack,
+  .invoice-table td.description-cell .description-stack div {
+    text-align: left;
   }
   .description-stack {
     display: grid;
