@@ -14,6 +14,8 @@ type DocumentOwnerCode = 'AZE' | 'RYAN' | 'TODD';
 type DocumentOwnerFilter = 'ALL' | DocumentOwnerCode;
 type DocumentOwnerLabel = 'AZE' | 'Ryan Goertler' | 'Todd Goertler';
 
+const pdfTypewriterFontFamily = '"Courier New", Courier, "Liberation Mono", monospace';
+
 type PdfServiceItem = {
   story: string;
   unit: string;
@@ -763,7 +765,7 @@ const legacyTableHeadHtml = `
   <tr>
     <th>Service</th>
     <th>Description</th>
-    <th>Unit Price (USD)</th>
+    <th>Unit Price</th>
   </tr>
 `;
 
@@ -773,7 +775,7 @@ const ryanInvoiceTableHeadHtml = `
     <th class="ryan-area-head">Area</th>
     <th class="ryan-service-head">Service</th>
     <th class="ryan-desc-head">Description</th>
-    <th class="ryan-price-head">Unit Price (USD)</th>
+    <th class="ryan-price-head">Unit Price</th>
   </tr>
 `;
 
@@ -1313,7 +1315,7 @@ const azeInvoiceTableHeadHtml = `
       <th>Area</th>
       <th>Service</th>
       <th>Description</th>
-      <th>Unit Price (USD)</th>
+      <th>Unit Price</th>
     </tr>
   </thead>
 `;
@@ -1412,7 +1414,7 @@ const buildAttachmentTailBlocks = (attachments: PdfAttachmentFile[]) => {
 const azeModernInvoiceLayoutStyles = `
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: Arial, Helvetica, sans-serif; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${pdfTypewriterFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #d9d9d9 !important; overflow: auto; }
   .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 14mm 16mm; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
   .page-first { padding: 18mm 16mm 16mm 16mm; }
@@ -1920,7 +1922,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         <style>
           @page { size: A4; margin: 0; }
           * { box-sizing: border-box; }
-          html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: Arial, Helvetica, sans-serif; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${pdfTypewriterFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { background: #d9d9d9 !important; overflow: auto; }
             .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 14mm 16mm; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
             .page-first { padding: 18mm 16mm 16mm 16mm; }
@@ -2136,7 +2138,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
   const toddModernInvoiceLayoutStyles = `
     @page { size: A4; margin: 0; }
     * { box-sizing: border-box; }
-    html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #eceff1 !important; color: #1f2328; font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #eceff1 !important; color: #1f2328; font-family: ${pdfTypewriterFontFamily}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { overflow: auto; }
     .page { width: 210mm; height: 297mm; margin: 0; padding: 16mm 14mm 12mm; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
     .page:last-child { page-break-after: auto; break-after: auto; }
@@ -2816,7 +2818,7 @@ const sterlingMechanicalInvoiceStyles = `
     padding: 0;
     background: #ffffff;
     color: #111111;
-    font-family: "Arial Narrow", "Bahnschrift Condensed", Bahnschrift, Aptos, "Segoe UI", Arial, Helvetica, sans-serif;
+    font-family: ${pdfTypewriterFontFamily};
     font-size: 11px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -3246,7 +3248,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         <th>Service</th>
         <th>Description</th>
         <th>Labor</th>
-        <th class="unit-price-head"><span>Unit Price</span><span>(USD)</span></th>
+        <th>Unit Price</th>
       </tr>
     </thead>
   `;
@@ -3751,7 +3753,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
   const legacySterlingPdfStyles = `
     @page { size: A4; margin: 0; }
-    html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #ffffff; font-family: Montserrat, Arial, sans-serif; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #ffffff; font-family: ${pdfTypewriterFontFamily}; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { overflow: auto; }
     .page { width: 210mm; height: 297mm; margin: 0; padding: 14mm 12mm 10mm 12mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
     .page:last-child { page-break-after: auto; break-after: auto; }
