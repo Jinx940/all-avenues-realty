@@ -2912,7 +2912,7 @@ const sterlingMechanicalInvoiceStyles = `
     font-variant-numeric: tabular-nums;
   }
   .meta-value--email {
-    font-size: 11px;
+    font-size: 13px;
     white-space: nowrap;
     word-break: normal;
   }
