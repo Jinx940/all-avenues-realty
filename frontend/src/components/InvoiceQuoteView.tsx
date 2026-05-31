@@ -4136,6 +4136,7 @@ export function InvoiceQuoteView({
   const [previewDocument, setPreviewDocument] = useState<GeneratedDocumentContent | null>(null);
   const [generatePdfConfirmOpen, setGeneratePdfConfirmOpen] = useState(false);
   const [generatePdfBusy, setGeneratePdfBusy] = useState(false);
+  const [documentPreviewNotice, setDocumentPreviewNotice] = useState<{ type: 'error' | 'info'; text: string } | null>(null);
   const [historySearch, setHistorySearch] = useState('');
   const [historyPropertyId, setHistoryPropertyId] = useState('');
   const [historyOwner, setHistoryOwner] = useState<DocumentOwnerFilter>('ALL');
@@ -4683,6 +4684,7 @@ export function InvoiceQuoteView({
     }
 
     setPreviewDocument(null);
+    setDocumentPreviewNotice(null);
     setDocumentPreviewOpen(true);
   };
 
@@ -4697,19 +4699,33 @@ export function InvoiceQuoteView({
     frameWindow.print();
   };
 
-  const handleGeneratePdf = async () => {
+  const handleGeneratePdf = async ({ skipConfirmation = false }: { skipConfirmation?: boolean } = {}) => {
+    setDocumentPreviewNotice(null);
+
     if (!selectedItems.length) {
-      await onDocumentError?.('Select at least one service before generating the PDF.');
+      const message = 'Select at least one service before generating the PDF.';
+      setDocumentPreviewNotice({ type: 'error', text: message });
+      await onDocumentError?.(message);
       return;
     }
 
     if (!effectiveDocumentNumber) {
-      await onDocumentError?.('Enter a document number before generating the PDF.');
+      const message = 'Enter a document number before generating the PDF.';
+      setDocumentPreviewNotice({ type: 'error', text: message });
+      await onDocumentError?.(message);
       return;
     }
 
     if (documentNumberExists) {
-      await onDocumentError?.(`This ${documentType.toLowerCase()} number is already in use. Enter another number.`);
+      const message = `This ${documentType.toLowerCase()} number is already in use. Enter another number.`;
+      setDocumentPreviewNotice({ type: 'error', text: message });
+      await onDocumentError?.(message);
+      return;
+    }
+
+    if (skipConfirmation) {
+      setDocumentPreviewNotice({ type: 'info', text: 'Generating PDF...' });
+      await handleConfirmGeneratePdf();
       return;
     }
 
@@ -4781,6 +4797,7 @@ export function InvoiceQuoteView({
           : error instanceof Error
             ? error.message
             : 'Could not save the generated document.';
+      setDocumentPreviewNotice({ type: 'error', text: message });
       await onDocumentError?.(message);
     } finally {
       setGeneratePdfBusy(false);
@@ -5554,6 +5571,12 @@ export function InvoiceQuoteView({
                   </article>
                 </div>
 
+                {documentPreviewNotice ? (
+                  <div className={`document-preview-notice document-preview-notice--${documentPreviewNotice.type}`}>
+                    {documentPreviewNotice.text}
+                  </div>
+                ) : null}
+
                 <div className="document-preview-actions">
                   <button type="button" className="ghost-button" onClick={() => void printDocumentPreview()}>
                     <UiIcon name="receipt" size={15} />
@@ -5562,11 +5585,11 @@ export function InvoiceQuoteView({
                   <button
                     type="button"
                     className="ghost-button"
-                    onClick={() => void handleGeneratePdf()}
+                    onClick={() => void handleGeneratePdf({ skipConfirmation: true })}
                     disabled={generatePdfBusy}
                   >
                     <UiIcon name="download" size={15} />
-                    Generate PDF
+                    {generatePdfBusy ? 'Generating...' : 'Generate PDF'}
                   </button>
                 </div>
               </aside>
