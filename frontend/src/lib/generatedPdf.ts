@@ -1,4 +1,3 @@
-const PDF_EXPORT_ROOT_CLASS = 'generated-pdf-export-root';
 const A4_PAGE_WIDTH_POINTS = 595.28;
 const A4_PAGE_HEIGHT_POINTS = 841.89;
 const RECEIPT_PAGE_MARGIN_POINTS = 36;
@@ -9,62 +8,47 @@ export type GeneratedPdfReceiptAppendix = {
   blob: Blob;
 };
 
-const normalizePdfStyles = (css: string) =>
-  css
-    .replace(/html\s*,\s*body\s*\{/g, `.${PDF_EXPORT_ROOT_CLASS} {`)
-    .replace(/body\s*,\s*html\s*\{/g, `.${PDF_EXPORT_ROOT_CLASS} {`)
-    .replace(/body\s*\{/g, `.${PDF_EXPORT_ROOT_CLASS} {`)
-    .replace(/html\s*\{/g, `.${PDF_EXPORT_ROOT_CLASS} {`);
-
-const mountPdfExportRoot = (html: string) => {
-  const parser = new DOMParser();
-  const parsed = parser.parseFromString(html, 'text/html');
-  const styleContent = Array.from(parsed.querySelectorAll('style'))
-    .map((styleNode) => normalizePdfStyles(styleNode.textContent ?? ''))
-    .join('\n');
-
-  const exportShell = document.createElement('div');
+const mountPdfExportRoot = async (html: string) => {
+  const exportShell = document.createElement('iframe');
   Object.assign(exportShell.style, {
     position: 'fixed',
     left: '-250vw',
     top: '0',
     width: '210mm',
-    minHeight: '297mm',
+    height: '297mm',
     background: '#ffffff',
+    border: '0',
     overflow: 'hidden',
     pointerEvents: 'none',
     zIndex: '-1',
   });
 
-  const exportRoot = document.createElement('div');
-  exportRoot.className = PDF_EXPORT_ROOT_CLASS;
+  const loaded = new Promise<void>((resolve, reject) => {
+    exportShell.addEventListener('load', () => resolve(), { once: true });
+    exportShell.addEventListener('error', () => reject(new Error('Could not prepare PDF export frame.')), {
+      once: true,
+    });
+  });
 
-  if (styleContent) {
-    const styleNode = document.createElement('style');
-    styleNode.textContent = styleContent;
-    exportRoot.appendChild(styleNode);
-  }
-
-  const bodyContainer = document.createElement('div');
-  bodyContainer.innerHTML = parsed.body.innerHTML;
-
-  while (bodyContainer.firstChild) {
-    exportRoot.appendChild(bodyContainer.firstChild);
-  }
-
-  exportShell.appendChild(exportRoot);
   document.body.appendChild(exportShell);
+  exportShell.srcdoc = html;
+  await loaded;
 
-  return {
-    exportShell,
-    exportRoot,
-  };
+  const exportRoot = exportShell.contentDocument?.body;
+  if (!exportRoot) {
+    exportShell.remove();
+    throw new Error('Could not prepare PDF export content.');
+  }
+
+  return { exportShell, exportRoot };
 };
 
-const waitForExportLayout = async () => {
+const waitForExportLayout = async (root: HTMLElement) => {
+  const view = root.ownerDocument.defaultView ?? window;
+
   await new Promise<void>((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => resolve());
+    view.requestAnimationFrame(() => {
+      view.requestAnimationFrame(() => resolve());
     });
   });
 };
@@ -251,10 +235,10 @@ export async function buildGeneratedPdfBlob({
     import('html2canvas'),
     import('jspdf'),
   ]);
-  const { exportShell, exportRoot } = mountPdfExportRoot(html);
+  const { exportShell, exportRoot } = await mountPdfExportRoot(html);
 
   try {
-    await waitForExportLayout();
+    await waitForExportLayout(exportRoot);
     await waitForExportImages(exportRoot);
     const pageElements = Array.from(exportRoot.querySelectorAll<HTMLElement>('.page'));
     const pages = pageElements.length ? pageElements : [exportRoot];
