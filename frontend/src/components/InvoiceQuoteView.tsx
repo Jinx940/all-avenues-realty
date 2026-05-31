@@ -1772,6 +1772,42 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       return contentBottom <= pageMainBottom + 0.5;
     };
 
+    const splitRowForRemainingPageSpace = (
+      row: AzeInvoiceRow,
+      currentPage: AzeInvoiceRow[],
+      isFirstPage: boolean,
+    ) => {
+      const splitRows = splitAzeInvoiceRowByBullet(row);
+      if (splitRows.length <= 1) {
+        return null;
+      }
+
+      let bestRowCount = 0;
+      let low = 1;
+      let high = splitRows.length - 1;
+
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const fittingRows = splitRows.slice(0, mid);
+
+        if (pageFits([...currentPage, ...fittingRows], { isFirstPage, includeFooter: false })) {
+          bestRowCount = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      if (bestRowCount <= 0) {
+        return null;
+      }
+
+      return {
+        fittingRows: splitRows.slice(0, bestRowCount),
+        remainingRows: splitRows.slice(bestRowCount),
+      };
+    };
+
     try {
       const pages: AzeInvoiceRow[][] = [[]];
       let pageIndex = 0;
@@ -1789,9 +1825,20 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
         const splitRows = splitAzeInvoiceRowByBullet(row);
 
-        if (currentPage.length === 0 && splitRows.length > 1) {
-          pendingRows.unshift(...splitRows);
-          continue;
+        if (splitRows.length > 1) {
+          if (currentPage.length === 0) {
+            pendingRows.unshift(...splitRows);
+            continue;
+          }
+
+          const splitPage = splitRowForRemainingPageSpace(row, currentPage, pageIndex === 0);
+          if (splitPage) {
+            currentPage.push(...splitPage.fittingRows);
+            pages.push([]);
+            pageIndex += 1;
+            pendingRows.unshift(...splitPage.remainingRows);
+            continue;
+          }
         }
 
         if (currentPage.length === 0) {
@@ -2274,6 +2321,42 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
       return contentBottom <= bodyBottom + 0.5;
     };
 
+    const splitRowForRemainingPageSpace = (
+      row: AzeInvoiceRow,
+      currentPage: AzeInvoiceRow[],
+      isFirstPage: boolean,
+    ) => {
+      const splitRows = splitAzeInvoiceRowByBullet(row);
+      if (splitRows.length <= 1) {
+        return null;
+      }
+
+      let bestRowCount = 0;
+      let low = 1;
+      let high = splitRows.length - 1;
+
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const fittingRows = splitRows.slice(0, mid);
+
+        if (pageFits([...currentPage, ...fittingRows], { isFirstPage, includeFooter: false })) {
+          bestRowCount = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      if (bestRowCount <= 0) {
+        return null;
+      }
+
+      return {
+        fittingRows: splitRows.slice(0, bestRowCount),
+        remainingRows: splitRows.slice(bestRowCount),
+      };
+    };
+
     try {
       const pages: AzeInvoiceRow[][] = [[]];
       let pageIndex = 0;
@@ -2291,9 +2374,20 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
 
         const splitRows = splitAzeInvoiceRowByBullet(row);
 
-        if (currentPage.length === 0 && splitRows.length > 1) {
-          pendingRows.unshift(...splitRows);
-          continue;
+        if (splitRows.length > 1) {
+          if (currentPage.length === 0) {
+            pendingRows.unshift(...splitRows);
+            continue;
+          }
+
+          const splitPage = splitRowForRemainingPageSpace(row, currentPage, pageIndex === 0);
+          if (splitPage) {
+            currentPage.push(...splitPage.fittingRows);
+            pages.push([]);
+            pageIndex += 1;
+            pendingRows.unshift(...splitPage.remainingRows);
+            continue;
+          }
         }
 
         if (currentPage.length === 0) {
@@ -3349,6 +3443,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
     const splitRowForPage = (
       row: SterlingInvoiceRow,
       isFirstPage: boolean,
+      currentPage: SterlingInvoiceRow[] = [],
     ): { chunk: SterlingInvoiceRow; remaining: SterlingInvoiceRow | null } => {
       let bestLineCount = 0;
       let low = 1;
@@ -3363,7 +3458,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
           showDivider: isCompleteRow ? row.showDivider : false,
         };
 
-        if (pageFits([candidateChunk], { isFirstPage })) {
+        if (pageFits([...currentPage, candidateChunk], { isFirstPage })) {
           bestLineCount = mid;
           low = mid + 1;
         } else {
@@ -3416,6 +3511,15 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         }
 
         if (currentPage.length) {
+          const { chunk, remaining } = splitRowForPage(row, pageIndex === 0, currentPage);
+
+          if (remaining) {
+            currentPage.push(chunk);
+            startNextPage();
+            pendingRows.unshift(remaining);
+            continue;
+          }
+
           startNextPage();
           pendingRows.unshift(row);
           continue;
