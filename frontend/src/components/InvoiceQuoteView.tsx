@@ -2951,7 +2951,9 @@ const sterlingMechanicalInvoiceStyles = `
     line-height: 1.55;
     color: #111111;
     font-size: 17px;
-    white-space: nowrap;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .contact-info {
     display: grid;
@@ -2966,17 +2968,18 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-table {
     width: 100%;
+    max-width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
     border: 0;
-    margin-top: 1mm;
+    margin: 1mm auto 0;
   }
   .invoice-table col:nth-child(1) { width: 10%; }
   .invoice-table col:nth-child(2) { width: 13%; }
   .invoice-table col:nth-child(3) { width: 17%; }
-  .invoice-table col:nth-child(4) { width: 41%; }
+  .invoice-table col:nth-child(4) { width: 39%; }
   .invoice-table col:nth-child(5) { width: 9%; }
-  .invoice-table col:nth-child(6) { width: 10%; }
+  .invoice-table col:nth-child(6) { width: 12%; }
   .invoice-table th,
   .invoice-table td {
     border: 0;
@@ -2996,9 +2999,10 @@ const sterlingMechanicalInvoiceStyles = `
     text-align: center;
     font-weight: 800;
     text-transform: none;
-    vertical-align: bottom;
-    padding-bottom: 4mm;
-    white-space: nowrap;
+    vertical-align: middle;
+    padding: 2mm;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .invoice-table td {
     padding-top: 7mm;
