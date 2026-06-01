@@ -5027,6 +5027,18 @@ textarea {
   font-weight: 800;
 }
 
+.invoice-cell-lines {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.18;
+  white-space: normal;
+}
+
+.invoice-cell-lines span {
+  display: block;
+}
+
 .invoice-service-select {
   display: inline-flex;
   align-items: center;
@@ -5040,6 +5052,19 @@ textarea {
 .invoice-services-row:not(.invoice-services-row--header) .invoice-service-select {
   justify-content: flex-start;
   text-align: left;
+}
+
+.invoice-service-select-copy {
+  display: inline-grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.invoice-service-select-copy small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .invoice-service-name {
@@ -5071,6 +5096,27 @@ textarea {
   border-color: rgba(132, 187, 229, 0.98);
   box-shadow: 0 0 0 4px rgba(168, 211, 243, 0.18);
   outline: none;
+}
+
+.invoice-service-stack,
+.invoice-service-value-stack {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.invoice-service-price-value {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-strong);
+  font-weight: 800;
+  text-align: center;
+}
+
+.invoice-service-value-stack .invoice-money-editor {
+  min-height: 74px;
 }
 
 .invoice-money-editor {

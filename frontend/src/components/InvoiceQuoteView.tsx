@@ -198,6 +198,13 @@ type JobSelectionState = {
   mode: 'auto' | 'manual';
 };
 
+type InvoiceServiceGroupKeySource = Pick<PdfServiceItem, 'story' | 'unit' | 'area' | 'service'>;
+
+type InvoiceJobGroup = InvoiceServiceGroupKeySource & {
+  key: string;
+  jobs: JobRow[];
+};
+
 const headerOwnerOptions = ['Juan Azabache (AZE)', 'Ryan Goertler', 'Todd Goertler'] as const;
 
 const formatUsd = (value: number) => `$${value.toFixed(2)}`;
@@ -428,6 +435,96 @@ const normalizeInvoiceDescription = (value: string) => {
 };
 
 const displayInvoiceCell = (value: string, fallback = '-') => value.trim() || fallback;
+
+const splitInvoiceCellLines = (value: string, fallback = '-') => {
+  const displayValue = displayInvoiceCell(value, fallback);
+  const lines = displayValue
+    .split(/\s*\/\s*/g)
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+  return lines.length ? lines : [displayValue];
+};
+
+const buildInvoiceCellHtml = (value: string, fallback = '-') =>
+  splitInvoiceCellLines(value, fallback).map(escapeHtml).join('<br>');
+
+const renderInvoiceCellValue = (value: string, fallback = '-') => (
+  <strong className="invoice-cell-lines">
+    {splitInvoiceCellLines(value, fallback).map((line, index) => (
+      <span key={`${line}-${index}`}>{line}</span>
+    ))}
+  </strong>
+);
+
+const normalizeInvoiceGroupKeyPart = (value: string, fallback = '-') =>
+  splitInvoiceCellLines(value, fallback).join('/').toLowerCase();
+
+const buildInvoiceServiceGroupKey = (item: InvoiceServiceGroupKeySource) =>
+  [
+    normalizeInvoiceGroupKeyPart(item.story),
+    normalizeInvoiceGroupKeyPart(item.unit),
+    normalizeInvoiceGroupKeyPart(item.area),
+    normalizeInvoiceGroupKeyPart(item.service, 'General Service'),
+  ].join('\u001f');
+
+const buildInvoiceJobGroups = (jobs: JobRow[]): InvoiceJobGroup[] => {
+  const groups = new Map<string, InvoiceJobGroup>();
+
+  jobs.forEach((job) => {
+    const key = buildInvoiceServiceGroupKey(job);
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.jobs.push(job);
+      return;
+    }
+
+    groups.set(key, {
+      key,
+      story: job.story,
+      unit: job.unit,
+      area: job.area,
+      service: job.service,
+      jobs: [job],
+    });
+  });
+
+  return [...groups.values()];
+};
+
+const mergePdfServiceItems = (items: PdfServiceItem[]): PdfServiceItem[] => {
+  const groups = new Map<string, PdfServiceItem & { descriptions: string[] }>();
+
+  items.forEach((item) => {
+    const key = buildInvoiceServiceGroupKey(item);
+    const description = normalizeInvoiceDescription(item.description);
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.labor += item.labor;
+      existing.unitPrice += item.unitPrice;
+      if (description) {
+        existing.descriptions.push(description);
+      }
+      return;
+    }
+
+    groups.set(key, {
+      ...item,
+      description,
+      labor: item.labor,
+      unitPrice: item.unitPrice,
+      descriptions: description ? [description] : [],
+    });
+  });
+
+  return [...groups.values()].map(({ descriptions, ...item }) => ({
+    ...item,
+    description: descriptions.length ? descriptions.join('\n') : item.description,
+  }));
+};
+
 const buildPdfAttachmentsForJobs = (
   sourceJobs: JobRow[],
   allowedKinds: ReadonlySet<PdfAttachmentFile['kind']>,
@@ -571,7 +668,7 @@ const buildRyanInvoiceAreaHtml = (value: string) => {
   }
 
   if (!isRyanInvoiceAddressArea(normalized)) {
-    return escapeHtml(normalized);
+    return buildInvoiceCellHtml(normalized);
   }
 
   const parts = normalized.split(',').map((part) => part.trim()).filter(Boolean);
@@ -903,7 +1000,7 @@ const buildLegacyRowsHtml = (chunks: LegacyServiceChunk[]) =>
             <tr class="${chunk.continuation ? 'legacy-group-row legacy-group-row--continuation' : 'legacy-group-row'}">
               ${
                 index === 0
-                  ? `<td class="service-cell${chunk.continuation ? ' service-cell--continuation' : ''}" rowspan="${chunk.sentences.length}">${escapeHtml(
+                  ? `<td class="service-cell${chunk.continuation ? ' service-cell--continuation' : ''}" rowspan="${chunk.sentences.length}">${buildInvoiceCellHtml(
                       chunk.continuation ? `${chunk.service} (cont.)` : chunk.service,
                     )}</td>`
                   : ''
@@ -930,7 +1027,7 @@ const buildRyanInvoiceRowsHtml = (chunks: RyanInvoiceChunk[]) =>
             <tr class="${chunk.continuation ? 'legacy-group-row legacy-group-row--continuation' : 'legacy-group-row'}">
               ${
                 chunk.showUnit
-                  ? `<td class="ryan-unit-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.unitRowSpan}">${escapeHtml(
+                  ? `<td class="ryan-unit-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}" rowspan="${chunk.unitRowSpan}">${buildInvoiceCellHtml(
                       chunk.unit,
                     )}</td>`
                   : ''
@@ -943,7 +1040,7 @@ const buildRyanInvoiceRowsHtml = (chunks: RyanInvoiceChunk[]) =>
                   : ''
               }
               ${
-                `<td class="ryan-service-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}">${escapeHtml(
+                `<td class="ryan-service-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}">${buildInvoiceCellHtml(
                       chunk.continuation ? `${chunk.service} (cont.)` : chunk.service,
                     )}</td>`
               }
@@ -1282,15 +1379,17 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
         <tr class="${rowClass}">
           ${
             row.showUnitCell
-              ? `<td class="unit" rowspan="${row.unitRowSpan}">${escapeHtml(row.unit)}</td>`
+              ? `<td class="unit" rowspan="${row.unitRowSpan}">${buildInvoiceCellHtml(row.unit)}</td>`
               : ''
           }
           ${
             row.showAreaCell
-              ? `<td class="area" rowspan="${row.areaRowSpan}">${escapeHtml(row.area)}</td>`
+              ? `<td class="area" rowspan="${row.areaRowSpan}">${buildInvoiceCellHtml(row.area)}</td>`
               : ''
           }
-          <td class="service${row.showService === false ? ' is-empty' : ''}">${serviceHtml}</td>
+          <td class="service${row.showService === false ? ' is-empty' : ''}">${
+            row.showService === false ? serviceHtml : buildInvoiceCellHtml(row.service)
+          }</td>
           <td class="desc">${bulletHtml}</td>
           <td class="cost${row.showPrice === false ? ' is-empty' : ''}">${costHtml}</td>
         </tr>
@@ -2691,18 +2790,18 @@ const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
         <tr class="${rowClass}">
           ${
             row.showUnitCell
-              ? `<td class="unit-cell" rowspan="${row.unitRowSpan}">${escapeHtml(row.unit)}</td>`
+              ? `<td class="unit-cell" rowspan="${row.unitRowSpan}">${buildInvoiceCellHtml(row.unit)}</td>`
               : ''
           }
           ${
             row.showAreaCell
-              ? `<td class="area-cell" rowspan="${row.areaRowSpan}">${escapeHtml(row.area)}</td>`
+              ? `<td class="area-cell" rowspan="${row.areaRowSpan}">${buildInvoiceCellHtml(row.area)}</td>`
               : ''
           }
           ${
             row.showServiceCell
               ? `<td class="service-cell${showDetails ? '' : ' continuation-cell'}" rowspan="${row.serviceRowSpan}">${
-                  showDetails ? escapeHtml(row.continuation ? `${row.service} (cont.)` : row.service) : '&nbsp;'
+                  showDetails ? buildInvoiceCellHtml(row.continuation ? `${row.service} (cont.)` : row.service) : '&nbsp;'
                 }</td>`
               : ''
           }
@@ -4150,6 +4249,7 @@ export function InvoiceQuoteView({
     () => (normalizedPropertyId ? jobs.filter((job) => job.propertyId === normalizedPropertyId) : []),
     [jobs, normalizedPropertyId],
   );
+  const invoiceJobGroups = useMemo(() => buildInvoiceJobGroups(propertyJobs), [propertyJobs]);
   const selectedJobIds = useMemo(
     () =>
       jobSelection.mode === 'manual' && jobSelection.propertyId === normalizedPropertyId
@@ -4193,8 +4293,8 @@ export function InvoiceQuoteView({
   }, [documentPreviewOpen]);
 
   const selectedItems: PdfServiceItem[] = useMemo(
-    () =>
-      selectedJobs.map((job) => ({
+    () => {
+      const items = selectedJobs.map((job) => ({
         story: job.story,
         unit: job.unit,
         area: job.area,
@@ -4204,7 +4304,10 @@ export function InvoiceQuoteView({
         unitPrice: usesSterlingInvoice
           ? toAmount(itemUnitPriceEdits[job.id] ?? String(job.totalCost))
           : job.totalCost,
-      })),
+      }));
+
+      return mergePdfServiceItems(items);
+    },
     [descriptionEdits, itemLaborEdits, itemUnitPriceEdits, selectedJobs, usesSterlingInvoice],
   );
   const selectedPhotoAttachments = useMemo(
@@ -4385,6 +4488,29 @@ export function InvoiceQuoteView({
       ids: selectedJobIds.includes(jobId)
         ? selectedJobIds.filter((id) => id !== jobId)
         : [...selectedJobIds, jobId],
+      mode: 'manual',
+    });
+  };
+
+  const toggleJobGroupSelection = (jobIds: string[]) => {
+    if (jobIds.length === 1) {
+      toggleJobSelection(jobIds[0] as string);
+      return;
+    }
+
+    const selectedIds = new Set(selectedJobIds);
+    const allGroupSelected = jobIds.every((id) => selectedIds.has(id));
+    const groupIds = new Set(jobIds);
+    const nextIds = allGroupSelected
+      ? selectedJobIds.filter((id) => !groupIds.has(id))
+      : [
+          ...selectedJobIds,
+          ...jobIds.filter((id) => !selectedIds.has(id)),
+        ];
+
+    setJobSelection({
+      propertyId: normalizedPropertyId,
+      ids: nextIds,
       mode: 'manual',
     });
   };
@@ -5073,76 +5199,108 @@ export function InvoiceQuoteView({
                   <span>Unit Price (USD)</span>
                 </div>
 
-                {propertyJobs.length ? (
-                  propertyJobs.map((job) => (
-                    <div key={job.id} className={`invoice-services-row${usesSterlingInvoice ? ' invoice-services-row--sterling' : ''}`}>
-                      <span className="invoice-services-cell invoice-services-cell--unit">
-                        <label className="invoice-service-select">
-                          <input
-                            className="invoice-service-check"
-                            type="checkbox"
-                            checked={selectedJobIds.includes(job.id)}
-                            onChange={() => toggleJobSelection(job.id)}
-                          />
-                          <strong>{displayInvoiceCell(job.unit)}</strong>
-                        </label>
-                      </span>
-                      <span className="invoice-services-cell invoice-services-cell--area">
-                        <strong>{displayInvoiceCell(job.area)}</strong>
-                      </span>
-                      <span className="invoice-services-cell invoice-services-cell--service">
-                        <strong>{displayInvoiceCell(job.service, 'General Service')}</strong>
-                      </span>
-                      <span className="invoice-services-cell invoice-services-cell--description">
-                        <textarea
-                          className="invoice-description-editor"
-                          rows={2}
-                          value={descriptionValueFor(job)}
-                          onChange={(event) => updateDescriptionEdit(job.id, event.target.value)}
-                          onBlur={() => commitDescriptionEdit(job)}
-                          placeholder="Edit the description used for this invoice or quote"
-                        />
-                      </span>
-                      {usesSterlingInvoice ? (
-                        <span className="invoice-services-cell invoice-services-cell--labor">
-                          <input
-                            className="invoice-money-editor"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={itemLaborEdits[job.id] ?? '0'}
-                            onChange={(event) =>
-                              setItemLaborEdits((current) => ({
-                                ...current,
-                                [job.id]: event.target.value,
-                              }))
-                            }
-                            aria-label={`Labor for ${displayInvoiceCell(job.service, 'service')}`}
-                          />
+                {invoiceJobGroups.length ? (
+                  invoiceJobGroups.map((group) => {
+                    const groupJobIds = group.jobs.map((job) => job.id);
+                    const selectedGroupCount = group.jobs.filter((job) => selectedJobIds.includes(job.id)).length;
+                    const groupChecked = selectedGroupCount === group.jobs.length;
+                    const groupedClassName = group.jobs.length > 1 ? ' invoice-services-row--grouped' : '';
+
+                    return (
+                      <div
+                        key={group.key}
+                        className={`invoice-services-row${usesSterlingInvoice ? ' invoice-services-row--sterling' : ''}${groupedClassName}`}
+                      >
+                        <span className="invoice-services-cell invoice-services-cell--unit">
+                          <label className="invoice-service-select">
+                            <input
+                              className="invoice-service-check"
+                              type="checkbox"
+                              checked={groupChecked}
+                              onChange={() => toggleJobGroupSelection(groupJobIds)}
+                            />
+                            <span className="invoice-service-select-copy">
+                              {renderInvoiceCellValue(group.unit)}
+                              {group.jobs.length > 1 ? (
+                                <small>{selectedGroupCount} of {group.jobs.length} selected</small>
+                              ) : null}
+                            </span>
+                          </label>
                         </span>
-                      ) : null}
-                      <span className="invoice-services-cell invoice-services-cell--price">
+                        <span className="invoice-services-cell invoice-services-cell--area">
+                          {renderInvoiceCellValue(group.area)}
+                        </span>
+                        <span className="invoice-services-cell invoice-services-cell--service">
+                          {renderInvoiceCellValue(group.service, 'General Service')}
+                        </span>
+                        <span className="invoice-services-cell invoice-services-cell--description">
+                          <span className="invoice-service-stack">
+                            {group.jobs.map((job) => (
+                              <textarea
+                                key={job.id}
+                                className="invoice-description-editor"
+                                rows={2}
+                                value={descriptionValueFor(job)}
+                                onChange={(event) => updateDescriptionEdit(job.id, event.target.value)}
+                                onBlur={() => commitDescriptionEdit(job)}
+                                placeholder="Edit the description used for this invoice or quote"
+                              />
+                            ))}
+                          </span>
+                        </span>
                         {usesSterlingInvoice ? (
-                          <input
-                            className="invoice-money-editor"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={itemUnitPriceEdits[job.id] ?? String(job.totalCost)}
-                            onChange={(event) =>
-                              setItemUnitPriceEdits((current) => ({
-                                ...current,
-                                [job.id]: event.target.value,
-                              }))
-                            }
-                            aria-label={`Unit price for ${displayInvoiceCell(job.service, 'service')}`}
-                          />
-                        ) : (
-                          <strong>{formatUsd(job.totalCost)}</strong>
-                        )}
-                      </span>
-                    </div>
-                  ))
+                          <span className="invoice-services-cell invoice-services-cell--labor">
+                            <span className="invoice-service-value-stack">
+                              {group.jobs.map((job) => (
+                                <input
+                                  key={job.id}
+                                  className="invoice-money-editor"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={itemLaborEdits[job.id] ?? '0'}
+                                  onChange={(event) =>
+                                    setItemLaborEdits((current) => ({
+                                      ...current,
+                                      [job.id]: event.target.value,
+                                    }))
+                                  }
+                                  aria-label={`Labor for ${displayInvoiceCell(job.service, 'service')}`}
+                                />
+                              ))}
+                            </span>
+                          </span>
+                        ) : null}
+                        <span className="invoice-services-cell invoice-services-cell--price">
+                          <span className="invoice-service-value-stack">
+                            {group.jobs.map((job) =>
+                              usesSterlingInvoice ? (
+                                <input
+                                  key={job.id}
+                                  className="invoice-money-editor"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={itemUnitPriceEdits[job.id] ?? String(job.totalCost)}
+                                  onChange={(event) =>
+                                    setItemUnitPriceEdits((current) => ({
+                                      ...current,
+                                      [job.id]: event.target.value,
+                                    }))
+                                  }
+                                  aria-label={`Unit price for ${displayInvoiceCell(job.service, 'service')}`}
+                                />
+                              ) : (
+                                <strong key={job.id} className="invoice-service-price-value">
+                                  {formatUsd(job.totalCost)}
+                                </strong>
+                              ),
+                            )}
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })
                 ) : (
                   <div className="empty-box">Select a property with jobs to generate a preview.</div>
                 )}
