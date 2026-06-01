@@ -3025,6 +3025,9 @@ const sterlingMechanicalInvoiceStyles = `
     white-space: nowrap;
     word-break: normal;
   }
+  .meta-value--address {
+    line-height: 1.25;
+  }
   .party-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -3448,6 +3451,10 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                     <div class="meta-row">
                       <span class="meta-label">Secondary:</span>
                       <span class="meta-value">(440) 666-5608</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="meta-label">Address:</span>
+                      <span class="meta-value meta-value--address">15222 Saranac Rd, Cleveland,<br>OH 44110</span>
                     </div>
                   </div>
                 </div>
