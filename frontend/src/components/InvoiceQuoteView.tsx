@@ -3242,7 +3242,7 @@ const sterlingMechanicalInvoiceStyles = `
     text-align: center;
     font-size: 21px;
     font-weight: 400;
-    letter-spacing: 6px;
+    letter-spacing: 0;
     text-transform: uppercase;
     break-inside: avoid;
     page-break-inside: avoid;
@@ -3384,7 +3384,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
       </div>
     </section>
   `;
-  const footerNoteHtml = '<div class="footer-note">THANK YOU FOR YOUR PURCHASE!</div>';
+  const footerNoteHtml = '<div class="footer-note">THANK YOU FOR YOUR TRUST!</div>';
   const summaryHtml = `${summarySectionHtml}${footerNoteHtml}`;
 
   type SterlingMechanicalPageLayout = {
