@@ -58,6 +58,16 @@ const readErrorMessage = async (response: Response) => {
   }
 
   const textFallback = await clonedResponse.text().catch(() => '');
+  const contentType = response.headers.get('Content-Type') ?? '';
+  const isServerError = response.status >= 500;
+  const looksLikeProxyError =
+    /html/i.test(contentType) ||
+    /<!doctype|<html|<style|@font-face|data:font/i.test(textFallback);
+
+  if (isServerError && looksLikeProxyError) {
+    return `${response.status} ${response.statusText || 'Server error'}. The server is temporarily unavailable. Please try again in a moment.`;
+  }
+
   const normalizedText = textFallback.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   if (normalizedText) {
     return normalizedText.length > 220 ? `${normalizedText.slice(0, 217)}...` : normalizedText;

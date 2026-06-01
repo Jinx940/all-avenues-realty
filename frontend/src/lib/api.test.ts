@@ -39,4 +39,22 @@ describe('api requests', () => {
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(new Headers(init.headers).has('Content-Type')).toBe(false);
   });
+
+  it('hides proxy error HTML from user-facing messages', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('502 @font-face { src: url("data:font/woff2;base64,d09GM..."); }', {
+        status: 502,
+        statusText: 'Bad Gateway',
+        headers: {
+          'Content-Type': 'text/html',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestJson<{ ok: boolean }>('/bootstrap')).rejects.toMatchObject({
+      status: 502,
+      message: '502 Bad Gateway. The server is temporarily unavailable. Please try again in a moment.',
+    });
+  });
 });
