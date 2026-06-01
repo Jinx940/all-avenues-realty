@@ -1001,7 +1001,7 @@ const buildLegacyRowsHtml = (chunks: LegacyServiceChunk[]) =>
               ${
                 index === 0
                   ? `<td class="service-cell${chunk.continuation ? ' service-cell--continuation' : ''}" rowspan="${chunk.sentences.length}">${buildInvoiceCellHtml(
-                      chunk.continuation ? `${chunk.service} (cont.)` : chunk.service,
+                      chunk.service,
                     )}</td>`
                   : ''
               }
@@ -1041,7 +1041,7 @@ const buildRyanInvoiceRowsHtml = (chunks: RyanInvoiceChunk[]) =>
               }
               ${
                 `<td class="ryan-service-cell${chunk.continuation ? ' ryan-meta-cell--continuation' : ''}">${buildInvoiceCellHtml(
-                      chunk.continuation ? `${chunk.service} (cont.)` : chunk.service,
+                      chunk.service,
                     )}</td>`
               }
               <td class="desc-cell ryan-desc-cell">${buildRyanInvoiceDescriptionHtml(chunk.sentences)}</td>
@@ -2776,7 +2776,7 @@ const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
   buildSterlingInvoiceDisplayRows(rows)
     .map((row, index) => {
       const showDetails = row.showDetails !== false;
-      const showMoney = row.showMoney !== false;
+      const showMoney = row.showMoney !== false && !row.continuation;
       const rowClass = [
         'invoice-row',
         index > 0 && !row.continuation ? 'invoice-row--separated' : '',
@@ -2801,7 +2801,7 @@ const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
           ${
             row.showServiceCell
               ? `<td class="service-cell${showDetails ? '' : ' continuation-cell'}" rowspan="${row.serviceRowSpan}">${
-                  showDetails ? buildInvoiceCellHtml(row.continuation ? `${row.service} (cont.)` : row.service) : '&nbsp;'
+                  showDetails ? buildInvoiceCellHtml(row.service) : '&nbsp;'
                 }</td>`
               : ''
           }
@@ -2852,6 +2852,7 @@ const splitSterlingRowForCapacity = (
           ...row,
           descriptionLines: remainingLines,
           continuation: true,
+          showMoney: false,
           showDivider: row.showDivider,
         }
       : null,
@@ -3593,11 +3594,12 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         remaining: isCompleteRow
           ? null
           : {
-              ...row,
-              descriptionLines: remainingLines,
-              continuation: true,
-              showDivider: row.showDivider,
-            },
+            ...row,
+            descriptionLines: remainingLines,
+            continuation: true,
+            showMoney: false,
+            showDivider: row.showDivider,
+          },
       };
     };
 
