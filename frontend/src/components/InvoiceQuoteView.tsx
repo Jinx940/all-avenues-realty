@@ -140,7 +140,9 @@ type SterlingMechanicalInvoiceData = {
   invoiceNumber: string;
   docDate: string;
   billTo: string;
+  propertyName: string;
   selectedItems: PdfServiceItem[];
+  laborTotal: number;
   expenses: number;
   invoicingServices: number;
   jobTotal: number;
@@ -3365,6 +3367,10 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
       <div>
         <div class="totals-panel">
           <div class="total-line">
+            <span>Labor Total</span>
+            <span>${formatPdfMoney(data.laborTotal)}</span>
+          </div>
+          <div class="total-line">
             <span>Job Total</span>
             <span>${formatPdfMoney(data.jobTotal)}</span>
           </div>
@@ -3447,8 +3453,8 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
                     <div class="bill-to-content">${billToHtml}</div>
                   </div>
                   <div class="party-block">
-                    <p class="block-title">Address:</p>
-                    <div class="address-content">15222 Saranac Rd, Cleveland, OH 44110</div>
+                    <p class="block-title">Property:</p>
+                    <div class="address-content">${escapeHtml(data.propertyName.trim() || '-')}</div>
                   </div>
                 </section>
               `
@@ -4402,6 +4408,7 @@ export function InvoiceQuoteView({
 
   const usesManualAmounts = ownerKey !== 'todd' && !usesSterlingInvoice;
   const servicesTotal = selectedItems.reduce((sum, item) => sum + item.unitPrice, 0);
+  const sterlingLaborTotal = selectedItems.reduce((sum, item) => sum + Number(item.labor || 0), 0);
   const sterlingJobTotal = selectedItems.reduce((sum, item) => {
     const labor = Number(item.labor || 0);
     const unitPrice = Number(item.unitPrice || 0);
@@ -4440,6 +4447,7 @@ export function InvoiceQuoteView({
 
   const previewRows = usesSterlingInvoice
     ? [
+        { label: 'Labor Total', value: sterlingLaborTotal },
         { label: 'Job Total', value: jobTotal },
         { label: 'Expenses', value: expenses },
         { label: 'Invoicing Services', value: invoicingServices },
@@ -4646,7 +4654,9 @@ export function InvoiceQuoteView({
           invoiceNumber: safeDocumentNumber,
           docDate: issueDate,
           billTo,
+          propertyName: activeProperty?.name || propertyAddress,
           selectedItems,
+          laborTotal: sterlingLaborTotal,
           expenses,
           invoicingServices,
           jobTotal,
@@ -4735,6 +4745,7 @@ export function InvoiceQuoteView({
     ryanLaborValue,
     selectedInvoicePhotoAttachments,
     selectedItems,
+    sterlingLaborTotal,
     timeFrame,
     totalDue,
     lastJobDate,
