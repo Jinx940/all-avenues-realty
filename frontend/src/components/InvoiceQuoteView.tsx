@@ -156,6 +156,7 @@ type SterlingInvoiceRow = {
   area: string;
   service: string;
   descriptionLines: string[];
+  descriptionLineGroups: string[][];
   labor: number;
   unitPrice: number;
   continuation?: boolean;
@@ -528,7 +529,7 @@ const mergePdfServiceItems = (items: PdfServiceItem[]): PdfServiceItem[] => {
 
   return [...groups.values()].map(({ descriptions, ...item }) => ({
     ...item,
-    description: descriptions.length ? descriptions.join('\n') : item.description,
+    description: descriptions.length ? descriptions.join('\n\n') : item.description,
   }));
 };
 
@@ -2669,13 +2670,69 @@ const estimateSterlingInvoiceRowUnits = (row: SterlingInvoiceRow) => {
   return 0.92 + Math.max(unitLines, areaLines, serviceLines) * 0.18 + descriptionLines * 0.58;
 };
 
+const flattenSterlingDescriptionGroups = (groups: string[][]) => groups.flat();
+
+const getSterlingDescriptionGroups = (row: Pick<SterlingInvoiceRow, 'descriptionLines' | 'descriptionLineGroups'>) =>
+  row.descriptionLineGroups.length ? row.descriptionLineGroups : [row.descriptionLines];
+
+const sliceSterlingDescriptionGroups = (groups: string[][], lineCount: number) => {
+  const chunkGroups: string[][] = [];
+  const remainingGroups: string[][] = [];
+  let remainingLineCount = lineCount;
+
+  groups.forEach((group) => {
+    if (remainingLineCount <= 0) {
+      remainingGroups.push(group);
+      return;
+    }
+
+    if (group.length <= remainingLineCount) {
+      chunkGroups.push(group);
+      remainingLineCount -= group.length;
+      return;
+    }
+
+    chunkGroups.push(group.slice(0, remainingLineCount));
+    remainingGroups.push(group.slice(remainingLineCount));
+    remainingLineCount = 0;
+  });
+
+  return {
+    chunkGroups: chunkGroups.filter((group) => group.length),
+    remainingGroups: remainingGroups.filter((group) => group.length),
+  };
+};
+
+const buildSterlingRowWithDescriptionGroups = (
+  row: SterlingInvoiceRow,
+  descriptionLineGroups: string[][],
+) => ({
+  ...row,
+  descriptionLineGroups,
+  descriptionLines: flattenSterlingDescriptionGroups(descriptionLineGroups),
+});
+
+const getSterlingDescriptionBoundaryLineCounts = (groups: string[][]) => {
+  let lineCount = 0;
+
+  return groups
+    .map((group) => {
+      lineCount += group.length;
+      return lineCount;
+    })
+    .filter((count) => count > 0);
+};
+
 const splitSterlingInvoiceRow = (row: SterlingInvoiceRow) => {
+  const descriptionLineGroups = getSterlingDescriptionGroups(row)
+    .map((group) => group.flatMap(splitLongSterlingInvoiceLine).filter(Boolean))
+    .filter((group) => group.length);
   const normalizedRow = {
     ...row,
-    descriptionLines: row.descriptionLines.flatMap(splitLongSterlingInvoiceLine),
+    descriptionLineGroups: descriptionLineGroups.length ? descriptionLineGroups : [['-']],
   };
 
-  return [normalizedRow];
+  return [buildSterlingRowWithDescriptionGroups(normalizedRow, normalizedRow.descriptionLineGroups)];
 };
 
 const buildSterlingInvoiceTableRows = (items: PdfServiceItem[]): SterlingInvoiceRow[] =>
@@ -2688,16 +2745,23 @@ const buildSterlingInvoiceTableRows = (items: PdfServiceItem[]): SterlingInvoice
         invoiceCellCollator.compare(left.description, right.description),
     )
     .flatMap((item) => {
-      const descriptionLines = item.description
-        .split(/\r?\n+/)
-        .map((line) => line.replace(/\s+/g, ' ').trim())
-        .filter(Boolean)
-        .flatMap(splitLongSterlingInvoiceLine);
+      const descriptionLineGroups = item.description
+        .split(/\r?\n\s*\r?\n+/)
+        .map((group) =>
+          group
+            .split(/\r?\n+/)
+            .map((line) => line.replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+            .flatMap(splitLongSterlingInvoiceLine),
+        )
+        .filter((group) => group.length);
+      const normalizedDescriptionLineGroups = descriptionLineGroups.length ? descriptionLineGroups : [['-']];
       const baseRow: SterlingInvoiceRow = {
         unit: displayInvoiceCell(item.unit),
         area: displayInvoiceCell(item.area),
         service: displayInvoiceCell(item.service, 'General Service'),
-        descriptionLines: descriptionLines.length ? descriptionLines : ['-'],
+        descriptionLines: flattenSterlingDescriptionGroups(normalizedDescriptionLineGroups),
+        descriptionLineGroups: normalizedDescriptionLineGroups,
         labor: item.labor,
         unitPrice: item.unitPrice,
         showDetails: true,
@@ -2846,18 +2910,20 @@ const splitSterlingRowForCapacity = (
   }
 
   const safeChunkLines = chunkLines.length ? chunkLines : [row.descriptionLines[0] ?? '-'];
-  const remainingLines = row.descriptionLines.slice(safeChunkLines.length);
+  const { chunkGroups, remainingGroups } = sliceSterlingDescriptionGroups(
+    getSterlingDescriptionGroups(row),
+    safeChunkLines.length,
+  );
+  const safeChunkGroups = chunkGroups.length ? chunkGroups : [safeChunkLines];
 
   return {
     chunk: {
-      ...row,
-      descriptionLines: safeChunkLines,
-      showDivider: remainingLines.length ? false : row.showDivider,
+      ...buildSterlingRowWithDescriptionGroups(row, safeChunkGroups),
+      showDivider: remainingGroups.length ? false : row.showDivider,
     },
-    remaining: remainingLines.length
+    remaining: remainingGroups.length
       ? {
-          ...row,
-          descriptionLines: remainingLines,
+          ...buildSterlingRowWithDescriptionGroups(row, remainingGroups),
           continuation: true,
           showMoney: false,
           showDivider: row.showDivider,
@@ -3600,20 +3666,32 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         return { chunk: row, remaining: null };
       }
 
-      const remainingLines = row.descriptionLines.slice(bestLineCount);
-      const isCompleteRow = remainingLines.length === 0;
+      const descriptionLineGroups = getSterlingDescriptionGroups(row);
+      const totalLineCount = row.descriptionLines.length;
+      const boundaryLineCounts = getSterlingDescriptionBoundaryLineCounts(descriptionLineGroups);
+      const splitsInsideDescription =
+        bestLineCount < totalLineCount && !boundaryLineCounts.includes(bestLineCount);
+      const preferredBoundaryLineCount = splitsInsideDescription
+        ? [...boundaryLineCounts].reverse().find((count) => count <= bestLineCount && count < totalLineCount)
+        : undefined;
+      const finalLineCount = preferredBoundaryLineCount && preferredBoundaryLineCount > 0
+        ? preferredBoundaryLineCount
+        : bestLineCount;
+      const { chunkGroups, remainingGroups } = sliceSterlingDescriptionGroups(
+        descriptionLineGroups,
+        finalLineCount,
+      );
+      const isCompleteRow = remainingGroups.length === 0;
 
       return {
         chunk: {
-          ...row,
-          descriptionLines: row.descriptionLines.slice(0, bestLineCount),
+          ...buildSterlingRowWithDescriptionGroups(row, chunkGroups),
           showDivider: isCompleteRow ? row.showDivider : false,
         },
         remaining: isCompleteRow
           ? null
           : {
-            ...row,
-            descriptionLines: remainingLines,
+            ...buildSterlingRowWithDescriptionGroups(row, remainingGroups),
             continuation: true,
             showMoney: false,
             showDivider: row.showDivider,
