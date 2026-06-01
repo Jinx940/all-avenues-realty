@@ -259,6 +259,8 @@ const toAmount = (value: string) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 };
 
+const roundCurrencyAmount = (value: number) => Math.round(value * 100) / 100;
+
 const blobToBase64 = async (blob: Blob) => {
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
@@ -461,6 +463,9 @@ const renderInvoiceCellValue = (value: string, fallback = '-') => (
 
 const normalizeInvoiceGroupKeyPart = (value: string, fallback = '-') =>
   splitInvoiceCellLines(value, fallback).join('/').toLowerCase();
+
+const getSterlingUnitPriceFromLabor = (job: JobRow, labor: number) =>
+  roundCurrencyAmount(Math.max(Number(job.totalCost || 0) - labor, 0));
 
 const buildInvoiceServiceGroupKey = (item: InvoiceServiceGroupKeySource) =>
   [
@@ -4302,17 +4307,24 @@ export function InvoiceQuoteView({
 
   const selectedItems: PdfServiceItem[] = useMemo(
     () => {
-      const items = selectedJobs.map((job) => ({
-        story: job.story,
-        unit: job.unit,
-        area: job.area,
-        service: job.service,
-        description: normalizeInvoiceDescription(descriptionEdits[job.id] ?? normalizeInvoiceDescription(job.description)),
-        labor: usesSterlingInvoice ? toAmount(itemLaborEdits[job.id] ?? '0') : 0,
-        unitPrice: usesSterlingInvoice
-          ? toAmount(itemUnitPriceEdits[job.id] ?? String(job.totalCost))
-          : job.totalCost,
-      }));
+      const items = selectedJobs.map((job) => {
+        const labor = usesSterlingInvoice
+          ? toAmount(itemLaborEdits[job.id] ?? String(job.laborCost))
+          : 0;
+        const unitPrice = usesSterlingInvoice
+          ? toAmount(itemUnitPriceEdits[job.id] ?? String(getSterlingUnitPriceFromLabor(job, labor)))
+          : job.totalCost;
+
+        return {
+          story: job.story,
+          unit: job.unit,
+          area: job.area,
+          service: job.service,
+          description: normalizeInvoiceDescription(descriptionEdits[job.id] ?? normalizeInvoiceDescription(job.description)),
+          labor,
+          unitPrice,
+        };
+      });
 
       return mergePdfServiceItems(items);
     },
@@ -5271,7 +5283,7 @@ export function InvoiceQuoteView({
                                   type="number"
                                   min="0"
                                   step="0.01"
-                                  value={itemLaborEdits[job.id] ?? '0'}
+                                  value={itemLaborEdits[job.id] ?? String(job.laborCost)}
                                   onChange={(event) =>
                                     setItemLaborEdits((current) => ({
                                       ...current,
@@ -5287,23 +5299,27 @@ export function InvoiceQuoteView({
                         <span className="invoice-services-cell invoice-services-cell--price">
                           <span className="invoice-service-value-stack">
                             {group.jobs.map((job) =>
-                              usesSterlingInvoice ? (
-                                <input
-                                  key={job.id}
-                                  className="invoice-money-editor"
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={itemUnitPriceEdits[job.id] ?? String(job.totalCost)}
-                                  onChange={(event) =>
-                                    setItemUnitPriceEdits((current) => ({
-                                      ...current,
-                                      [job.id]: event.target.value,
-                                    }))
-                                  }
-                                  aria-label={`Unit price for ${displayInvoiceCell(job.service, 'service')}`}
-                                />
-                              ) : (
+                              usesSterlingInvoice ? (() => {
+                                const labor = toAmount(itemLaborEdits[job.id] ?? String(job.laborCost));
+
+                                return (
+                                  <input
+                                    key={job.id}
+                                    className="invoice-money-editor"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={itemUnitPriceEdits[job.id] ?? String(getSterlingUnitPriceFromLabor(job, labor))}
+                                    onChange={(event) =>
+                                      setItemUnitPriceEdits((current) => ({
+                                        ...current,
+                                        [job.id]: event.target.value,
+                                      }))
+                                    }
+                                    aria-label={`Unit price for ${displayInvoiceCell(job.service, 'service')}`}
+                                  />
+                                );
+                              })() : (
                                 <strong key={job.id} className="invoice-service-price-value">
                                   {formatUsd(job.totalCost)}
                                 </strong>
