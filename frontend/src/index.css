@@ -7252,8 +7252,22 @@ body {
 .nav-group-panel {
   display: grid;
   gap: 6px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
   padding-left: 12px;
   border-left: 1px solid rgba(255, 255, 255, 0.22);
+  transform: translateY(-3px);
+  transition:
+    max-height 220ms ease,
+    opacity 160ms ease,
+    transform 180ms ease;
+}
+
+.nav-group.is-open .nav-group-panel {
+  max-height: 420px;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .nav-button {

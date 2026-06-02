@@ -292,9 +292,7 @@ const readClientPortalPropertyId = () => {
 export default function App() {
   const clientPortalPropertyId = readClientPortalPropertyId();
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
-  const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>(() => ({
-    operations: true,
-  }));
+  const [openNavGroupId, setOpenNavGroupId] = useState<string | null>('operations');
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isDesktopSidebarExpanded, setIsDesktopSidebarExpanded] = useState(readStoredSidebarPreference);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -497,10 +495,7 @@ export default function App() {
 
   useEffect(() => {
     if (!activeNavGroupId) return;
-    setOpenNavGroups((current) => ({
-      ...current,
-      [activeNavGroupId]: true,
-    }));
+    setOpenNavGroupId(activeNavGroupId);
   }, [activeNavGroupId]);
 
   const resetWorkspaceState = useCallback((loginErrorText = '') => {
@@ -1844,10 +1839,7 @@ export default function App() {
   };
 
   const toggleNavGroup = (groupId: string) => {
-    setOpenNavGroups((current) => ({
-      ...current,
-      [groupId]: !(current[groupId] ?? false),
-    }));
+    setOpenNavGroupId((current) => (current === groupId ? null : groupId));
   };
 
   if (clientPortalPropertyId) {
@@ -1917,7 +1909,7 @@ export default function App() {
 
         <nav className="nav-stack" aria-label="Workspace sections">
           {availableNavGroups.map((group) => {
-            const isOpen = openNavGroups[group.id] ?? false;
+            const isOpen = openNavGroupId === group.id;
             const isActiveGroup = group.id === activeNavGroupId;
             const panelId = `nav-group-${group.id}`;
 
@@ -1945,7 +1937,7 @@ export default function App() {
                   </span>
                 </button>
 
-                <div id={panelId} className="nav-group-panel" hidden={!isOpen}>
+                <div id={panelId} className="nav-group-panel" aria-hidden={!isOpen}>
                   {group.tabs.map((tab) => (
                     <button
                       key={tab.id}
