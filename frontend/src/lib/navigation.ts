@@ -17,6 +17,50 @@ export const tabs: Array<{ id: TabId; label: string; icon: UiIconName }> = [
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
+export const navGroups: Array<{
+  id: string;
+  label: string;
+  icon: UiIconName;
+  tabIds: TabId[];
+}> = [
+  {
+    id: 'operations',
+    label: 'Operations',
+    icon: 'activity',
+    tabIds: ['dashboard', 'field-mode', 'schedule', 'alerts-center', 'job-tracker'],
+  },
+  {
+    id: 'properties',
+    label: 'Properties',
+    icon: 'home',
+    tabIds: ['new-job', 'property-info', 'property-register'],
+  },
+  {
+    id: 'billing',
+    label: 'Billing',
+    icon: 'receipt',
+    tabIds: ['generate-invoice-quote', 'document-center'],
+  },
+  {
+    id: 'portal',
+    label: 'Portal',
+    icon: 'eye',
+    tabIds: ['client-portal'],
+  },
+  {
+    id: 'team',
+    label: 'Team',
+    icon: 'users',
+    tabIds: ['workers'],
+  },
+  {
+    id: 'system',
+    label: 'System',
+    icon: 'settings',
+    tabIds: ['settings'],
+  },
+];
+
 export const pageMeta: Record<TabId, { title: string; description: string }> = {
   dashboard: {
     title: 'Dashboard',

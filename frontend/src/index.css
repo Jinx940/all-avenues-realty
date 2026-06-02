@@ -7156,7 +7156,7 @@ body {
 .nav-stack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
   padding: 0 6px;
   flex: 1 1 auto;
@@ -7164,16 +7164,108 @@ body {
   justify-content: flex-start;
 }
 
+.nav-group {
+  display: grid;
+  gap: 7px;
+}
+
+.nav-group-trigger {
+  width: 100%;
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06));
+  color: #ffffff;
+  text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.17);
+}
+
+.nav-group-trigger:hover {
+  transform: translateX(2px);
+  border-color: rgba(255, 255, 255, 0.28);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.09));
+}
+
+.nav-group.is-active > .nav-group-trigger {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.23), rgba(255, 255, 255, 0.12));
+}
+
+.nav-group-icon,
+.nav-group-chevron,
+.nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(236, 247, 255, 0.94), rgba(217, 235, 250, 0.88));
+  color: var(--icon-indigo);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 8px 18px rgba(93, 127, 163, 0.1);
+}
+
+.nav-group-chevron {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.88);
+  transition: transform 160ms ease;
+}
+
+.nav-group.is-open .nav-group-chevron {
+  transform: rotate(180deg);
+}
+
+.nav-group-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.nav-group-copy strong,
+.nav-group-copy small {
+  overflow-wrap: anywhere;
+}
+
+.nav-group-copy strong {
+  font-size: 0.96rem;
+  line-height: 1.08;
+}
+
+.nav-group-copy small {
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nav-group-panel {
+  display: grid;
+  gap: 6px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+}
+
 .nav-button {
   position: relative;
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 54px;
-  padding: 12px 14px 12px 16px;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
   border: 1px solid transparent;
-  border-radius: 16px;
+  border-radius: 14px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
@@ -7212,17 +7304,17 @@ body {
 }
 
 .nav-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  color: rgba(255, 255, 255, 0.94);
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
 }
 
 .nav-label {
   flex: 1 1 auto;
-  font-size: 1rem;
+  min-width: 0;
+  font-size: 0.9rem;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
 }
 
 .sidebar-account-card {

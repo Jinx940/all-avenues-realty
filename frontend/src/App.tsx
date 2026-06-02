@@ -66,7 +66,7 @@ import {
   storyHasAnyValue,
   unitHasAnyValue,
 } from './propertySpecs';
-import { pageMeta, readStoredSidebarPreference, roleTabs, tabs, writeStoredSidebarPreference } from './lib/navigation';
+import { navGroups, pageMeta, readStoredSidebarPreference, roleTabs, tabs, writeStoredSidebarPreference } from './lib/navigation';
 
 const DashboardView = lazy(() => import('./components/DashboardView').then((module) => ({ default: module.DashboardView })));
 const FieldModeView = lazy(() => import('./components/FieldModeView').then((module) => ({ default: module.FieldModeView })));
@@ -292,6 +292,9 @@ const readClientPortalPropertyId = () => {
 export default function App() {
   const clientPortalPropertyId = readClientPortalPropertyId();
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+  const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>(() => ({
+    operations: true,
+  }));
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isDesktopSidebarExpanded, setIsDesktopSidebarExpanded] = useState(readStoredSidebarPreference);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -343,7 +346,10 @@ export default function App() {
   const activeTabRef = useRef(activeTab);
   const healthRef = useRef(health);
   const deferredSearch = useDeferredValue(jobFilters.search);
-  const availableTabs = currentUser ? tabs.filter((tab) => roleTabs[currentUser.role].includes(tab.id)) : [];
+  const availableTabs = useMemo(
+    () => (currentUser ? tabs.filter((tab) => roleTabs[currentUser.role].includes(tab.id)) : []),
+    [currentUser],
+  );
   const currentPage = pageMeta[activeTab];
   const tabsWithoutHeader: TabId[] = [
     'dashboard',
@@ -469,8 +475,33 @@ export default function App() {
       ? 'property form'
       : hasUnsavedUserChanges
         ? 'user form'
-        : '';
+      : '';
   const hasUnsavedChanges = Boolean(unsavedChangesContext);
+  const availableTabIds = useMemo(() => new Set(availableTabs.map((tab) => tab.id)), [availableTabs]);
+  const availableNavGroups = useMemo(
+    () =>
+      navGroups
+        .map((group) => ({
+          ...group,
+          tabs: group.tabIds
+            .filter((tabId) => availableTabIds.has(tabId))
+            .map((tabId) => tabs.find((tab) => tab.id === tabId))
+            .filter((tab): tab is (typeof tabs)[number] => Boolean(tab)),
+        }))
+        .filter((group) => group.tabs.length > 0),
+    [availableTabIds],
+  );
+  const activeNavGroupId = availableNavGroups.find((group) =>
+    group.tabs.some((tab) => tab.id === activeTab),
+  )?.id;
+
+  useEffect(() => {
+    if (!activeNavGroupId) return;
+    setOpenNavGroups((current) => ({
+      ...current,
+      [activeNavGroupId]: true,
+    }));
+  }, [activeNavGroupId]);
 
   const resetWorkspaceState = useCallback((loginErrorText = '') => {
     const freshUserDraft = createUserDraft();
@@ -1812,6 +1843,13 @@ export default function App() {
     }
   };
 
+  const toggleNavGroup = (groupId: string) => {
+    setOpenNavGroups((current) => ({
+      ...current,
+      [groupId]: !(current[groupId] ?? false),
+    }));
+  };
+
   if (clientPortalPropertyId) {
     return <PublicClientPortalView propertyId={clientPortalPropertyId} />;
   }
@@ -1877,20 +1915,54 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="nav-stack">
-          {availableTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => void handleTabSelection(tab.id)}
-            >
-              <span className="nav-icon">
-                <UiIcon name={tab.icon} size={18} />
-              </span>
-              <span className="nav-label">{tab.label}</span>
-            </button>
-          ))}
+        <nav className="nav-stack" aria-label="Workspace sections">
+          {availableNavGroups.map((group) => {
+            const isOpen = openNavGroups[group.id] ?? false;
+            const isActiveGroup = group.id === activeNavGroupId;
+            const panelId = `nav-group-${group.id}`;
+
+            return (
+              <section
+                key={group.id}
+                className={`nav-group ${isOpen ? 'is-open' : ''} ${isActiveGroup ? 'is-active' : ''}`.trim()}
+              >
+                <button
+                  type="button"
+                  className="nav-group-trigger"
+                  aria-expanded={isOpen}
+                  aria-controls={panelId}
+                  onClick={() => toggleNavGroup(group.id)}
+                >
+                  <span className="nav-group-icon">
+                    <UiIcon name={group.icon} size={17} />
+                  </span>
+                  <span className="nav-group-copy">
+                    <strong>{group.label}</strong>
+                    <small>{group.tabs.length} item{group.tabs.length === 1 ? '' : 's'}</small>
+                  </span>
+                  <span className="nav-group-chevron">
+                    <UiIcon name="chevronDown" size={16} />
+                  </span>
+                </button>
+
+                <div id={panelId} className="nav-group-panel" hidden={!isOpen}>
+                  {group.tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}
+                      onClick={() => void handleTabSelection(tab.id)}
+                    >
+                      <span className="nav-icon">
+                        <UiIcon name={tab.icon} size={17} />
+                      </span>
+                      <span className="nav-label">{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">

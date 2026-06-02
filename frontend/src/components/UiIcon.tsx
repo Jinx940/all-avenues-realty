@@ -41,7 +41,8 @@ export type UiIconName =
   | 'car'
   | 'logout'
   | 'eye'
-  | 'eyeOff';
+  | 'eyeOff'
+  | 'chevronDown';
 
 type UiIconProps = {
   name: UiIconName;
@@ -391,6 +392,12 @@ export function UiIcon({
           <path d="M10.6 6.3A11.7 11.7 0 0 1 12 6c6.2 0 10 6 10 6a18 18 0 0 1-4.2 4.6" />
           <path d="M6.6 6.6A18.4 18.4 0 0 0 2 12s3.8 6 10 6c1.7 0 3.2-.4 4.5-1" />
           <path d="M9.9 9.9A3 3 0 0 0 14.1 14.1" />
+        </svg>
+      );
+    case 'chevronDown':
+      return (
+        <svg {...props}>
+          <path d="m6 9 6 6 6-6" />
         </svg>
       );
     default:
