@@ -107,6 +107,54 @@ enum NemtExternalSystem {
   OTHER
 }
 
+enum NemtInvoiceStatus {
+  DRAFT
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  PAID
+}
+
+enum NemtIncidentType {
+  COMPLAINT
+  ACCIDENT
+  PASSENGER_ISSUE
+  INTERNAL_NOTE
+  OTHER
+}
+
+enum NemtIncidentStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum NemtDocumentType {
+  DRIVER_LICENSE
+  CPR_CERTIFICATION
+  INSURANCE
+  REGISTRATION
+  VEHICLE_INSPECTION
+  TRIP_SIGNATURE
+  TRIP_DOCUMENTATION
+  OTHER
+}
+
+enum NemtDocumentStatus {
+  VALID
+  EXPIRING_SOON
+  EXPIRED
+  MISSING
+}
+
+enum NemtMaintenanceType {
+  ROUTINE
+  REPAIR
+  INSPECTION
+  OTHER
+}
+
 model Property {
   id            String              @id @default(cuid())
   name          String              @unique
@@ -320,6 +368,9 @@ model Driver {
   updatedAt        DateTime         @updatedAt
   worker           Worker?          @relation(fields: [workerId], references: [id], onDelete: SetNull)
   trips            Trip[]
+  documents        NemtDocument[]
+  incidents        NemtIncident[]
+  scores           DriverScore[]
 
   @@index([status])
   @@index([licenseExpiresAt])
@@ -327,25 +378,28 @@ model Driver {
 }
 
 model Vehicle {
-  id                    String            @id @default(cuid())
+  id                    String                   @id @default(cuid())
   name                  String
-  status                NemtVehicleStatus @default(ACTIVE)
-  vin                   String?           @unique
+  status                NemtVehicleStatus        @default(ACTIVE)
+  vin                   String?                  @unique
   plateNumber           String?
   plateState            String?
   make                  String?
   model                 String?
   year                  Int?
-  capacityAmbulatory    Int               @default(0)
-  capacityWheelchair    Int               @default(0)
+  capacityAmbulatory    Int                      @default(0)
+  capacityWheelchair    Int                      @default(0)
   odometer              Int?
   registrationExpiresAt DateTime?
   insuranceExpiresAt    DateTime?
   inspectionDueAt       DateTime?
   notes                 String?
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
   trips                 Trip[]
+  documents             NemtDocument[]
+  maintenance           NemtVehicleMaintenance[]
+  incidents             NemtIncident[]
 
   @@unique([plateState, plateNumber])
   @@index([status])
@@ -418,6 +472,9 @@ model Trip {
   assignedDriver     Driver?                 @relation(fields: [assignedDriverId], references: [id], onDelete: SetNull)
   vehicle            Vehicle?                @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   externalReferences ExternalTripReference[]
+  invoiceLines       NemtInvoiceLine[]
+  documents          NemtDocument[]
+  incidents          NemtIncident[]
 
   @@index([broker, scheduledPickupAt])
   @@index([status, scheduledPickupAt])
@@ -441,4 +498,129 @@ model ExternalTripReference {
 
   @@unique([source, externalId])
   @@index([tripId])
+}
+
+model NemtInvoice {
+  id              String            @id @default(cuid())
+  invoiceNumber   String?           @unique
+  status          NemtInvoiceStatus @default(DRAFT)
+  broker          NemtBroker        @default(MTM)
+  totalAmount     Decimal           @default(0) @db.Decimal(12, 2)
+  submittedAt     DateTime?
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+  paidAt          DateTime?
+  rejectionReason String?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  lineItems       NemtInvoiceLine[]
+
+  @@index([status, createdAt])
+  @@index([broker, createdAt])
+}
+
+model NemtInvoiceLine {
+  id        String      @id @default(cuid())
+  invoiceId String
+  tripId    String
+  amount    Decimal     @default(0) @db.Decimal(12, 2)
+  mileage   Decimal?    @db.Decimal(8, 2)
+  notes     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  invoice   NemtInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  trip      Trip        @relation(fields: [tripId], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, tripId])
+  @@index([tripId])
+}
+
+model NemtDocument {
+  id             String             @id @default(cuid())
+  driverId       String?
+  vehicleId      String?
+  tripId         String?
+  type           NemtDocumentType
+  status         NemtDocumentStatus @default(VALID)
+  title          String
+  documentNumber String?
+  fileUrl        String?
+  issuedAt       DateTime?
+  expiresAt      DateTime?
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  driver         Driver?            @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle        Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  trip           Trip?              @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, type])
+  @@index([vehicleId, type])
+  @@index([tripId, type])
+  @@index([status, expiresAt])
+}
+
+model NemtVehicleMaintenance {
+  id          String              @id @default(cuid())
+  vehicleId   String
+  serviceType NemtMaintenanceType @default(ROUTINE)
+  serviceDate DateTime?
+  dueDate     DateTime?
+  odometer    Int?
+  cost        Decimal?            @db.Decimal(12, 2)
+  vendor      String?
+  notes       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  vehicle     Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, dueDate])
+  @@index([serviceType, dueDate])
+}
+
+model NemtIncident {
+  id              String             @id @default(cuid())
+  tripId          String?
+  driverId        String?
+  vehicleId       String?
+  type            NemtIncidentType
+  status          NemtIncidentStatus @default(OPEN)
+  title           String
+  description     String?
+  reportedBy      String?
+  resolutionNotes String?
+  occurredAt      DateTime           @default(now())
+  resolvedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  trip            Trip?              @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  driver          Driver?            @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle         Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  @@index([status, occurredAt])
+  @@index([type, occurredAt])
+  @@index([driverId, occurredAt])
+  @@index([vehicleId, occurredAt])
+  @@index([tripId])
+}
+
+model DriverScore {
+  id                   String   @id @default(cuid())
+  driverId             String
+  month                DateTime
+  onTimePercentage     Decimal  @default(100) @db.Decimal(5, 2)
+  customerComplaints   Int      @default(0)
+  attendancePercentage Decimal  @default(100) @db.Decimal(5, 2)
+  noShowResponsibility Int      @default(0)
+  rideCompletionRate   Decimal  @default(100) @db.Decimal(5, 2)
+  monthlyScore         Decimal  @default(100) @db.Decimal(5, 2)
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  driver               Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([driverId, month])
+  @@index([month])
+  @@index([monthlyScore])
 }

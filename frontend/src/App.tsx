@@ -74,6 +74,9 @@ const ScheduleView = lazy(() => import('./components/ScheduleView').then((module
 const AlertsCenterView = lazy(() =>
   import('./components/AlertsCenterView').then((module) => ({ default: module.AlertsCenterView })),
 );
+const NemtOperationsView = lazy(() =>
+  import('./components/NemtOperationsView').then((module) => ({ default: module.NemtOperationsView })),
+);
 const JobsView = lazy(() => import('./components/JobsView').then((module) => ({ default: module.JobsView })));
 const PropertiesView = lazy(() =>
   import('./components/PropertiesView').then((module) => ({ default: module.PropertiesView })),
@@ -354,6 +357,7 @@ export default function App() {
     'field-mode',
     'schedule',
     'alerts-center',
+    'nemt-operations',
     'new-job',
     'property-info',
     'property-register',
@@ -2056,6 +2060,10 @@ export default function App() {
             onCreateInvoice={(job) => void openInvoiceGeneratorFor(job)}
             onOpenSchedule={() => void handleTabSelection('schedule')}
           />
+        ) : null}
+
+        {activeTab === 'nemt-operations' ? (
+          <NemtOperationsView currentUser={currentUser} />
         ) : null}
 
         {activeTab === 'new-job' ? (

@@ -6,6 +6,7 @@ export const tabs: Array<{ id: TabId; label: string; icon: UiIconName }> = [
   { id: 'field-mode', label: 'Field Mode', icon: 'camera' },
   { id: 'schedule', label: 'Schedule', icon: 'calendar' },
   { id: 'alerts-center', label: 'Alerts Center', icon: 'bell' },
+  { id: 'nemt-operations', label: 'NEMT Ops', icon: 'map' },
   { id: 'new-job', label: 'New Job', icon: 'plus' },
   { id: 'property-info', label: 'Property Info', icon: 'home' },
   { id: 'property-register', label: 'Property register', icon: 'settings' },
@@ -28,6 +29,12 @@ export const navGroups: Array<{
     label: 'Operations',
     icon: 'activity',
     tabIds: ['dashboard', 'field-mode', 'schedule', 'alerts-center', 'job-tracker'],
+  },
+  {
+    id: 'nemt',
+    label: 'NEMT',
+    icon: 'map',
+    tabIds: ['nemt-operations'],
   },
   {
     id: 'properties',
@@ -82,6 +89,11 @@ export const pageMeta: Record<TabId, { title: string; description: string }> = {
     description:
       'Operational watchlist for late jobs, payment exposure, missing invoices, photos and assignments.',
   },
+  'nemt-operations': {
+    title: 'NEMT Operations',
+    description:
+      'Administrative layer for MTM trips, dispatch, drivers, vehicles, facilities and daily NEMT operations.',
+  },
   'new-job': {
     title: 'New Job',
     description:
@@ -134,6 +146,7 @@ export const roleTabs: Record<AuthUser['role'], TabId[]> = {
     'field-mode',
     'schedule',
     'alerts-center',
+    'nemt-operations',
     'new-job',
     'property-info',
     'property-register',
@@ -149,6 +162,7 @@ export const roleTabs: Record<AuthUser['role'], TabId[]> = {
     'field-mode',
     'schedule',
     'alerts-center',
+    'nemt-operations',
     'new-job',
     'property-info',
     'job-tracker',
@@ -157,8 +171,28 @@ export const roleTabs: Record<AuthUser['role'], TabId[]> = {
     'client-portal',
     'settings',
   ],
-  WORKER: ['field-mode', 'schedule', 'dashboard', 'new-job', 'property-info', 'job-tracker', 'document-center', 'settings'],
-  VIEWER: ['dashboard', 'schedule', 'alerts-center', 'property-info', 'job-tracker', 'document-center', 'client-portal', 'settings'],
+  WORKER: [
+    'field-mode',
+    'schedule',
+    'dashboard',
+    'nemt-operations',
+    'new-job',
+    'property-info',
+    'job-tracker',
+    'document-center',
+    'settings',
+  ],
+  VIEWER: [
+    'dashboard',
+    'schedule',
+    'alerts-center',
+    'nemt-operations',
+    'property-info',
+    'job-tracker',
+    'document-center',
+    'client-portal',
+    'settings',
+  ],
 };
 
 export const sidebarPreferenceKey = 'aar-sidebar-expanded';

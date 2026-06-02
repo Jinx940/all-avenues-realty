@@ -3,6 +3,7 @@ export type TabId =
   | 'field-mode'
   | 'schedule'
   | 'alerts-center'
+  | 'nemt-operations'
   | 'new-job'
   | 'property-info'
   | 'property-register'

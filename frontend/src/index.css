@@ -11910,3 +11910,320 @@ input.invoice-service-check:focus-visible {
     margin-top: -30px;
   }
 }
+
+.nemt-shell {
+  gap: 16px;
+}
+
+.nemt-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.nemt-hero p {
+  max-width: 760px;
+}
+
+.nemt-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.nemt-tab-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px;
+  border: 1px solid rgba(197, 220, 239, 0.82);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 10px 22px rgba(56, 83, 110, 0.08);
+}
+
+.nemt-tab-bar button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 9px 13px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  box-shadow: none;
+}
+
+.nemt-tab-bar button.is-active {
+  border-color: rgba(129, 191, 239, 0.7);
+  background: linear-gradient(180deg, rgba(230, 244, 255, 0.96), rgba(218, 235, 247, 0.9));
+  color: var(--ink-strong);
+}
+
+.nemt-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.nemt-metric-card {
+  min-height: 118px;
+  justify-content: space-between;
+}
+
+.nemt-dispatch-board {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(220px, 1fr));
+  gap: 12px;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.nemt-dispatch-column {
+  min-width: 220px;
+  padding: 12px;
+  border: 1px solid rgba(197, 220, 239, 0.86);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 250, 253, 0.86));
+  box-shadow: 0 12px 24px rgba(49, 77, 104, 0.08);
+}
+
+.nemt-dispatch-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(197, 220, 239, 0.8);
+}
+
+.nemt-dispatch-column-head strong {
+  color: var(--ink-strong);
+}
+
+.nemt-dispatch-column-head span {
+  min-width: 30px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(224, 236, 246, 0.94);
+  color: var(--ink-muted);
+  text-align: center;
+  font-weight: 900;
+}
+
+.nemt-dispatch-card-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.nemt-mini-empty {
+  display: grid;
+  min-height: 76px;
+  place-items: center;
+  border: 1px dashed rgba(170, 198, 220, 0.9);
+  border-radius: 14px;
+  color: var(--ink-muted);
+  font-weight: 800;
+}
+
+.nemt-trip-card {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid rgba(206, 222, 235, 0.9);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.nemt-trip-card p,
+.nemt-trip-card small {
+  margin: 0;
+}
+
+.nemt-trip-card small {
+  color: var(--ink-muted);
+  font-weight: 800;
+}
+
+.nemt-trip-card-head,
+.nemt-trip-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nemt-trip-route {
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+  border-radius: 12px;
+  background: rgba(241, 247, 251, 0.9);
+  color: var(--ink-strong);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.nemt-trip-route span,
+.nemt-trip-meta span,
+.nemt-record-row strong,
+.nemt-record-row small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.nemt-trip-meta {
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.nemt-two-column {
+  display: grid;
+  grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.nemt-form-stack {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.nemt-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nemt-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.nemt-form button[type='submit'] {
+  justify-self: start;
+}
+
+.nemt-checkbox {
+  display: flex !important;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(197, 220, 239, 0.86);
+  border-radius: 14px;
+  background: rgba(247, 251, 255, 0.9);
+}
+
+.nemt-checkbox input {
+  width: 18px;
+  height: 18px;
+}
+
+.nemt-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 42px;
+  align-items: center;
+  padding: 8px;
+  border: 1px dashed rgba(170, 198, 220, 0.9);
+  border-radius: 14px;
+  background: rgba(247, 251, 255, 0.72);
+}
+
+.nemt-chip-list .ghost-button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 999px;
+}
+
+.nemt-chip-list small {
+  color: var(--ink-muted);
+  font-weight: 800;
+}
+
+.nemt-record-panel {
+  min-width: 0;
+}
+
+.nemt-record-list {
+  display: grid;
+  gap: 10px;
+  max-height: 720px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.nemt-record-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(120px, 0.5fr) minmax(90px, auto);
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(207, 223, 235, 0.9);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.nemt-record-row div {
+  display: grid;
+  gap: 3px;
+}
+
+.nemt-record-row small {
+  color: var(--ink-muted);
+  font-weight: 800;
+}
+
+@media (max-width: 1180px) {
+  .nemt-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nemt-two-column {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .nemt-hero {
+    display: grid;
+  }
+
+  .nemt-hero-actions {
+    justify-content: stretch;
+  }
+
+  .nemt-hero-actions button {
+    flex: 1 1 160px;
+  }
+
+  .nemt-overview-grid,
+  .nemt-form {
+    grid-template-columns: 1fr;
+  }
+
+  .nemt-form .span-2,
+  .nemt-form .panel-head {
+    grid-column: auto;
+  }
+
+  .nemt-record-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .nemt-record-row .pill {
+    justify-self: start;
+  }
+}

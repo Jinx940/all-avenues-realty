@@ -94,6 +94,7 @@ import {
   uploadManagedFile,
 } from './lib/fileStorage.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerNemtRoutes } from './routes/nemt.js';
 import { registerUserRoutes } from './routes/users.js';
 import { registerWorkerRoutes } from './routes/workers.js';
 
@@ -1235,6 +1236,8 @@ app.get(
 );
 
 app.use('/api', sessionMiddleware);
+
+registerNemtRoutes(app);
 
 app.get(
   '/api/job-files/:fileId',
