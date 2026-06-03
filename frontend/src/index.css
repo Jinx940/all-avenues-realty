@@ -10989,18 +10989,18 @@ input.invoice-service-check:focus-visible {
 
 /* Professional operations layer */
 :root {
-  --bg-top: #071421;
-  --bg-bottom: #0d1b2e;
-  --sidebar-top: #071827;
-  --sidebar-bottom: #102b3f;
-  --panel: rgba(10, 24, 42, 0.92);
-  --panel-strong: #0e2035;
-  --line: #1f344d;
-  --line-strong: #2b4968;
-  --ink: #b8c7da;
-  --ink-strong: #f2f6fb;
-  --muted: #8ea0b8;
-  --shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+  --bg-top: #f8fbfd;
+  --bg-bottom: #eef7fb;
+  --sidebar-top: #2f6370;
+  --sidebar-bottom: #4b8790;
+  --panel: rgba(255, 255, 255, 0.94);
+  --panel-strong: #ffffff;
+  --line: #d9e6ef;
+  --line-strong: #b9cedc;
+  --ink: #60798c;
+  --ink-strong: #163247;
+  --muted: #60798c;
+  --shadow: 0 16px 38px rgba(22, 50, 71, 0.1);
   --radius-xl: 18px;
   --radius-lg: 14px;
   --radius-md: 10px;
