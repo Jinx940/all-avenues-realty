@@ -15,6 +15,7 @@ type DocumentOwnerFilter = 'ALL' | DocumentOwnerCode;
 type DocumentOwnerLabel = 'AZE' | 'Ryan Goertler' | 'Todd Goertler';
 
 const pdfTypewriterFontFamily = '"Courier New", Courier, "Liberation Mono", monospace';
+const azeInvoiceFontFamily = '"Segoe UI", Arial, Helvetica, sans-serif';
 
 type PdfServiceItem = {
   story: string;
@@ -1521,7 +1522,7 @@ const buildAttachmentTailBlocks = (attachments: PdfAttachmentFile[]) => {
 const azeModernInvoiceLayoutStyles = `
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${pdfTypewriterFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #d9d9d9 !important; overflow: auto; }
   .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 14mm 16mm; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
   .page-first { padding: 18mm 16mm 16mm 16mm; }
@@ -1593,6 +1594,7 @@ const azeModernInvoiceLayoutStyles = `
   .footer-item { display: flex; align-items: center; gap: 14px; }
   .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
   .footer-text { color: #ff5b5b; font-size: 16px; line-height: 1.35; font-weight: 700; }
+  .footer-rule { grid-column: 1 / -1; height: 1px; border-top: 1px solid rgba(47, 73, 167, 0.35); }
   .phone-text { display: flex; align-items: center; }
   .attachment-section-start { break-inside: avoid; page-break-inside: avoid; }
   .attachment-heading { margin-top: 12px; padding: 0 0 7px 0; border-bottom: 2px solid #ff5b5b; color: #111111; font-size: 16px; line-height: 1.2; font-weight: 800; break-inside: avoid; page-break-inside: avoid; }
@@ -1675,9 +1677,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           <div>+1 (440) 666-5608</div>
         </div>
       </div>
-      <div style="grid-column: 1 / -1; color: #2f49a7; font-size: 10px; line-height: 1.35; border-top: 1px solid rgba(47, 73, 167, 0.35); padding-top: 7px;">
-        Payment due upon receipt unless otherwise agreed. Please include the invoice number with payment. Thank you for choosing All Avenues Realty service partners.
-      </div>
+      <div class="footer-rule"></div>
     </div>
   `;
 
@@ -1816,19 +1816,37 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
     `;
   };
 
+  type AzeInvoicePageLayout = {
+    rows: AzeInvoiceRow[];
+    tailBlocks: string[];
+    includeFooter: boolean;
+  };
+
   const paginateAzeInvoiceRowsByLayout = () => {
+    const attachmentTailBlocks = buildAttachmentTailBlocks(data.attachments);
+
     if (!tableRows.length) {
-      return [{ rows: [], tailBlocks: [summaryHtml, ...buildAttachmentTailBlocks(data.attachments)] }];
+      return [
+        { rows: [], tailBlocks: [summaryHtml], includeFooter: true },
+        ...(attachmentTailBlocks.length
+          ? [{ rows: [], tailBlocks: attachmentTailBlocks, includeFooter: false }]
+          : []),
+      ];
     }
 
     const fallbackPages = paginateAzeInvoiceRowsByEstimate(tableRows);
 
     if (typeof document === 'undefined') {
-      const fallbackLayouts = fallbackPages.map((rows) => ({ rows, tailBlocks: [] as string[] }));
-      fallbackLayouts[fallbackLayouts.length - 1].tailBlocks = [
-        summaryHtml,
-        ...buildAttachmentTailBlocks(data.attachments),
-      ];
+      const fallbackLayouts: AzeInvoicePageLayout[] = fallbackPages.map((rows) => ({
+        rows,
+        tailBlocks: [],
+        includeFooter: false,
+      }));
+      fallbackLayouts[fallbackLayouts.length - 1].tailBlocks = [summaryHtml];
+      fallbackLayouts[fallbackLayouts.length - 1].includeFooter = true;
+      if (attachmentTailBlocks.length) {
+        fallbackLayouts.push({ rows: [], tailBlocks: attachmentTailBlocks, includeFooter: false });
+      }
       return fallbackLayouts;
     }
 
@@ -1971,37 +1989,65 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         pages.pop();
       }
 
-      const pageLayouts = pages.map((rows) => ({ rows, tailBlocks: [] as string[] }));
-      const tailBlocks = [summaryHtml, ...buildAttachmentTailBlocks(data.attachments)];
-      let tailPageIndex = pageLayouts.length - 1;
+      const pageLayouts: AzeInvoicePageLayout[] = pages.map((rows) => ({
+        rows,
+        tailBlocks: [],
+        includeFooter: false,
+      }));
+      const summaryPageIndex = pageLayouts.length - 1;
+      const summaryLayout = pageLayouts[summaryPageIndex];
 
-      for (const [tailBlockIndex, tailBlock] of tailBlocks.entries()) {
-        const currentLayout = pageLayouts[tailPageIndex];
-        const isLastTailBlock = tailBlockIndex === tailBlocks.length - 1;
-        const candidateTailBlocks = [...currentLayout.tailBlocks, tailBlock];
-
-        if (
-          pageFits(currentLayout.rows, {
-            isFirstPage: tailPageIndex === 0,
-            tailBlocks: candidateTailBlocks,
-            includeFooter: isLastTailBlock,
-          })
-        ) {
-          currentLayout.tailBlocks.push(tailBlock);
-          continue;
-        }
-
-        pageLayouts.push({ rows: [], tailBlocks: [tailBlock] });
-        tailPageIndex = pageLayouts.length - 1;
+      if (
+        pageFits(summaryLayout.rows, {
+          isFirstPage: summaryPageIndex === 0,
+          tailBlocks: [summaryHtml],
+          includeFooter: true,
+        })
+      ) {
+        summaryLayout.tailBlocks = [summaryHtml];
+        summaryLayout.includeFooter = true;
+      } else {
+        pageLayouts.push({ rows: [], tailBlocks: [summaryHtml], includeFooter: true });
       }
 
-      return pageLayouts.length ? pageLayouts : [{ rows: [], tailBlocks }];
+      if (attachmentTailBlocks.length) {
+        pageLayouts.push({ rows: [], tailBlocks: [], includeFooter: false });
+        let attachmentPageIndex = pageLayouts.length - 1;
+
+        for (const tailBlock of attachmentTailBlocks) {
+          const currentLayout = pageLayouts[attachmentPageIndex];
+          const candidateTailBlocks = [...currentLayout.tailBlocks, tailBlock];
+
+          if (
+            pageFits(currentLayout.rows, {
+              isFirstPage: attachmentPageIndex === 0,
+              tailBlocks: candidateTailBlocks,
+              includeFooter: false,
+            })
+          ) {
+            currentLayout.tailBlocks.push(tailBlock);
+            continue;
+          }
+
+          pageLayouts.push({ rows: [], tailBlocks: [tailBlock], includeFooter: false });
+          attachmentPageIndex = pageLayouts.length - 1;
+        }
+      }
+
+      return pageLayouts.length
+        ? pageLayouts
+        : [{ rows: [], tailBlocks: [summaryHtml], includeFooter: true }];
     } catch {
-      const fallbackLayouts = fallbackPages.map((rows) => ({ rows, tailBlocks: [] as string[] }));
-      fallbackLayouts[fallbackLayouts.length - 1].tailBlocks = [
-        summaryHtml,
-        ...buildAttachmentTailBlocks(data.attachments),
-      ];
+      const fallbackLayouts: AzeInvoicePageLayout[] = fallbackPages.map((rows) => ({
+        rows,
+        tailBlocks: [],
+        includeFooter: false,
+      }));
+      fallbackLayouts[fallbackLayouts.length - 1].tailBlocks = [summaryHtml];
+      fallbackLayouts[fallbackLayouts.length - 1].includeFooter = true;
+      if (attachmentTailBlocks.length) {
+        fallbackLayouts.push({ rows: [], tailBlocks: attachmentTailBlocks, includeFooter: false });
+      }
       return fallbackLayouts;
     } finally {
       measurementHost.remove();
@@ -2015,7 +2061,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         isFirstPage: pageIndex === 0,
         isLastPage: pageIndex === renderedPages.length - 1,
         tailBlocks: pageLayout.tailBlocks,
-        includeFooter: pageIndex === renderedPages.length - 1,
+        includeFooter: pageLayout.includeFooter,
       }),
     )
     .join('');
@@ -2029,7 +2075,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         <style>
           @page { size: A4; margin: 0; }
           * { box-sizing: border-box; }
-          html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${pdfTypewriterFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { background: #d9d9d9 !important; overflow: auto; }
             .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 14mm 16mm; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
             .page-first { padding: 18mm 16mm 16mm 16mm; }
@@ -2101,6 +2147,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .footer-item { display: flex; align-items: center; gap: 14px; }
           .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
           .footer-text { color: #ff5b5b; font-size: 16px; line-height: 1.35; font-weight: 700; }
+          .footer-rule { grid-column: 1 / -1; height: 1px; border-top: 1px solid rgba(47, 73, 167, 0.35); }
           .phone-text { display: flex; align-items: center; }
           .attachment-section-start { break-inside: avoid; page-break-inside: avoid; }
           .attachment-heading { margin-top: 12px; padding: 0 0 7px 0; border-bottom: 2px solid #ff5b5b; color: #111111; font-size: 16px; line-height: 1.2; font-weight: 800; break-inside: avoid; page-break-inside: avoid; }
