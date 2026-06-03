@@ -3059,7 +3059,7 @@ const sterlingMechanicalInvoiceStyles = `
   .page:last-child { page-break-after: auto; break-after: auto; }
   .page-continue { padding-top: 11mm; }
   .page-header { flex: 0 0 auto; }
-  .invoice-body {
+  .sterling-invoice-content {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
@@ -3587,7 +3587,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
           }
         </header>
 
-        <main class="invoice-body">
+        <main class="sterling-invoice-content">
           ${tableHtml}
           ${tailBlocksHtml}
         </main>
@@ -3660,7 +3660,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         })}
       `;
 
-      const body = measurementRoot.querySelector<HTMLElement>('.invoice-body');
+      const body = measurementRoot.querySelector<HTMLElement>('.sterling-invoice-content');
       if (!body) {
         return true;
       }
