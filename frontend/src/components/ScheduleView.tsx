@@ -35,6 +35,17 @@ const dayLabel = (date: Date) =>
     day: 'numeric',
   }).format(date);
 
+const shortWeekday = (date: Date) =>
+  new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+  }).format(date);
+
+const monthDayLabel = (date: Date) =>
+  new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+
 const sameIsoDay = (left: Date | null, right: Date) => left ? isoDate(left) === isoDate(right) : false;
 
 export function ScheduleView({
@@ -75,42 +86,47 @@ export function ScheduleView({
   });
   const weekValue = visibleWeekJobs.reduce((sum, job) => sum + job.totalCost, 0);
   const overdueCount = filteredJobs.filter((job) => job.status !== 'DONE' && job.timeline.isLate).length;
+  const openCount = filteredJobs.filter((job) => job.status !== 'DONE').length;
 
   return (
     <section className="tab-panel schedule-shell">
-      <div className="panel schedule-hero">
-        <div>
+      <div className="panel schedule-hero schedule-board-panel">
+        <div className="schedule-hero-copy">
           <p className="page-kicker">Schedule</p>
           <h2 className="title-with-icon">
             <UiIcon name="calendar" />
-            <span>Weekly Production Board</span>
+            <span>Operations Calendar</span>
           </h2>
-          <p>Plan work by due date, spot overloaded days and keep the crew aligned.</p>
+          <p>Plan, track, and manage key operations and events.</p>
         </div>
         <div className="schedule-hero-metrics">
-          <span>
+          <span className="schedule-stat-card">
+            <small>Total events</small>
+            <strong>{filteredJobs.length}</strong>
+          </span>
+          <span className="schedule-stat-card">
+            <small>This week</small>
             <strong>{visibleWeekJobs.length}</strong>
-            <small>jobs this week</small>
           </span>
-          <span>
-            <strong>{overdueCount}</strong>
-            <small>overdue</small>
+          <span className="schedule-stat-card">
+            <small>Pending / overdue</small>
+            <strong>{openCount} / {overdueCount}</strong>
           </span>
-          <span>
+          <span className="schedule-stat-card">
+            <small>Weekly value</small>
             <strong>{formatMoney(weekValue)}</strong>
-            <small>week value</small>
           </span>
         </div>
       </div>
 
-      <div className="panel schedule-controls">
-        <label>
-          Week starts
-          <input type="date" value={weekStartIso} onChange={(event) => setWeekStartIso(event.target.value)} />
-        </label>
-        <label>
-          Property
-          <select value={propertyId} onChange={(event) => setPropertyId(event.target.value)}>
+      <div className="panel schedule-controls schedule-board-panel">
+        <div className="schedule-control-field">
+          <label htmlFor="schedule-week-start">Week starts</label>
+          <input id="schedule-week-start" type="date" value={weekStartIso} onChange={(event) => setWeekStartIso(event.target.value)} />
+        </div>
+        <div className="schedule-control-field">
+          <label htmlFor="schedule-property-filter">Property</label>
+          <select id="schedule-property-filter" value={propertyId} onChange={(event) => setPropertyId(event.target.value)}>
             <option value="">All properties</option>
             {properties.map((property) => (
               <option key={property.id} value={property.id}>
@@ -118,7 +134,7 @@ export function ScheduleView({
               </option>
             ))}
           </select>
-        </label>
+        </div>
         <div className="schedule-segmented-control" role="group" aria-label="Schedule status scope">
           {(['OPEN', 'ALL', 'DONE'] as const).map((option) => (
             <button
@@ -133,57 +149,73 @@ export function ScheduleView({
         </div>
       </div>
 
-      <div className="schedule-week-grid">
-        {weekDays.map((day) => {
-          const dayJobs = filteredJobs.filter((job) => sameIsoDay(scheduleDateFor(job), day));
-          const dayTotal = dayJobs.reduce((sum, job) => sum + job.totalCost, 0);
+      <div className="panel schedule-calendar-panel schedule-board-panel">
+        <div className="schedule-calendar-head">
+          <div>
+            <p className="eyebrow">Weekly board</p>
+            <h3>Production schedule</h3>
+          </div>
+          <div className="schedule-calendar-range">
+            <span>{dayLabel(weekDays[0])}</span>
+            <span>{dayLabel(weekDays[6])}</span>
+          </div>
+        </div>
 
-          return (
-            <section key={isoDate(day)} className="schedule-day-column">
-              <div className="schedule-day-head">
-                <span>{dayLabel(day)}</span>
-                <strong>{dayJobs.length}</strong>
-              </div>
-              <small>{formatMoney(dayTotal)}</small>
+        <div className="schedule-week-grid">
+          {weekDays.map((day) => {
+            const dayJobs = filteredJobs.filter((job) => sameIsoDay(scheduleDateFor(job), day));
+            const dayTotal = dayJobs.reduce((sum, job) => sum + job.totalCost, 0);
 
-              <div className="schedule-card-stack">
-                {dayJobs.length ? (
-                  dayJobs.map((job) => (
-                    <article key={job.id} className={`schedule-job-card schedule-job-card--tone-${job.timeline.tone}`}>
-                      <div className="schedule-job-card-head">
-                        <strong>{formatAreaServiceLabel(job.area, job.service)}</strong>
-                        <span className={`pill tone-${workStatusTone(job.statusLabel || job.status)}`}>{job.statusLabel}</span>
-                      </div>
-                      <p>{job.propertyName}</p>
-                      <span className="schedule-job-location">
-                        {[formatStoryDisplayLabel(job.story), job.unit].filter(Boolean).join(' / ') || 'Whole property'}
-                      </span>
-                      <span className={`pill tone-${job.timeline.tone}`}>{job.timeline.label}</span>
-                      <div className="schedule-job-actions">
-                        <button type="button" className="ghost-button" onClick={() => onOpenJob(job)}>
-                          <UiIcon name="activity" />
-                          Open
-                        </button>
-                        {canManage && job.status !== 'DONE' ? (
-                          <button type="button" className="ghost-button" onClick={() => onMarkDone(job)}>
-                            <UiIcon name="shield" />
-                            Done
+            return (
+              <section key={isoDate(day)} className="schedule-day-column">
+                <div className="schedule-day-head">
+                  <div>
+                    <span>{shortWeekday(day)}</span>
+                    <strong>{monthDayLabel(day)}</strong>
+                  </div>
+                  <small>{dayJobs.length}</small>
+                </div>
+                <p className="schedule-day-total">{formatMoney(dayTotal)}</p>
+
+                <div className="schedule-card-stack">
+                  {dayJobs.length ? (
+                    dayJobs.map((job) => (
+                      <article key={job.id} className={`schedule-job-card schedule-job-card--tone-${job.timeline.tone}`}>
+                        <div className="schedule-job-card-head">
+                          <span className={`schedule-event-time schedule-event-time--tone-${job.timeline.tone}`}>{job.timeline.label}</span>
+                          <span className={`pill tone-${workStatusTone(job.statusLabel || job.status)}`}>{job.statusLabel}</span>
+                        </div>
+                        <strong className="schedule-job-title">{formatAreaServiceLabel(job.area, job.service)}</strong>
+                        <p>{job.propertyName}</p>
+                        <span className="schedule-job-location">
+                          {[formatStoryDisplayLabel(job.story), job.unit].filter(Boolean).join(' / ') || 'Whole property'}
+                        </span>
+                        <div className="schedule-job-actions">
+                          <button type="button" className="ghost-button" onClick={() => onOpenJob(job)}>
+                            <UiIcon name="activity" />
+                            Open
                           </button>
-                        ) : null}
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <div className="schedule-empty-day">No jobs</div>
-                )}
-              </div>
-            </section>
-          );
-        })}
+                          {canManage && job.status !== 'DONE' ? (
+                            <button type="button" className="ghost-button" onClick={() => onMarkDone(job)}>
+                              <UiIcon name="shield" />
+                              Done
+                            </button>
+                          ) : null}
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <div className="schedule-empty-day">No events</div>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </div>
 
       {unscheduledJobs.length ? (
-        <div className="panel schedule-unscheduled-panel">
+        <div className="panel schedule-unscheduled-panel schedule-board-panel">
           <div className="panel-head">
             <div>
               <p className="eyebrow">Needs planning</p>
@@ -192,6 +224,7 @@ export function ScheduleView({
                 <span>Unscheduled Jobs</span>
               </h3>
             </div>
+            <span className="schedule-unscheduled-count">{unscheduledJobs.length}</span>
           </div>
           <div className="schedule-unscheduled-list">
             {unscheduledJobs.slice(0, 12).map((job) => (
