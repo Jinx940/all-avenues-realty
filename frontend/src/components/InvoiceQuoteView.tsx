@@ -3048,7 +3048,7 @@ const sterlingMechanicalInvoiceStyles = `
     width: 210mm;
     height: 297mm;
     margin: 0;
-    padding: 12mm 13mm 10mm;
+    padding: 0;
     background: #ffffff;
     display: flex;
     flex-direction: column;
@@ -3057,11 +3057,19 @@ const sterlingMechanicalInvoiceStyles = `
     break-after: page;
   }
   .page:last-child { page-break-after: auto; break-after: auto; }
-  .page-continue { padding-top: 11mm; }
-  .page-header { flex: 0 0 auto; }
+  .ryan-sheet-head {
+    flex: 0 0 12mm;
+  }
+  .page-continue .ryan-sheet-head {
+    flex-basis: 11mm;
+  }
+  .ryan-sheet-foot {
+    flex: 0 0 10mm;
+  }
   .sterling-invoice-content {
     flex: 1 1 auto;
     min-height: 0;
+    padding: 0 13mm 3mm;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -3538,7 +3546,9 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
 
     return `
       <div class="${pageClassName}">
-        <header class="page-header">
+        <div class="ryan-sheet-head" aria-hidden="true"></div>
+
+        <main class="sterling-invoice-content">
           ${
             options.isFirstPage
               ? `
@@ -3585,12 +3595,12 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
               `
               : ''
           }
-        </header>
 
-        <main class="sterling-invoice-content">
           ${tableHtml}
           ${tailBlocksHtml}
         </main>
+
+        <div class="ryan-sheet-foot" aria-hidden="true"></div>
       </div>
     `;
   };
