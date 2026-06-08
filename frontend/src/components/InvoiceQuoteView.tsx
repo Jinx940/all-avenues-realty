@@ -4,7 +4,7 @@ import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendi
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import homeEnvyLogoUrl from '../assets/Home_envy_logo.png';
-import moralesLogoUrl from '../assets/Morales-transparent.png';
+import moralesLogoUrl from '../assets/Morales-full-transparent.png';
 import ryanLogoUrl from '../assets/ryan-logo-transparent.png';
 import { ConfirmDialog } from './ConfirmDialog';
 import { UiIcon } from './UiIcon';
@@ -3990,7 +3990,7 @@ const paginateMoralesInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
   if (!rows.length) return [[]];
 
   const pages: SterlingInvoiceRow[][] = [[]];
-  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 11.8 : 20.6);
+  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 10.8 : 20.6);
   let pageIndex = 0;
   let usedUnits = 0;
 
@@ -4090,7 +4090,7 @@ const moralesInvoiceStyles = `
   }
   .logo-wrap {
     width: 53mm;
-    height: 38mm;
+    height: 47mm;
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
@@ -4098,7 +4098,7 @@ const moralesInvoiceStyles = `
   }
   .logo-wrap img {
     width: 53mm;
-    height: 38mm;
+    height: 47mm;
     object-fit: contain;
     display: block;
   }
