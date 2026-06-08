@@ -1,12 +1,18 @@
 import type { UiIconName } from '../components/UiIcon';
 import type { AuthUser, TabId } from '../types';
 
+const enabledFlagValues = new Set(['1', 'true', 'yes', 'on']);
+export const isNemtEnabled = enabledFlagValues.has(
+  String(import.meta.env.VITE_ENABLE_NEMT ?? '').trim().toLowerCase(),
+);
+const nemtTabs: TabId[] = isNemtEnabled ? ['nemt-operations'] : [];
+
 export const tabs: Array<{ id: TabId; label: string; icon: UiIconName }> = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'field-mode', label: 'Field Mode', icon: 'camera' },
   { id: 'schedule', label: 'Schedule', icon: 'calendar' },
   { id: 'alerts-center', label: 'Alerts Center', icon: 'bell' },
-  { id: 'nemt-operations', label: 'NEMT Ops', icon: 'map' },
+  ...(isNemtEnabled ? [{ id: 'nemt-operations' as const, label: 'NEMT Ops', icon: 'map' as const }] : []),
   { id: 'new-job', label: 'New Job', icon: 'plus' },
   { id: 'property-info', label: 'Property Info', icon: 'home' },
   { id: 'property-register', label: 'Property register', icon: 'settings' },
@@ -30,12 +36,16 @@ export const navGroups: Array<{
     icon: 'activity',
     tabIds: ['dashboard', 'field-mode', 'schedule', 'alerts-center', 'job-tracker'],
   },
-  {
-    id: 'nemt',
-    label: 'NEMT',
-    icon: 'map',
-    tabIds: ['nemt-operations'],
-  },
+  ...(isNemtEnabled
+    ? [
+        {
+          id: 'nemt',
+          label: 'NEMT',
+          icon: 'map' as const,
+          tabIds: nemtTabs,
+        },
+      ]
+    : []),
   {
     id: 'properties',
     label: 'Properties',
@@ -146,7 +156,7 @@ export const roleTabs: Record<AuthUser['role'], TabId[]> = {
     'field-mode',
     'schedule',
     'alerts-center',
-    'nemt-operations',
+    ...nemtTabs,
     'new-job',
     'property-info',
     'property-register',
@@ -162,7 +172,7 @@ export const roleTabs: Record<AuthUser['role'], TabId[]> = {
     'field-mode',
     'schedule',
     'alerts-center',
-    'nemt-operations',
+    ...nemtTabs,
     'new-job',
     'property-info',
     'job-tracker',
@@ -175,7 +185,7 @@ export const roleTabs: Record<AuthUser['role'], TabId[]> = {
     'field-mode',
     'schedule',
     'dashboard',
-    'nemt-operations',
+    ...nemtTabs,
     'new-job',
     'property-info',
     'job-tracker',
@@ -186,7 +196,7 @@ export const roleTabs: Record<AuthUser['role'], TabId[]> = {
     'dashboard',
     'schedule',
     'alerts-center',
-    'nemt-operations',
+    ...nemtTabs,
     'property-info',
     'job-tracker',
     'document-center',

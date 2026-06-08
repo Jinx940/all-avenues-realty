@@ -14,10 +14,20 @@ test('buildEnv parses booleans and cors origins safely', () => {
   });
 
   assert.equal(env.TRUST_PROXY, true);
+  assert.equal(env.ENABLE_NEMT, false);
   assert.equal(env.SESSION_COOKIE_NAME, 'workspace_session');
   assert.deepEqual(env.allowedCorsOrigins, ['http://localhost:5173', 'https://app.example.com']);
   assert.equal(env.maxUploadSizeBytes, 15 * 1024 * 1024);
   assert.equal(env.supabase, null);
+});
+
+test('buildEnv enables NEMT only through an explicit flag', () => {
+  const env = buildEnv({
+    DATABASE_URL: 'postgresql://user:pass@localhost:5432/all_avenues',
+    ENABLE_NEMT: 'true',
+  });
+
+  assert.equal(env.ENABLE_NEMT, true);
 });
 
 test('buildEnv exposes Supabase storage settings only when all values are configured', () => {

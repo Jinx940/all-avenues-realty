@@ -37,6 +37,7 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().trim().optional().or(z.literal('')),
   SUPABASE_SERVICE_ROLE_KEY: z.string().trim().optional().or(z.literal('')),
   SUPABASE_BUCKET: z.string().trim().optional().or(z.literal('')),
+  ENABLE_NEMT: booleanFlag.default(false),
 });
 
 export const buildEnv = (source: NodeJS.ProcessEnv) => {
