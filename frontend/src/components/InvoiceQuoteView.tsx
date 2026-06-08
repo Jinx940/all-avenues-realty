@@ -4,7 +4,7 @@ import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendi
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import homeEnvyLogoUrl from '../assets/Home_envy_logo.png';
-import moralesLogoUrl from '../assets/Morales.jpg';
+import moralesLogoUrl from '../assets/Morales-transparent.png';
 import ryanLogoUrl from '../assets/ryan-logo-transparent.png';
 import { ConfirmDialog } from './ConfirmDialog';
 import { UiIcon } from './UiIcon';
@@ -157,7 +157,7 @@ type MoralesInvoiceData = {
   docDate: string;
   customerName: string;
   customerAddress: string;
-  customerContact: string;
+  propertyName: string;
   selectedItems: PdfServiceItem[];
   laborTotal: number;
   expenses: number;
@@ -4098,9 +4098,8 @@ const moralesInvoiceStyles = `
   }
   .logo-wrap img {
     width: 53mm;
-    height: 53mm;
+    height: 38mm;
     object-fit: contain;
-    object-position: center top;
     display: block;
   }
   .contact-list {
@@ -4151,7 +4150,6 @@ const moralesInvoiceStyles = `
     padding-bottom: 2mm;
     font-size: 15px;
     line-height: 1;
-    border-bottom: 1px solid rgb(17, 17, 17);
   }
   .date-line span {
     font-weight: 800;
@@ -4379,8 +4377,8 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
           <td>${escapeHtml(data.customerAddress || '-')}</td>
         </tr>
         <tr>
-          <td>Email / Phone:</td>
-          <td>${escapeHtml(data.customerContact || '')}</td>
+          <td>Property:</td>
+          <td>${escapeHtml(data.propertyName || '-')}</td>
         </tr>
       </tbody>
     </table>
@@ -5179,7 +5177,6 @@ export function InvoiceQuoteView({
   const propertyCityLine = activeProperty?.cityLine || '';
   const customerName = billToLines[0] || clientName;
   const customerAddress = billToLines[1] || [propertyAddress, propertyCityLine].filter(Boolean).join(', ');
-  const customerContact = billToLines.slice(2).join(' / ');
   const timeFrame = `${formatPdfDate(firstJobDate)} - ${formatPdfDate(lastJobDate)}`;
 
   const previewRows = usesLineItemInvoice
@@ -5407,7 +5404,7 @@ export function InvoiceQuoteView({
             docDate: issueDate,
             customerName,
             customerAddress,
-            customerContact,
+            propertyName: activeProperty?.name || propertyAddress,
             selectedItems,
             laborTotal: sterlingLaborTotal,
             expenses,
@@ -5481,7 +5478,6 @@ export function InvoiceQuoteView({
     clientCompany,
     clientName,
     customerAddress,
-    customerContact,
     customerName,
     documentType,
     effectiveDocumentNumber,
