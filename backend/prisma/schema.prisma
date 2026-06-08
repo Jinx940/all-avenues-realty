@@ -60,6 +60,7 @@ enum DocumentOwner {
   AZE
   RYAN
   TODD
+  MORALES
 }
 
 enum WorkerHistoryAction {

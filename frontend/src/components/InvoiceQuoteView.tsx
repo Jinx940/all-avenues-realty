@@ -4,15 +4,16 @@ import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendi
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import homeEnvyLogoUrl from '../assets/Home_envy_logo.png';
+import moralesLogoUrl from '../assets/Morales.jpg';
 import ryanLogoUrl from '../assets/ryan-logo-transparent.png';
 import { ConfirmDialog } from './ConfirmDialog';
 import { UiIcon } from './UiIcon';
 
 type DocumentType = 'Invoice' | 'Quote';
-type OwnerKey = 'aze' | 'ryan' | 'todd';
-type DocumentOwnerCode = 'AZE' | 'RYAN' | 'TODD';
+type OwnerKey = 'aze' | 'ryan' | 'todd' | 'morales';
+type DocumentOwnerCode = 'AZE' | 'RYAN' | 'TODD' | 'MORALES';
 type DocumentOwnerFilter = 'ALL' | DocumentOwnerCode;
-type DocumentOwnerLabel = 'AZE' | 'Ryan Goertler' | 'Todd Goertler';
+type DocumentOwnerLabel = 'AZE' | 'Ryan Goertler' | 'Todd Goertler' | 'Morales Home Improvement';
 
 const pdfTypewriterFontFamily = '"Courier New", Courier, "Liberation Mono", monospace';
 const azeInvoiceFontFamily = '"Segoe UI", Arial, Helvetica, sans-serif';
@@ -152,6 +153,20 @@ type SterlingMechanicalInvoiceData = {
   attachments: PdfAttachmentFile[];
 };
 
+type MoralesInvoiceData = {
+  docDate: string;
+  customerName: string;
+  customerAddress: string;
+  customerContact: string;
+  selectedItems: PdfServiceItem[];
+  laborTotal: number;
+  expenses: number;
+  invoicingServices: number;
+  jobTotal: number;
+  totalDue: number;
+  observation: string;
+};
+
 type SterlingInvoiceRow = {
   unit: string;
   area: string;
@@ -209,7 +224,7 @@ type InvoiceJobGroup = InvoiceServiceGroupKeySource & {
   jobs: JobRow[];
 };
 
-const headerOwnerOptions = ['Juan Azabache (AZE)', 'Ryan Goertler', 'Todd Goertler'] as const;
+const headerOwnerOptions = ['Juan Azabache (AZE)', 'Ryan Goertler', 'Todd Goertler', 'Morales'] as const;
 
 const formatUsd = (value: number) => `$${value.toFixed(2)}`;
 const formatPdfNumber = (value: number) =>
@@ -349,12 +364,14 @@ const escapeHtml = (value: string) =>
     .replaceAll("'", '&#39;');
 
 const ownerKeyFor = (owner: (typeof headerOwnerOptions)[number]): OwnerKey => {
+  if (owner.includes('Morales')) return 'morales';
   if (owner.includes('Todd')) return 'todd';
   if (owner.includes('Ryan')) return 'ryan';
   return 'aze';
 };
 
 const ownerLabelFor = (ownerKey: OwnerKey): DocumentOwnerLabel => {
+  if (ownerKey === 'morales') return 'Morales Home Improvement';
   if (ownerKey === 'ryan') return 'Ryan Goertler';
   if (ownerKey === 'todd') return 'Todd Goertler';
   return 'AZE';
@@ -3888,6 +3905,566 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
   `;
 };
 
+const moralesContactIconSvg = (kind: 'location' | 'mail' | 'phone') => {
+  if (kind === 'location') {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+        <circle cx="12" cy="10" r="2.1" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      </svg>
+    `;
+  }
+
+  if (kind === 'mail') {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+      </svg>
+    `;
+  }
+
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7.4 4.5 9.7 4l2 4.8-1.6 1.1c1 2 2.6 3.6 4.6 4.6l1.1-1.6 4.8 2-.5 2.3c-.2.9-1 1.5-1.9 1.5C10.6 18.7 4 12.1 4 4.5c0-.9.6-1.7 1.5-1.9Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+    </svg>
+  `;
+};
+
+const buildMoralesInvoiceRowsHtml = (rows: SterlingInvoiceRow[], includeBlankRows: boolean) => {
+  const dataRowsHtml = buildSterlingInvoiceDisplayRows(rows)
+    .map((row) => {
+      const showDetails = row.showDetails !== false;
+      const showMoney = row.showMoney !== false && !row.continuation;
+      const rowClass = [
+        'invoice-row',
+        row.continuation ? 'invoice-row--continuation' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      return `
+        <tr class="${rowClass}">
+          ${
+            row.showUnitCell
+              ? `<td class="unit-cell" rowspan="${row.unitRowSpan}">${buildInvoiceCellHtml(row.unit)}</td>`
+              : ''
+          }
+          ${
+            row.showAreaCell
+              ? `<td class="area-cell" rowspan="${row.areaRowSpan}">${buildInvoiceCellHtml(row.area)}</td>`
+              : ''
+          }
+          ${
+            row.showServiceCell
+              ? `<td class="service-cell${showDetails ? '' : ' continuation-cell'}" rowspan="${row.serviceRowSpan}">${
+                  showDetails ? buildInvoiceCellHtml(row.service) : '&nbsp;'
+                }</td>`
+              : ''
+          }
+          <td class="description-cell">${buildSterlingDescriptionHtml(row.descriptionLines)}</td>
+          <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatPdfMoney(row.labor) : '&nbsp;'}</td>
+          <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatPdfMoney(row.unitPrice) : '&nbsp;'}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  const blankRowsHtml = includeBlankRows
+    ? Array.from({ length: Math.max(4, 8 - rows.length) }, () => `
+        <tr class="invoice-row invoice-row--blank">
+          <td>&nbsp;</td>
+          <td>&nbsp;</td>
+          <td>&nbsp;</td>
+          <td>&nbsp;</td>
+          <td>&nbsp;</td>
+          <td>&nbsp;</td>
+        </tr>
+      `).join('')
+    : '';
+
+  return `${dataRowsHtml}${blankRowsHtml}`;
+};
+
+const paginateMoralesInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
+  if (!rows.length) return [[]];
+
+  const pages: SterlingInvoiceRow[][] = [[]];
+  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 11.8 : 20.6);
+  let pageIndex = 0;
+  let usedUnits = 0;
+
+  const startNextPage = () => {
+    pages.push([]);
+    pageIndex += 1;
+    usedUnits = 0;
+  };
+
+  rows.forEach((sourceRow) => {
+    let remainingRow: SterlingInvoiceRow | null = sourceRow;
+
+    while (remainingRow) {
+      const currentPage = pages[pageIndex];
+      const capacity = pageCapacityFor(pageIndex);
+      const availableUnits = capacity - usedUnits;
+      const rowUnits = estimateSterlingInvoiceRowUnits(remainingRow);
+
+      if (rowUnits <= availableUnits) {
+        currentPage.push(remainingRow);
+        usedUnits += rowUnits;
+        remainingRow = null;
+        continue;
+      }
+
+      if (currentPage.length) {
+        startNextPage();
+        continue;
+      }
+
+      const { chunk, remaining } = splitSterlingRowForCapacity(remainingRow, capacity);
+      currentPage.push(chunk);
+      usedUnits += estimateSterlingInvoiceRowUnits(chunk);
+      remainingRow = remaining;
+
+      if (remainingRow) {
+        startNextPage();
+      }
+    }
+  });
+
+  const summaryUnits = 7.4;
+  const lastPageIndex = pages.length - 1;
+  const lastPageUnits = estimateSterlingRowsUnits(pages[lastPageIndex] ?? []);
+
+  if (lastPageUnits + summaryUnits > pageCapacityFor(lastPageIndex)) {
+    pages.push([]);
+  }
+
+  return pages.length ? pages : [[]];
+};
+
+const moralesInvoiceStyles = `
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html,
+  body {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
+    padding: 0;
+    background: rgb(255, 255, 255);
+    color: rgb(17, 17, 17);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10.5px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body { overflow: auto; }
+  .page {
+    width: 210mm;
+    height: 297mm;
+    margin: 0;
+    padding: 13mm 14mm 11mm;
+    background: rgb(255, 255, 255);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+  }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .page-continue { padding-top: 12mm; }
+  .sheet-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .morales-header {
+    display: grid;
+    grid-template-columns: 58mm minmax(0, 1fr);
+    gap: 16mm;
+    align-items: start;
+    margin-bottom: 8mm;
+  }
+  .logo-wrap {
+    width: 53mm;
+    height: 38mm;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    overflow: hidden;
+  }
+  .logo-wrap img {
+    width: 53mm;
+    height: 53mm;
+    object-fit: contain;
+    object-position: center top;
+    display: block;
+  }
+  .contact-list {
+    display: grid;
+    gap: 3.2mm;
+    padding-top: 3mm;
+    justify-content: end;
+    color: rgb(17, 17, 17);
+  }
+  .contact-row {
+    display: grid;
+    grid-template-columns: 6mm minmax(0, 78mm);
+    gap: 3mm;
+    align-items: center;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+  .contact-row svg {
+    width: 5.2mm;
+    height: 5.2mm;
+    display: block;
+    color: rgb(17, 17, 17);
+  }
+  .contact-row span {
+    display: block;
+    overflow-wrap: anywhere;
+  }
+  .title-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10mm;
+    align-items: end;
+    margin-bottom: 5mm;
+  }
+  .title-row h1 {
+    margin: 0;
+    font-size: 38px;
+    line-height: 0.95;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+  .date-line {
+    display: flex;
+    gap: 3mm;
+    align-items: baseline;
+    min-width: 54mm;
+    padding-bottom: 2mm;
+    font-size: 15px;
+    line-height: 1;
+    border-bottom: 1px solid rgb(17, 17, 17);
+  }
+  .date-line span {
+    font-weight: 800;
+  }
+  .date-line strong {
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+  .customer-table,
+  .invoice-table,
+  .totals-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    color: rgb(17, 17, 17);
+  }
+  .customer-table {
+    margin-bottom: 6mm;
+  }
+  .customer-table th,
+  .customer-table td,
+  .invoice-table th,
+  .invoice-table td,
+  .totals-table td {
+    border: 1px solid rgb(17, 17, 17);
+  }
+  .customer-table th {
+    height: 8.5mm;
+    padding: 1.5mm 3mm;
+    font-size: 13px;
+    line-height: 1;
+    text-align: left;
+    font-weight: 800;
+  }
+  .customer-table td {
+    min-height: 8.4mm;
+    padding: 2mm 3mm;
+    font-size: 12px;
+    line-height: 1.25;
+    vertical-align: middle;
+  }
+  .customer-table td:first-child {
+    width: 36mm;
+    font-weight: 800;
+  }
+  .invoice-table {
+    margin-top: 0;
+  }
+  .invoice-table col:nth-child(1) { width: 13%; }
+  .invoice-table col:nth-child(2) { width: 13%; }
+  .invoice-table col:nth-child(3) { width: 14%; }
+  .invoice-table col:nth-child(4) { width: 34%; }
+  .invoice-table col:nth-child(5) { width: 12%; }
+  .invoice-table col:nth-child(6) { width: 14%; }
+  .invoice-table th {
+    height: 9mm;
+    padding: 1.5mm 2mm;
+    font-size: 11.5px;
+    line-height: 1.1;
+    text-align: center;
+    font-weight: 800;
+    vertical-align: middle;
+  }
+  .invoice-table td {
+    min-height: 11mm;
+    height: 11mm;
+    padding: 2mm;
+    font-size: 10.5px;
+    line-height: 1.3;
+    vertical-align: top;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  .invoice-table .description-cell {
+    text-align: left;
+  }
+  .description-stack {
+    display: grid;
+    gap: 1.5mm;
+  }
+  .money-cell {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .continuation-cell {
+    color: transparent;
+  }
+  .invoice-row--blank td {
+    height: 11mm;
+  }
+  .last-section {
+    margin-top: 8mm;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 67mm;
+    gap: 12mm;
+    align-items: start;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .observation-box {
+    min-height: 38mm;
+  }
+  .observation-title {
+    margin: 0 0 4mm;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .observation-lines {
+    display: grid;
+    gap: 5mm;
+    font-size: 12px;
+    line-height: 1.35;
+    white-space: pre-line;
+  }
+  .observation-lines span {
+    min-height: 8mm;
+    border-bottom: 1px solid rgb(17, 17, 17);
+  }
+  .observation-lines i {
+    display: block;
+    min-height: 0;
+    border-bottom: 1px solid rgb(17, 17, 17);
+  }
+  .totals-table td {
+    height: 9.2mm;
+    padding: 1.5mm 2.5mm;
+    font-size: 12px;
+    line-height: 1.1;
+    vertical-align: middle;
+  }
+  .totals-table td:first-child {
+    width: 41mm;
+    font-weight: 800;
+  }
+  .totals-table td:last-child {
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .totals-table .total-due td {
+    height: 10.5mm;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .thank-you {
+    margin-top: auto;
+    padding-top: 8mm;
+    text-align: center;
+    font-family: "Brush Script MT", "Segoe Script", cursive;
+    font-size: 24px;
+    line-height: 1;
+    font-weight: 400;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+`;
+
+const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
+  const tableRows = buildSterlingInvoiceTableRows(data.selectedItems);
+  const observationText = data.observation.trim();
+  const tableColumnsHtml = `
+    <colgroup>
+      <col />
+      <col />
+      <col />
+      <col />
+      <col />
+      <col />
+    </colgroup>
+  `;
+  const tableHeadHtml = `
+    <thead>
+      <tr>
+        <th>Unit</th>
+        <th>Area</th>
+        <th>Service</th>
+        <th>Description</th>
+        <th>Labor</th>
+        <th>Unit Price</th>
+      </tr>
+    </thead>
+  `;
+  const headerHtml = `
+    <header class="morales-header">
+      <div class="logo-wrap">
+        <img src="${escapeHtml(moralesLogoUrl)}" alt="Morales Home Improvement logo">
+      </div>
+      <div class="contact-list">
+        <div class="contact-row">
+          ${moralesContactIconSvg('location')}
+          <span>3820 Superior Ave, Cleveland, OH 44114</span>
+        </div>
+        <div class="contact-row">
+          ${moralesContactIconSvg('mail')}
+          <span>Moralesroofing520@gmail.com</span>
+        </div>
+        <div class="contact-row">
+          ${moralesContactIconSvg('phone')}
+          <span>(216) 926-1765</span>
+        </div>
+      </div>
+    </header>
+  `;
+  const titleHtml = `
+    <section class="title-row">
+      <h1>INVOICE</h1>
+      <div class="date-line">
+        <span>Date:</span>
+        <strong>${escapeHtml(formatPdfDate(data.docDate))}</strong>
+      </div>
+    </section>
+  `;
+  const customerDetailsHtml = `
+    <table class="customer-table">
+      <thead>
+        <tr><th colspan="2">Customer Details</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Name:</td>
+          <td>${escapeHtml(data.customerName || '-')}</td>
+        </tr>
+        <tr>
+          <td>Address:</td>
+          <td>${escapeHtml(data.customerAddress || '-')}</td>
+        </tr>
+        <tr>
+          <td>Email / Phone:</td>
+          <td>${escapeHtml(data.customerContact || '')}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+  const summaryHtml = `
+    <section class="last-section">
+      <div class="observation-box">
+        <p class="observation-title">Observation:</p>
+        <div class="observation-lines">
+          <span>${observationText ? escapeHtml(observationText).replace(/\r?\n/g, '<br>') : '&nbsp;'}</span>
+          <i></i>
+          <i></i>
+          <i></i>
+        </div>
+      </div>
+      <table class="totals-table">
+        <tbody>
+          <tr>
+            <td>Labor Total</td>
+            <td>${formatPdfMoney(data.laborTotal)}</td>
+          </tr>
+          <tr>
+            <td>Job Total</td>
+            <td>${formatPdfMoney(data.jobTotal)}</td>
+          </tr>
+          <tr>
+            <td>Expenses</td>
+            <td>${formatPdfMoney(data.expenses)}</td>
+          </tr>
+          <tr>
+            <td>Invoicing Services</td>
+            <td>${formatPdfMoney(data.invoicingServices)}</td>
+          </tr>
+          <tr class="total-due">
+            <td>Total Due</td>
+            <td>${formatPdfMoney(data.totalDue)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <div class="thank-you">Thank You for Your Business!</div>
+  `;
+
+  const pages = paginateMoralesInvoiceRowsByEstimate(tableRows);
+  const pagesHtml = pages
+    .map((pageRows, pageIndex) => {
+      const isFirstPage = pageIndex === 0;
+      const isLastPage = pageIndex === pages.length - 1;
+      const rowsHtml = buildMoralesInvoiceRowsHtml(pageRows, isLastPage);
+      const tableHtml = rowsHtml
+        ? `
+          <table class="invoice-table">
+            ${tableColumnsHtml}
+            ${isFirstPage ? tableHeadHtml : ''}
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        `
+        : '';
+
+      return `
+        <div class="page ${isFirstPage ? 'page-first' : 'page-continue'}">
+          <main class="sheet-body">
+            ${isFirstPage ? `${headerHtml}${titleHtml}${customerDetailsHtml}` : ''}
+            ${tableHtml}
+            ${isLastPage ? summaryHtml : ''}
+          </main>
+        </div>
+      `;
+    })
+    .join('');
+
+  return `
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Morales Invoice</title>
+        <style>${moralesInvoiceStyles}</style>
+      </head>
+      <body>${pagesHtml}</body>
+    </html>
+  `;
+};
+
 const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
   const companyInfoHtml =
     data.ownerKey === 'ryan'
@@ -4421,6 +4998,8 @@ export function InvoiceQuoteView({
   const ownerKey = ownerKeyFor(headerOwner);
   const ownerLabel = ownerLabelFor(ownerKey);
   const usesSterlingInvoice = ownerKey === 'ryan' && documentType === 'Invoice';
+  const usesMoralesInvoice = ownerKey === 'morales' && documentType === 'Invoice';
+  const usesLineItemInvoice = usesSterlingInvoice || usesMoralesInvoice;
   const effectiveDocumentNumber = documentNumber.trim();
   const documentNumberExists = documents.some((document) => {
     const targetType = documentType === 'Invoice' ? 'INVOICE' : 'QUOTE';
@@ -4450,10 +5029,10 @@ export function InvoiceQuoteView({
   const selectedItems: PdfServiceItem[] = useMemo(
     () => {
       const items = selectedJobs.map((job) => {
-        const labor = usesSterlingInvoice
+        const labor = usesLineItemInvoice
           ? toAmount(itemLaborEdits[job.id] ?? String(job.laborCost))
           : 0;
-        const unitPrice = usesSterlingInvoice
+        const unitPrice = usesLineItemInvoice
           ? toAmount(itemUnitPriceEdits[job.id] ?? String(getSterlingUnitPriceFromLabor(job, labor)))
           : job.totalCost;
 
@@ -4470,7 +5049,7 @@ export function InvoiceQuoteView({
 
       return mergePdfServiceItems(items);
     },
-    [descriptionEdits, itemLaborEdits, itemUnitPriceEdits, selectedJobs, usesSterlingInvoice],
+    [descriptionEdits, itemLaborEdits, itemUnitPriceEdits, selectedJobs, usesLineItemInvoice],
   );
   const selectedPhotoAttachments = useMemo(
     () => buildPdfAttachmentsForJobs(selectedJobs, invoicePhotoAttachmentKinds),
@@ -4535,6 +5114,7 @@ export function InvoiceQuoteView({
   );
   const availableAttachmentKinds = selectableAttachmentKinds;
   const hasSelectablePdfAttachments = availableAttachmentKinds.some((kind) => attachmentCounts[kind] > 0);
+  const allowsPdfAttachments = documentType === 'Invoice' && !usesMoralesInvoice;
   const allRyanReceiptsSelected =
     ownerKey === 'ryan' &&
     propertyReceiptAttachments.length > 0 &&
@@ -4560,7 +5140,7 @@ export function InvoiceQuoteView({
     .filter(Boolean)
     .join(', ');
 
-  const usesManualAmounts = ownerKey !== 'todd' && !usesSterlingInvoice;
+  const usesManualAmounts = ownerKey !== 'todd' && !usesLineItemInvoice;
   const servicesTotal = selectedItems.reduce((sum, item) => sum + item.unitPrice, 0);
   const sterlingLaborTotal = selectedItems.reduce((sum, item) => sum + Number(item.labor || 0), 0);
   const sterlingJobTotal = selectedItems.reduce((sum, item) => {
@@ -4568,16 +5148,16 @@ export function InvoiceQuoteView({
     const unitPrice = Number(item.unitPrice || 0);
     return sum + labor + unitPrice;
   }, 0);
-  const sterlingExpensesValue = usesSterlingInvoice ? toAmount(expensesInput) : 0;
-  const sterlingInvoicingServicesValue = usesSterlingInvoice ? toAmount(invoicingServicesInput) : 0;
+  const sterlingExpensesValue = usesLineItemInvoice ? toAmount(expensesInput) : 0;
+  const sterlingInvoicingServicesValue = usesLineItemInvoice ? toAmount(invoicingServicesInput) : 0;
   const ryanLaborValue = usesManualAmounts ? toAmount(ryanLabor) : 0;
   const juanLaborValue = usesManualAmounts ? toAmount(juanLabor) : 0;
   const advancePaymentValue = usesManualAmounts ? toAmount(advancePayment) : 0;
   const materialExpenseValue = usesManualAmounts ? toAmount(materialExpense) : 0;
-  const jobTotal = usesSterlingInvoice ? sterlingJobTotal : servicesTotal + ryanLaborValue + juanLaborValue;
-  const expenses = usesSterlingInvoice ? sterlingExpensesValue : materialExpenseValue + advancePaymentValue;
-  const invoicingServices = usesSterlingInvoice ? sterlingInvoicingServicesValue : 0;
-  const totalDue = usesSterlingInvoice
+  const jobTotal = usesLineItemInvoice ? sterlingJobTotal : servicesTotal + ryanLaborValue + juanLaborValue;
+  const expenses = usesLineItemInvoice ? sterlingExpensesValue : materialExpenseValue + advancePaymentValue;
+  const invoicingServices = usesLineItemInvoice ? sterlingInvoicingServicesValue : 0;
+  const totalDue = usesLineItemInvoice
     ? jobTotal - expenses - invoicingServices
     : Math.max(jobTotal - expenses, 0);
 
@@ -4597,9 +5177,12 @@ export function InvoiceQuoteView({
   const lastJobDate = jobDates[jobDates.length - 1] ?? issueDate;
   const propertyAddress = activeProperty?.address || activeProperty?.name || '-';
   const propertyCityLine = activeProperty?.cityLine || '';
+  const customerName = billToLines[0] || clientName;
+  const customerAddress = billToLines[1] || [propertyAddress, propertyCityLine].filter(Boolean).join(', ');
+  const customerContact = billToLines.slice(2).join(' / ');
   const timeFrame = `${formatPdfDate(firstJobDate)} - ${formatPdfDate(lastJobDate)}`;
 
-  const previewRows = usesSterlingInvoice
+  const previewRows = usesLineItemInvoice
     ? [
         { label: 'Labor Total', value: sterlingLaborTotal },
         { label: 'Job Total', value: jobTotal },
@@ -4795,6 +5378,7 @@ export function InvoiceQuoteView({
     const useSterlingMechanicalInvoice = ownerKey === 'ryan' && documentType === 'Invoice';
     const useAzeModernInvoice = ownerKey === 'aze' && documentType === 'Invoice';
     const useToddModernInvoice = ownerKey === 'todd' && documentType === 'Invoice';
+    const useMoralesInvoice = ownerKey === 'morales' && documentType === 'Invoice';
     const safeDocumentNumber =
       String(documentNumberOverride ?? effectiveDocumentNumber).trim() || '00000000';
     const safeBaseName = `${documentType}_${(activeProperty?.name || 'property')
@@ -4818,6 +5402,20 @@ export function InvoiceQuoteView({
           observation,
           attachments: includeInlineInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
         })
+      : useMoralesInvoice
+        ? buildMoralesInvoiceHtml({
+            docDate: issueDate,
+            customerName,
+            customerAddress,
+            customerContact,
+            selectedItems,
+            laborTotal: sterlingLaborTotal,
+            expenses,
+            invoicingServices,
+            jobTotal,
+            totalDue,
+            observation,
+          })
       : useAzeModernInvoice
         ? buildAzeModernInvoiceHtml({
           invoiceNumber: safeDocumentNumber,
@@ -4882,6 +5480,9 @@ export function InvoiceQuoteView({
     billTo,
     clientCompany,
     clientName,
+    customerAddress,
+    customerContact,
+    customerName,
     documentType,
     effectiveDocumentNumber,
     expenses,
@@ -5199,12 +5800,14 @@ export function InvoiceQuoteView({
                 type="button"
                 className="invoice-attachment-trigger"
                 onClick={() => setAttachmentsOpen((current) => !current)}
-                disabled={documentType !== 'Invoice' || !hasSelectablePdfAttachments}
+                disabled={!allowsPdfAttachments || !hasSelectablePdfAttachments}
               >
                 <span>
                   Add attachments to PDF
                   <small>
-                    {selectedAttachmentSummary ||
+                    {usesMoralesInvoice
+                      ? 'Morales uses the clean invoice-only template.'
+                      : selectedAttachmentSummary ||
                       (hasSelectablePdfAttachments
                         ? 'Choose Before, After or Receipts'
                         : 'Select jobs with before, after or receipt files to enable this.')}
@@ -5215,7 +5818,7 @@ export function InvoiceQuoteView({
                 </span>
               </button>
 
-              {attachmentsOpen && documentType === 'Invoice' && hasSelectablePdfAttachments ? (
+              {attachmentsOpen && allowsPdfAttachments && hasSelectablePdfAttachments ? (
                 <div className="invoice-attachment-menu">
                   {availableAttachmentKinds.map((kind) => {
                     const usesRyanReceiptSelection = ownerKey === 'ryan' && kind === 'receipt';
@@ -5326,6 +5929,8 @@ export function InvoiceQuoteView({
               <p className="invoice-description-note">
                 {usesSterlingInvoice
                   ? 'Edit the invoice rows before previewing or generating the PDF.'
+                  : usesMoralesInvoice
+                    ? 'Edit the invoice rows before previewing or generating the PDF.'
                   : 'You can edit only the description here. We automatically remove list dashes and add a final period.'}
               </p>
             </div>
@@ -5357,12 +5962,12 @@ export function InvoiceQuoteView({
           {isServicesOpen ? (
             <div className="invoice-services-shell">
               <div className="invoice-services-table">
-                <div className={`invoice-services-row invoice-services-row--header${usesSterlingInvoice ? ' invoice-services-row--sterling' : ''}`}>
+                <div className={`invoice-services-row invoice-services-row--header${usesLineItemInvoice ? ' invoice-services-row--sterling' : ''}`}>
                   <span>Unit</span>
                   <span>Area</span>
                   <span>Service</span>
                   <span>Description</span>
-                  {usesSterlingInvoice ? <span>Labor</span> : null}
+                  {usesLineItemInvoice ? <span>Labor</span> : null}
                   <span>Unit Price (USD)</span>
                 </div>
 
@@ -5376,7 +5981,7 @@ export function InvoiceQuoteView({
                     return (
                       <div
                         key={group.key}
-                        className={`invoice-services-row${usesSterlingInvoice ? ' invoice-services-row--sterling' : ''}${groupedClassName}`}
+                        className={`invoice-services-row${usesLineItemInvoice ? ' invoice-services-row--sterling' : ''}${groupedClassName}`}
                       >
                         <span className="invoice-services-cell invoice-services-cell--unit">
                           <label className="invoice-service-select">
@@ -5415,7 +6020,7 @@ export function InvoiceQuoteView({
                             ))}
                           </span>
                         </span>
-                        {usesSterlingInvoice ? (
+                        {usesLineItemInvoice ? (
                           <span className="invoice-services-cell invoice-services-cell--labor">
                             <span className="invoice-service-value-stack">
                               {group.jobs.map((job) => (
@@ -5441,7 +6046,7 @@ export function InvoiceQuoteView({
                         <span className="invoice-services-cell invoice-services-cell--price">
                           <span className="invoice-service-value-stack">
                             {group.jobs.map((job) =>
-                              usesSterlingInvoice ? (() => {
+                              usesLineItemInvoice ? (() => {
                                 const labor = toAmount(itemLaborEdits[job.id] ?? String(job.laborCost));
 
                                 return (
@@ -5485,14 +6090,14 @@ export function InvoiceQuoteView({
           )}
         </div>
 
-        {usesSterlingInvoice ? (
+        {usesLineItemInvoice ? (
           <div className="invoice-section-card">
             <div className="invoice-section-head">
               <div>
                 <p className="eyebrow">Invoice Adjustments</p>
                 <h3 className="title-with-icon title-with-icon--sm">
                   <UiIcon name="dollar" />
-                  <span>Ryan totals</span>
+                  <span>{usesMoralesInvoice ? 'Morales totals' : 'Ryan totals'}</span>
                 </h3>
               </div>
             </div>
@@ -5708,6 +6313,7 @@ export function InvoiceQuoteView({
                 <option value="AZE">AZE</option>
                 <option value="RYAN">Ryan Goertler</option>
                 <option value="TODD">Todd Goertler</option>
+                <option value="MORALES">Morales Home Improvement</option>
               </select>
             </label>
 

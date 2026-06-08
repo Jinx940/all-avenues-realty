@@ -189,7 +189,7 @@ const generatedDocumentSchema = z.object({
   propertyId: z.string().trim().min(1),
   jobIds: z.array(z.string().trim().min(1)).min(1),
   documentType: z.enum(['Invoice', 'Quote']),
-  ownerKey: z.enum(['aze', 'ryan', 'todd']),
+  ownerKey: z.enum(['aze', 'ryan', 'todd', 'morales']),
   documentNumber: z.string().trim().min(1).max(80),
   issueDate: z.string().trim().min(1).max(40),
   fileName: z.string().trim().min(1).max(180),
@@ -381,9 +381,10 @@ const summarizePropertyJobs = (
 const generatedDocumentTypeFor = (value: 'Invoice' | 'Quote') =>
   value === 'Invoice' ? GeneratedDocumentType.INVOICE : GeneratedDocumentType.QUOTE;
 
-const documentOwnerFor = (value: 'aze' | 'ryan' | 'todd') => {
+const documentOwnerFor = (value: 'aze' | 'ryan' | 'todd' | 'morales') => {
   if (value === 'ryan') return DocumentOwner.RYAN;
   if (value === 'todd') return DocumentOwner.TODD;
+  if (value === 'morales') return DocumentOwner.MORALES;
   return DocumentOwner.AZE;
 };
 
@@ -392,10 +393,11 @@ const generatedDocumentTypeLabels: Record<GeneratedDocumentType, 'Invoice' | 'Qu
   [GeneratedDocumentType.QUOTE]: 'Quote',
 };
 
-const documentOwnerLabels: Record<DocumentOwner, 'AZE' | 'Ryan Goertler' | 'Todd Goertler'> = {
+const documentOwnerLabels: Record<DocumentOwner, 'AZE' | 'Ryan Goertler' | 'Todd Goertler' | 'Morales Home Improvement'> = {
   [DocumentOwner.AZE]: 'AZE',
   [DocumentOwner.RYAN]: 'Ryan Goertler',
   [DocumentOwner.TODD]: 'Todd Goertler',
+  [DocumentOwner.MORALES]: 'Morales Home Improvement',
 };
 
 const propertyDataFromDefaults = (
@@ -1950,7 +1952,8 @@ app.get(
         ...(propertyId ? { propertyId } : {}),
         ...(ownerValue === DocumentOwner.AZE ||
         ownerValue === DocumentOwner.RYAN ||
-        ownerValue === DocumentOwner.TODD
+        ownerValue === DocumentOwner.TODD ||
+        ownerValue === DocumentOwner.MORALES
           ? { owner: ownerValue as DocumentOwner }
           : {}),
         ...(documentTypeValue === GeneratedDocumentType.INVOICE ||
