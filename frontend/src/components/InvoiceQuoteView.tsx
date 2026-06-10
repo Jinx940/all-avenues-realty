@@ -165,6 +165,7 @@ type MoralesInvoiceData = {
   jobTotal: number;
   totalDue: number;
   observation: string;
+  attachments: PdfAttachmentFile[];
 };
 
 type SterlingInvoiceRow = {
@@ -1534,6 +1535,33 @@ const buildAttachmentTailBlocks = (attachments: PdfAttachmentFile[]) => {
   const remainingRows = rows.slice(1);
 
   return [buildAttachmentSectionStartHtml(firstRow), ...remainingRows];
+};
+
+const buildDedicatedAttachmentPagesHtml = (attachments: PdfAttachmentFile[]) => {
+  const rows = buildEvidencePairs(attachments).map((pair) =>
+    buildAttachmentRowHtml(buildEvidencePairCardsHtml([pair])),
+  );
+
+  if (!rows.length) return '';
+
+  const rowsPerPage = 3;
+  const pages = Array.from(
+    { length: Math.ceil(rows.length / rowsPerPage) },
+    (_, pageIndex) => rows.slice(pageIndex * rowsPerPage, (pageIndex + 1) * rowsPerPage),
+  );
+
+  return pages
+    .map(
+      (pageRows) => `
+        <div class="page page-continue attachment-page">
+          <main class="sheet-body">
+            <div class="attachment-heading">Project Photos</div>
+            ${pageRows.join('')}
+          </main>
+        </div>
+      `,
+    )
+    .join('');
 };
 
 const azeModernInvoiceLayoutStyles = `
@@ -4305,10 +4333,82 @@ const moralesInvoiceStyles = `
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  .attachment-page {
+    padding: 14mm 16mm 12mm;
+  }
+  .attachment-heading {
+    padding: 0 0 3mm;
+    border-bottom: 1.5px solid rgb(17, 17, 17);
+    color: rgb(17, 17, 17);
+    font-size: 13px;
+    line-height: 1.2;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .attachment-row {
+    flex: 0 0 76mm;
+    height: 76mm;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10mm;
+    margin-top: 5mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .attachment-card {
+    height: 100%;
+    background: rgb(255, 255, 255);
+    border: 1px solid rgb(17, 17, 17);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .attachment-card--empty {
+    background: transparent;
+    border-color: transparent;
+  }
+  .attachment-frame {
+    flex: 1 1 auto;
+    min-height: 0;
+    background: rgb(245, 245, 245);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .attachment-frame--empty { background: transparent; }
+  .attachment-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .attachment-caption {
+    flex: 0 0 auto;
+    display: grid;
+    gap: 2px;
+    padding: 8px 10px 10px;
+    color: rgb(17, 17, 17);
+  }
+  .attachment-caption--empty {
+    min-height: 40px;
+    padding: 8px 10px 10px;
+  }
+  .attachment-caption span {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .attachment-caption strong {
+    font-size: 11px;
+    line-height: 1.25;
+  }
 `;
 
 const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
   const tableRows = buildSterlingInvoiceTableRows(data.selectedItems);
+  const attachmentPagesHtml = buildDedicatedAttachmentPagesHtml(data.attachments);
   const observationText = data.observation.trim();
   const tableColumnsHtml = `
     <colgroup>
@@ -4458,7 +4558,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
         <title>Morales Invoice</title>
         <style>${moralesInvoiceStyles}</style>
       </head>
-      <body>${pagesHtml}</body>
+      <body>${pagesHtml}${attachmentPagesHtml}</body>
     </html>
   `;
 };
@@ -5112,18 +5212,18 @@ export function InvoiceQuoteView({
   );
   const availableAttachmentKinds = selectableAttachmentKinds;
   const hasSelectablePdfAttachments = availableAttachmentKinds.some((kind) => attachmentCounts[kind] > 0);
-  const allowsPdfAttachments = documentType === 'Invoice' && !usesMoralesInvoice;
+  const allowsPdfAttachments = documentType === 'Invoice';
   const allRyanReceiptsSelected =
     ownerKey === 'ryan' &&
     propertyReceiptAttachments.length > 0 &&
     selectedRyanReceiptAttachments.length === propertyReceiptAttachments.length;
   const includeInlineInvoicePhotosInPdf =
     documentType === 'Invoice' &&
-    (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd') &&
+    (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd' || ownerKey === 'morales') &&
     selectedInvoicePhotoAttachments.length > 0;
   const includeReceiptAppendicesInPdf =
     documentType === 'Invoice' &&
-    (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd') &&
+    (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd' || ownerKey === 'morales') &&
     selectedReceiptAttachments.length > 0;
   const selectedAttachmentSummary = availableAttachmentKinds
     .map((kind) => {
@@ -5412,6 +5512,7 @@ export function InvoiceQuoteView({
             jobTotal,
             totalDue,
             observation,
+            attachments: includeInlineInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
           })
       : useAzeModernInvoice
         ? buildAzeModernInvoiceHtml({
@@ -5801,9 +5902,7 @@ export function InvoiceQuoteView({
                 <span>
                   Add attachments to PDF
                   <small>
-                    {usesMoralesInvoice
-                      ? 'Morales uses the clean invoice-only template.'
-                      : selectedAttachmentSummary ||
+                    {selectedAttachmentSummary ||
                       (hasSelectablePdfAttachments
                         ? 'Choose Before, After or Receipts'
                         : 'Select jobs with before, after or receipt files to enable this.')}
