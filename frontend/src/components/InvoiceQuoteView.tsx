@@ -4206,16 +4206,18 @@ const moralesInvoiceStyles = `
     padding: 2mm;
     font-size: 10.5px;
     line-height: 1.3;
-    vertical-align: top;
+    vertical-align: middle;
     text-align: center;
     overflow-wrap: anywhere;
   }
   .invoice-table .description-cell {
     text-align: left;
+    vertical-align: middle;
   }
   .description-stack {
     display: grid;
     gap: 1.5mm;
+    align-content: center;
   }
   .money-cell {
     white-space: nowrap;
@@ -4263,13 +4265,14 @@ const moralesInvoiceStyles = `
     font-size: 12px;
     line-height: 1.1;
     vertical-align: middle;
+    text-align: center;
   }
   .totals-table td:first-child {
     width: 41mm;
     font-weight: 800;
   }
   .totals-table td:last-child {
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
@@ -4499,7 +4502,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
       ? `
         <table class="invoice-table">
           ${tableColumnsHtml}
-          ${tableHeadHtml}
+          ${options.isFirstPage ? tableHeadHtml : ''}
           <tbody>${rowsHtml}</tbody>
         </table>
       `
