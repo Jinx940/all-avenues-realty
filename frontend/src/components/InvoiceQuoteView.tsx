@@ -4071,43 +4071,45 @@ const moralesInvoiceStyles = `
   }
   .morales-header {
     display: grid;
-    grid-template-columns: 58mm minmax(0, 1fr);
-    gap: 16mm;
-    align-items: start;
-    min-height: 47mm;
+    grid-template-columns: 62mm minmax(0, 1fr);
+    gap: 14mm;
+    align-items: center;
+    min-height: 45mm;
+    padding: 0 2mm 4mm;
   }
   .logo-wrap {
-    width: 53mm;
-    height: 47mm;
+    width: 56mm;
+    height: 45mm;
     display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
   }
   .logo-wrap img {
-    width: 53mm;
-    height: 47mm;
+    width: 56mm;
+    height: 45mm;
     object-fit: contain;
     display: block;
   }
   .contact-list {
     display: grid;
-    gap: 3.2mm;
-    padding-top: 3mm;
-    justify-content: end;
+    gap: 2.8mm;
+    width: min(100%, 92mm);
+    justify-self: end;
     color: rgb(17, 17, 17);
   }
   .contact-row {
     display: grid;
-    grid-template-columns: 6mm minmax(0, 78mm);
-    gap: 3mm;
+    grid-template-columns: 5mm minmax(0, 1fr);
+    gap: 2.5mm;
     align-items: center;
-    font-size: 12px;
-    line-height: 1.25;
+    font-size: 10.5px;
+    line-height: 1.3;
+    letter-spacing: 0.05px;
   }
   .contact-row svg {
-    width: 5.2mm;
-    height: 5.2mm;
+    width: 4.4mm;
+    height: 4.4mm;
     display: block;
     color: rgb(17, 17, 17);
   }
@@ -4118,46 +4120,59 @@ const moralesInvoiceStyles = `
   .title-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10mm;
-    align-items: end;
+    gap: 8mm;
+    align-items: center;
+    min-height: 16mm;
+    padding: 3mm 2mm;
+    border-top: 1.5px solid rgb(17, 17, 17);
+    border-bottom: 1px solid rgb(17, 17, 17);
     margin-bottom: 5mm;
   }
   .title-row h1 {
     margin: 0;
-    font-size: 38px;
-    line-height: 0.95;
+    font-size: 30px;
+    line-height: 1;
     font-weight: 800;
-    letter-spacing: 0;
+    letter-spacing: 0.3px;
     text-transform: uppercase;
   }
   .invoice-title-block {
     min-width: 0;
     display: flex;
-    gap: 3mm;
+    gap: 4mm;
     align-items: baseline;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
   .invoice-number-line {
     margin: 0;
-    font-size: 15px;
+    display: flex;
+    gap: 1.5mm;
+    align-items: baseline;
+    font-size: 11px;
     line-height: 1;
-    font-weight: 800;
+    font-weight: 700;
     white-space: nowrap;
+  }
+  .invoice-number-line strong {
+    font-size: 13px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
   }
   .date-line {
     display: flex;
-    gap: 3mm;
+    gap: 1.5mm;
     align-items: baseline;
-    min-width: 54mm;
-    padding-bottom: 2mm;
-    font-size: 15px;
+    min-width: 42mm;
+    font-size: 11px;
     line-height: 1;
+    white-space: nowrap;
   }
   .date-line span {
-    font-weight: 800;
+    font-weight: 700;
   }
   .date-line strong {
-    font-weight: 400;
+    font-size: 12px;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
   .customer-table,
@@ -4438,7 +4453,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     <section class="title-row">
       <div class="invoice-title-block">
         <h1>INVOICE</h1>
-        <p class="invoice-number-line">Nro. ${escapeHtml(data.invoiceNumber)}</p>
+        <p class="invoice-number-line"><span>Nro.</span><strong>${escapeHtml(data.invoiceNumber)}</strong></p>
       </div>
       <div class="date-line">
         <span>Date:</span>
@@ -4563,11 +4578,9 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
 
   type MoralesAttachmentPageLayout = {
     rows: string[];
-    includeFooter: boolean;
   };
 
   const paginateMoralesInvoiceRowsByLayout = () => {
-    const hasAttachmentPages = attachmentRows.length > 0;
     const estimatedPages = paginateMoralesInvoiceRowsByEstimate(tableRows);
     const buildFallbackLayouts = (): MoralesInvoicePageLayout[] => {
       const layouts = estimatedPages.map((rows) => ({ rows, tailHtml: '', includeFooter: false }));
@@ -4576,9 +4589,9 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
 
       if (estimateSterlingRowsUnits(safeLayouts[lastPageIndex].rows) + 7.4 <= (lastPageIndex === 0 ? 9.8 : 14.4)) {
         safeLayouts[lastPageIndex].tailHtml = summaryHtml;
-        safeLayouts[lastPageIndex].includeFooter = !hasAttachmentPages;
+        safeLayouts[lastPageIndex].includeFooter = true;
       } else {
-        safeLayouts.push({ rows: [], tailHtml: summaryHtml, includeFooter: !hasAttachmentPages });
+        safeLayouts.push({ rows: [], tailHtml: summaryHtml, includeFooter: true });
       }
 
       return safeLayouts;
@@ -4588,9 +4601,8 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     if (typeof document === 'undefined') {
       return {
         invoiceLayouts: fallbackLayouts,
-        attachmentLayouts: attachmentRows.map<MoralesAttachmentPageLayout>((row, index) => ({
+        attachmentLayouts: attachmentRows.map<MoralesAttachmentPageLayout>((row) => ({
           rows: [row],
-          includeFooter: index === attachmentRows.length - 1,
         })),
       };
     }
@@ -4756,21 +4768,20 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
       if (
         pageFits(summaryLayout.rows, {
           isFirstPage: summaryPageIndex === 0,
-          includeFooter: !hasAttachmentPages,
+          includeFooter: true,
           tailHtml: summaryHtml,
         })
       ) {
         summaryLayout.tailHtml = summaryHtml;
-        summaryLayout.includeFooter = !hasAttachmentPages;
+        summaryLayout.includeFooter = true;
       } else {
-        invoiceLayouts.push({ rows: [], tailHtml: summaryHtml, includeFooter: !hasAttachmentPages });
+        invoiceLayouts.push({ rows: [], tailHtml: summaryHtml, includeFooter: true });
       }
 
       const attachmentLayouts: MoralesAttachmentPageLayout[] = [];
       attachmentRows.forEach((attachmentRow) => {
         const currentLayout = attachmentLayouts[attachmentLayouts.length - 1] ?? {
           rows: [],
-          includeFooter: false,
         };
         const candidateRows = [...currentLayout.rows, attachmentRow];
 
@@ -4785,37 +4796,15 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
           return;
         }
 
-        attachmentLayouts.push({ rows: [attachmentRow], includeFooter: false });
+        attachmentLayouts.push({ rows: [attachmentRow] });
       });
-
-      const lastAttachmentLayout = attachmentLayouts[attachmentLayouts.length - 1];
-      if (lastAttachmentLayout) {
-        if (
-          pageFits([], {
-            isFirstPage: false,
-            includeFooter: true,
-            attachmentRows: lastAttachmentLayout.rows,
-          })
-        ) {
-          lastAttachmentLayout.includeFooter = true;
-        } else {
-          const finalRow = lastAttachmentLayout.rows.pop();
-          if (finalRow) {
-            if (!lastAttachmentLayout.rows.length) {
-              attachmentLayouts.pop();
-            }
-            attachmentLayouts.push({ rows: [finalRow], includeFooter: true });
-          }
-        }
-      }
 
       return { invoiceLayouts, attachmentLayouts };
     } catch {
       return {
         invoiceLayouts: fallbackLayouts,
-        attachmentLayouts: attachmentRows.map<MoralesAttachmentPageLayout>((row, index) => ({
+        attachmentLayouts: attachmentRows.map<MoralesAttachmentPageLayout>((row) => ({
           rows: [row],
-          includeFooter: index === attachmentRows.length - 1,
         })),
       };
     } finally {
@@ -4837,7 +4826,6 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     .map((layout) =>
       buildPageHtml([], {
         isFirstPage: false,
-        includeFooter: layout.includeFooter,
         attachmentRows: layout.rows,
       }),
     )
