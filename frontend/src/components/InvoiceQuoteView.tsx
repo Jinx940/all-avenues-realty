@@ -4131,14 +4131,18 @@ const moralesInvoiceStyles = `
     text-transform: uppercase;
   }
   .invoice-title-block {
-    display: grid;
-    gap: 2mm;
+    min-width: 0;
+    display: flex;
+    gap: 3mm;
+    align-items: baseline;
+    flex-wrap: wrap;
   }
   .invoice-number-line {
     margin: 0;
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1;
     font-weight: 800;
+    white-space: nowrap;
   }
   .date-line {
     display: flex;
@@ -4434,7 +4438,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     <section class="title-row">
       <div class="invoice-title-block">
         <h1>INVOICE</h1>
-        <p class="invoice-number-line">Invoice Nro. ${escapeHtml(data.invoiceNumber)}</p>
+        <p class="invoice-number-line">Nro. ${escapeHtml(data.invoiceNumber)}</p>
       </div>
       <div class="date-line">
         <span>Date:</span>
