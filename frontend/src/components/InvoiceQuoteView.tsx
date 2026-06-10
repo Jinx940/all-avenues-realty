@@ -4052,12 +4052,15 @@ const moralesInvoiceStyles = `
     padding: 10mm 14mm 8mm;
     background: rgb(255, 255, 255);
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr);
     row-gap: 4mm;
     overflow: hidden;
     page-break-after: always;
     break-after: page;
   }
+  .page--header { grid-template-rows: auto minmax(0, 1fr); }
+  .page--footer { grid-template-rows: minmax(0, 1fr) auto; }
+  .page--header.page--footer { grid-template-rows: auto minmax(0, 1fr) auto; }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .sheet-body {
     min-height: 0;
@@ -4486,6 +4489,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     rows: SterlingInvoiceRow[],
     options: {
       isFirstPage: boolean;
+      includeFooter?: boolean;
       tailHtml?: string;
       attachmentRows?: string[];
     },
@@ -4509,6 +4513,8 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     const pageClassName = [
       'page',
       options.isFirstPage ? 'page-first' : 'page-continue',
+      options.isFirstPage ? 'page--header' : '',
+      options.includeFooter ? 'page--footer' : '',
       options.attachmentRows?.length ? 'attachment-page' : '',
     ]
       .filter(Boolean)
@@ -4516,14 +4522,14 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
 
     return `
       <div class="${pageClassName}">
-        ${headerHtml}
+        ${options.isFirstPage ? headerHtml : ''}
         <main class="sheet-body">
           ${options.isFirstPage ? `${titleHtml}${customerDetailsHtml}` : ''}
           ${tableHtml}
           ${options.tailHtml ?? ''}
           ${attachmentRowsHtml}
         </main>
-        ${footerHtml}
+        ${options.includeFooter ? footerHtml : ''}
       </div>
     `;
   };
@@ -4531,19 +4537,27 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
   type MoralesInvoicePageLayout = {
     rows: SterlingInvoiceRow[];
     tailHtml: string;
+    includeFooter: boolean;
+  };
+
+  type MoralesAttachmentPageLayout = {
+    rows: string[];
+    includeFooter: boolean;
   };
 
   const paginateMoralesInvoiceRowsByLayout = () => {
+    const hasAttachmentPages = attachmentRows.length > 0;
     const estimatedPages = paginateMoralesInvoiceRowsByEstimate(tableRows);
     const buildFallbackLayouts = (): MoralesInvoicePageLayout[] => {
-      const layouts = estimatedPages.map((rows) => ({ rows, tailHtml: '' }));
-      const safeLayouts = layouts.length ? layouts : [{ rows: [], tailHtml: '' }];
+      const layouts = estimatedPages.map((rows) => ({ rows, tailHtml: '', includeFooter: false }));
+      const safeLayouts = layouts.length ? layouts : [{ rows: [], tailHtml: '', includeFooter: false }];
       const lastPageIndex = safeLayouts.length - 1;
 
       if (estimateSterlingRowsUnits(safeLayouts[lastPageIndex].rows) + 7.4 <= (lastPageIndex === 0 ? 9.8 : 14.4)) {
         safeLayouts[lastPageIndex].tailHtml = summaryHtml;
+        safeLayouts[lastPageIndex].includeFooter = !hasAttachmentPages;
       } else {
-        safeLayouts.push({ rows: [], tailHtml: summaryHtml });
+        safeLayouts.push({ rows: [], tailHtml: summaryHtml, includeFooter: !hasAttachmentPages });
       }
 
       return safeLayouts;
@@ -4551,7 +4565,13 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     const fallbackLayouts = buildFallbackLayouts();
 
     if (typeof document === 'undefined') {
-      return { invoiceLayouts: fallbackLayouts, attachmentLayouts: attachmentRows.map((row) => [row]) };
+      return {
+        invoiceLayouts: fallbackLayouts,
+        attachmentLayouts: attachmentRows.map<MoralesAttachmentPageLayout>((row, index) => ({
+          rows: [row],
+          includeFooter: index === attachmentRows.length - 1,
+        })),
+      };
     }
 
     const measurementHost = document.createElement('div');
@@ -4572,6 +4592,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
       rows: SterlingInvoiceRow[],
       options: {
         isFirstPage: boolean;
+        includeFooter?: boolean;
         tailHtml?: string;
         attachmentRows?: string[];
       },
@@ -4702,26 +4723,35 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
         pages.pop();
       }
 
-      const invoiceLayouts: MoralesInvoicePageLayout[] = pages.map((rows) => ({ rows, tailHtml: '' }));
-      if (!invoiceLayouts.length) invoiceLayouts.push({ rows: [], tailHtml: '' });
+      const invoiceLayouts: MoralesInvoicePageLayout[] = pages.map((rows) => ({
+        rows,
+        tailHtml: '',
+        includeFooter: false,
+      }));
+      if (!invoiceLayouts.length) invoiceLayouts.push({ rows: [], tailHtml: '', includeFooter: false });
 
       const summaryPageIndex = invoiceLayouts.length - 1;
       const summaryLayout = invoiceLayouts[summaryPageIndex];
       if (
         pageFits(summaryLayout.rows, {
           isFirstPage: summaryPageIndex === 0,
+          includeFooter: !hasAttachmentPages,
           tailHtml: summaryHtml,
         })
       ) {
         summaryLayout.tailHtml = summaryHtml;
+        summaryLayout.includeFooter = !hasAttachmentPages;
       } else {
-        invoiceLayouts.push({ rows: [], tailHtml: summaryHtml });
+        invoiceLayouts.push({ rows: [], tailHtml: summaryHtml, includeFooter: !hasAttachmentPages });
       }
 
-      const attachmentLayouts: string[][] = [];
+      const attachmentLayouts: MoralesAttachmentPageLayout[] = [];
       attachmentRows.forEach((attachmentRow) => {
-        const currentLayout = attachmentLayouts[attachmentLayouts.length - 1] ?? [];
-        const candidateRows = [...currentLayout, attachmentRow];
+        const currentLayout = attachmentLayouts[attachmentLayouts.length - 1] ?? {
+          rows: [],
+          includeFooter: false,
+        };
+        const candidateRows = [...currentLayout.rows, attachmentRow];
 
         if (
           pageFits([], {
@@ -4730,16 +4760,43 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
           })
         ) {
           if (!attachmentLayouts.length) attachmentLayouts.push(currentLayout);
-          currentLayout.push(attachmentRow);
+          currentLayout.rows.push(attachmentRow);
           return;
         }
 
-        attachmentLayouts.push([attachmentRow]);
+        attachmentLayouts.push({ rows: [attachmentRow], includeFooter: false });
       });
+
+      const lastAttachmentLayout = attachmentLayouts[attachmentLayouts.length - 1];
+      if (lastAttachmentLayout) {
+        if (
+          pageFits([], {
+            isFirstPage: false,
+            includeFooter: true,
+            attachmentRows: lastAttachmentLayout.rows,
+          })
+        ) {
+          lastAttachmentLayout.includeFooter = true;
+        } else {
+          const finalRow = lastAttachmentLayout.rows.pop();
+          if (finalRow) {
+            if (!lastAttachmentLayout.rows.length) {
+              attachmentLayouts.pop();
+            }
+            attachmentLayouts.push({ rows: [finalRow], includeFooter: true });
+          }
+        }
+      }
 
       return { invoiceLayouts, attachmentLayouts };
     } catch {
-      return { invoiceLayouts: fallbackLayouts, attachmentLayouts: attachmentRows.map((row) => [row]) };
+      return {
+        invoiceLayouts: fallbackLayouts,
+        attachmentLayouts: attachmentRows.map<MoralesAttachmentPageLayout>((row, index) => ({
+          rows: [row],
+          includeFooter: index === attachmentRows.length - 1,
+        })),
+      };
     } finally {
       measurementHost.remove();
     }
@@ -4750,12 +4807,19 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     .map((layout, pageIndex) =>
       buildPageHtml(layout.rows, {
         isFirstPage: pageIndex === 0,
+        includeFooter: layout.includeFooter,
         tailHtml: layout.tailHtml,
       }),
     )
     .join('');
   const attachmentPagesHtml = attachmentLayouts
-    .map((rows) => buildPageHtml([], { isFirstPage: false, attachmentRows: rows }))
+    .map((layout) =>
+      buildPageHtml([], {
+        isFirstPage: false,
+        includeFooter: layout.includeFooter,
+        attachmentRows: layout.rows,
+      }),
+    )
     .join('');
 
   return `
