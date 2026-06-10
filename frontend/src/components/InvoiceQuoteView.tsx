@@ -154,6 +154,7 @@ type SterlingMechanicalInvoiceData = {
 };
 
 type MoralesInvoiceData = {
+  invoiceNumber: string;
   docDate: string;
   customerName: string;
   customerAddress: string;
@@ -4129,6 +4130,16 @@ const moralesInvoiceStyles = `
     letter-spacing: 0;
     text-transform: uppercase;
   }
+  .invoice-title-block {
+    display: grid;
+    gap: 2mm;
+  }
+  .invoice-number-line {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1;
+    font-weight: 800;
+  }
   .date-line {
     display: flex;
     gap: 3mm;
@@ -4421,7 +4432,10 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
   `;
   const titleHtml = `
     <section class="title-row">
-      <h1>INVOICE</h1>
+      <div class="invoice-title-block">
+        <h1>INVOICE</h1>
+        <p class="invoice-number-line">Invoice Nro. ${escapeHtml(data.invoiceNumber)}</p>
+      </div>
       <div class="date-line">
         <span>Date:</span>
         <strong>${escapeHtml(formatPdfDate(data.docDate))}</strong>
@@ -4435,7 +4449,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
       </thead>
       <tbody>
         <tr>
-          <td>Name:</td>
+          <td>Bill To:</td>
           <td>${escapeHtml(data.customerName || '-')}</td>
         </tr>
         <tr>
@@ -5776,6 +5790,7 @@ export function InvoiceQuoteView({
         })
       : useMoralesInvoice
         ? buildMoralesInvoiceHtml({
+            invoiceNumber: safeDocumentNumber,
             docDate: issueDate,
             customerName,
             customerAddress,
