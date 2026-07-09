@@ -2314,7 +2314,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   `;
 
   const paymentHtml = `
-    <div class="payment-grid">
+    <div class="payment-grid${hideToddPersonalName ? ' payment-grid--no-signature' : ''}">
       <div>
         <span>Payment Method</span>
         <strong>Payment due upon receipt</strong>
@@ -2330,9 +2330,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
         <strong>All Avenues Realty service partner</strong>
         <small>Thank you for your business.</small>
       </div>
-      <div class="signature${hideToddPersonalName ? ' signature--blank' : ''}">
-        ${hideToddPersonalName ? '' : '<strong>Todd Goertler</strong><small>Owner</small>'}
-      </div>
+      ${hideToddPersonalName ? '' : '<div class="signature"><strong>Todd Goertler</strong><small>Owner</small></div>'}
     </div>
   `;
 
@@ -2451,6 +2449,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .attachment-caption span { color: #69737f; font-size: 9px; font-weight: 800; text-transform: uppercase; }
     .attachment-caption strong { color: #1f2328; font-size: 11px; line-height: 1.25; }
     .payment-grid { width: 100%; display: grid; grid-template-columns: 1fr 1fr 1fr 130px; gap: 16px; padding-top: 14px; border-top: 1px solid #b8c0c8; color: #343b43; text-align: left; align-items: start; break-inside: avoid; page-break-inside: avoid; }
+    .payment-grid--no-signature { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .payment-grid span { display: block; color: #69737f; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; }
     .payment-grid strong { display: block; color: #1f2328; font-size: 11px; line-height: 1.25; }
     .payment-grid small { display: block; color: #58636f; font-size: 9px; line-height: 1.35; margin-top: 3px; }
