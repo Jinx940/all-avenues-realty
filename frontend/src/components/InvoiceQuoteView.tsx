@@ -2236,6 +2236,8 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const documentTypeLabel = data.documentType;
   const documentTypeLower = documentTypeLabel.toLowerCase();
+  const toddA4MarginCss = '25.4mm';
+  const toddPaginationBottomGuardCss = '6mm';
 
   const summaryHtml = `
     <section class="summary-wrap">
@@ -2319,9 +2321,9 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     * { box-sizing: border-box; }
     html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #eceff1 !important; color: #1f2328; font-family: ${pdfTypewriterFontFamily}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { overflow: auto; }
-    .page { width: 210mm; height: 297mm; margin: 0; padding: 25.4mm; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+    .page { width: 210mm; height: 297mm; margin: 0; padding: ${toddA4MarginCss}; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
     .page:last-child { page-break-after: auto; break-after: auto; }
-    .page-continue { padding-top: 25.4mm; }
+    .page-continue { padding-top: ${toddA4MarginCss}; }
     .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .body-intro { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
     .brand-lockup { display: flex; align-items: center; gap: 18px; min-width: 0; }
@@ -2465,6 +2467,23 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     });
     document.body.appendChild(measurementHost);
     const measurementRoot = measurementHost.attachShadow({ mode: 'open' });
+    const measureCssLengthInPixels = (cssLength: string) => {
+      const probe = document.createElement('div');
+      Object.assign(probe.style, {
+        position: 'absolute',
+        left: '0',
+        top: '0',
+        width: '0',
+        height: cssLength,
+        pointerEvents: 'none',
+      });
+      measurementHost.appendChild(probe);
+      const pixels = probe.getBoundingClientRect().height;
+      probe.remove();
+      return pixels;
+    };
+    const toddA4MarginPixels = measureCssLengthInPixels(toddA4MarginCss);
+    const toddBottomGuardPixels = measureCssLengthInPixels(toddPaginationBottomGuardCss);
 
     const pageFits = (
       pageRows: AzeInvoiceRow[],
@@ -2480,6 +2499,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
       `;
 
       const body = measurementRoot.querySelector<HTMLElement>('.sheet-body');
+      const page = measurementRoot.querySelector<HTMLElement>('.page');
       if (!body) {
         return true;
       }
@@ -2495,11 +2515,13 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
       }
 
       const bodyBottom = body.getBoundingClientRect().bottom;
+      const pageBottom = page?.getBoundingClientRect().bottom ?? bodyBottom;
+      const safeBodyBottom = Math.min(bodyBottom, pageBottom - toddA4MarginPixels) - toddBottomGuardPixels;
       const contentBottom = Math.max(
         ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
       );
 
-      return contentBottom <= bodyBottom + 0.5;
+      return contentBottom <= safeBodyBottom + 0.5;
     };
 
     const splitRowForRemainingPageSpace = (
