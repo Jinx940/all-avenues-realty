@@ -2292,6 +2292,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const documentTypeLabel = data.documentType;
   const documentTypeLower = documentTypeLabel.toLowerCase();
+  const hideToddPersonalName = data.documentType === 'Quote';
   const toddVerticalMarginCss = pdfPageVerticalMarginCss;
   const toddHorizontalMarginCss = pdfPageHorizontalMarginCss;
   const toddFooterReserveCss = pdfFooterReserveCss;
@@ -2329,9 +2330,8 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
         <strong>All Avenues Realty service partner</strong>
         <small>Thank you for your business.</small>
       </div>
-      <div class="signature">
-        <strong>Todd Goertler</strong>
-        <small>Owner</small>
+      <div class="signature${hideToddPersonalName ? ' signature--blank' : ''}">
+        ${hideToddPersonalName ? '' : '<strong>Todd Goertler</strong><small>Owner</small>'}
       </div>
     </div>
   `;
@@ -2344,7 +2344,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
         </span>
         <div class="brand-copy">
           <strong>Home Envy</strong>
-          <span>Todd Goertler</span>
+          ${hideToddPersonalName ? '' : '<span>Todd Goertler</span>'}
           <small>Home Improvement Services</small>
         </div>
       </div>
