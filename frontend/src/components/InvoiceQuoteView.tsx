@@ -17,6 +17,10 @@ type DocumentOwnerLabel = 'AZE' | 'Ryan Goertler' | 'Todd Goertler' | 'Morales H
 
 const pdfTypewriterFontFamily = '"Courier New", Courier, "Liberation Mono", monospace';
 const azeInvoiceFontFamily = '"Segoe UI", Arial, Helvetica, sans-serif';
+const pdfPageVerticalMarginCss = '25.4mm';
+const pdfPageHorizontalMarginCss = '15mm';
+const pdfFooterReserveCss = '30mm';
+const pdfContentBottomGuardCss = '4mm';
 
 type PdfServiceItem = {
   story: string;
@@ -759,10 +763,10 @@ const estimateLegacyChunkUnits = (chunk: LegacyServiceChunk) =>
   Math.max(0, Math.ceil(chunk.service.length / 18) - 1) * 0.12;
 
 const buildLegacyPageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 18.6;
-  const firstPageLimit = 23.8;
-  const middlePageLimit = 31.4;
-  const lastContinuePageLimit = 27.8;
+  const firstOnlyPageLimit = 14.8;
+  const firstPageLimit = 18.9;
+  const middlePageLimit = 24.9;
+  const lastContinuePageLimit = 22;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1577,12 +1581,13 @@ const azeModernInvoiceLayoutStyles = `
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #d9d9d9 !important; overflow: auto; }
-  .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 14mm 16mm; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
-  .page-first { padding: 18mm 16mm 16mm 16mm; }
-  .page-continue { padding: 14mm 16mm 14mm 16mm; }
+  .page { width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+  .page-first { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+  .page-continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .page-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-  .page-footer { flex: 0 0 auto; margin-top: auto; padding-top: 6px; break-inside: avoid; page-break-inside: avoid; }
+  .page-footer { flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+  .page-footer--empty { visibility: hidden; }
   .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
   .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
   .continue-main { justify-content: flex-start; }
@@ -1747,7 +1752,11 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       .filter(Boolean)
       .join(' ');
     const tailBlocksHtml = options.tailBlocks?.join('') ?? '';
-    const footerSlot = options.includeFooter ? `<div class="page-footer">${footerHtml}</div>` : '';
+    const footerSlot = `
+      <div class="page-footer ${options.includeFooter ? '' : 'page-footer--empty'}">
+        ${options.includeFooter ? footerHtml : ''}
+      </div>
+    `;
 
     if (options.isFirstPage) {
       return `
@@ -1916,6 +1925,20 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
     });
     document.body.appendChild(measurementHost);
     const measurementRoot = measurementHost.attachShadow({ mode: 'open' });
+    const measureCssLengthInPixels = (value: string) => {
+      const measure = document.createElement('div');
+      Object.assign(measure.style, {
+        height: value,
+        width: '0',
+        position: 'absolute',
+        visibility: 'hidden',
+      });
+      measurementRoot.appendChild(measure);
+      const pixels = measure.getBoundingClientRect().height;
+      measure.remove();
+      return pixels;
+    };
+    const contentBottomGuardPixels = measureCssLengthInPixels(pdfContentBottomGuardCss);
 
     const pageFits = (
       pageRows: AzeInvoiceRow[],
@@ -1941,7 +1964,9 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       const measuredElements = [
         table,
         ...Array.from(
-          measurementRoot.querySelectorAll<HTMLElement>('.summary-section, .attachment-section-start, .attachment-row'),
+          measurementRoot.querySelectorAll<HTMLElement>(
+            '.aze-invoice-table tr, .aze-invoice-table td, .summary-section, .attachment-section-start, .attachment-row',
+          ),
         ),
       ];
       const pageMainBottom = pageMain.getBoundingClientRect().bottom;
@@ -1949,7 +1974,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
       );
 
-      return contentBottom <= pageMainBottom + 0.5;
+      return contentBottom <= pageMainBottom - contentBottomGuardPixels + 0.5;
     };
 
     const splitRowForRemainingPageSpace = (
@@ -2130,12 +2155,13 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { background: #d9d9d9 !important; overflow: auto; }
-            .page { width: 210mm; height: 297mm; margin: 0; padding: 18mm 16mm 14mm 16mm; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
-            .page-first { padding: 18mm 16mm 16mm 16mm; }
-            .page-continue { padding: 14mm 16mm 14mm 16mm; }
+            .page { width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+            .page-first { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+            .page-continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
             .page:last-child { page-break-after: auto; break-after: auto; }
             .page-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-            .page-footer { flex: 0 0 auto; margin-top: auto; padding-top: 6px; break-inside: avoid; page-break-inside: avoid; }
+            .page-footer { flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+            .page-footer--empty { visibility: hidden; }
             .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
             .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
             .continue-main { justify-content: flex-start; }
@@ -2205,7 +2231,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .attachment-section-start { break-inside: avoid; page-break-inside: avoid; }
           .attachment-heading { margin-top: 12px; padding: 0 0 7px 0; border-bottom: 2px solid #ff5b5b; color: #111111; font-size: 16px; line-height: 1.2; font-weight: 800; break-inside: avoid; page-break-inside: avoid; }
           .attachment-row { flex: 0 0 74mm; height: 74mm; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
-          .attachment-page { padding: 14mm 16mm 12mm 16mm; }
+          .attachment-page { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
           .attachment-section { height: 100%; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
           .attachment-head { flex: 0 0 auto; display: flex; align-items: end; justify-content: space-between; border-bottom: 3px solid #ff5b5b; padding-bottom: 9px; }
           .attachment-head span { color: #ff5b5b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
@@ -2213,7 +2239,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .attachment-body { flex: 1 1 auto; min-height: 0; display: flex; overflow: hidden; }
           .attachment-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 12px; align-content: stretch; overflow: hidden; }
           .attachment-grid--receipts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .attachment-footer-space { flex: 0 0 10mm; }
+          .attachment-footer-space { flex: 0 0 ${pdfFooterReserveCss}; }
           .attachment-card { height: 100%; background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(58, 58, 58, 0.28); display: flex; flex-direction: column; min-height: 0; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
           .attachment-card--empty { background: transparent; border-color: transparent; }
           .attachment-frame { flex: 1 1 auto; min-height: 0; background: #efefef; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -2266,10 +2292,10 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const documentTypeLabel = data.documentType;
   const documentTypeLower = documentTypeLabel.toLowerCase();
-  const toddVerticalMarginCss = '25.4mm';
-  const toddHorizontalMarginCss = '15mm';
-  const toddFooterReserveCss = '30mm';
-  const toddContentBottomGuardCss = '4mm';
+  const toddVerticalMarginCss = pdfPageVerticalMarginCss;
+  const toddHorizontalMarginCss = pdfPageHorizontalMarginCss;
+  const toddFooterReserveCss = pdfFooterReserveCss;
+  const toddContentBottomGuardCss = pdfContentBottomGuardCss;
 
   const summaryHtml = `
     <section class="summary-wrap">
@@ -3141,7 +3167,7 @@ const sterlingMechanicalInvoiceStyles = `
     width: 210mm;
     height: 297mm;
     margin: 0;
-    padding: 0;
+    padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss};
     background: #ffffff;
     display: flex;
     flex-direction: column;
@@ -3151,18 +3177,19 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .ryan-sheet-head {
-    flex: 0 0 12mm;
+    flex: 0 0 0;
   }
   .page-continue .ryan-sheet-head {
-    flex-basis: 11mm;
+    flex-basis: 0;
   }
   .ryan-sheet-foot {
-    flex: 0 0 10mm;
+    flex: 0 0 ${pdfFooterReserveCss};
+    min-height: ${pdfFooterReserveCss};
   }
   .sterling-invoice-content {
     flex: 1 1 auto;
     min-height: 0;
-    padding: 0 13mm 3mm;
+    padding: 0 0 ${pdfContentBottomGuardCss};
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -3750,6 +3777,20 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
     });
     document.body.appendChild(measurementHost);
     const measurementRoot = measurementHost.attachShadow({ mode: 'open' });
+    const measureCssLengthInPixels = (value: string) => {
+      const measure = document.createElement('div');
+      Object.assign(measure.style, {
+        height: value,
+        width: '0',
+        position: 'absolute',
+        visibility: 'hidden',
+      });
+      measurementRoot.appendChild(measure);
+      const pixels = measure.getBoundingClientRect().height;
+      measure.remove();
+      return pixels;
+    };
+    const contentBottomGuardPixels = measureCssLengthInPixels(pdfContentBottomGuardCss);
 
     const pageFits = (
       rows: SterlingInvoiceRow[],
@@ -3770,7 +3811,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
 
       const measuredElements = Array.from(
         measurementRoot.querySelectorAll<HTMLElement>(
-          '.invoice-table, .last-section, .footer-note, .attachment-section-start, .attachment-row',
+          '.invoice-table, .invoice-table tr, .invoice-table td, .last-section, .footer-note, .attachment-section-start, .attachment-row',
         ),
       );
 
@@ -3783,7 +3824,7 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
       );
 
-      return contentBottom <= bodyBottom + 0.5;
+      return contentBottom <= bodyBottom - contentBottomGuardPixels + 0.5;
     };
 
     const splitRowForPage = (
@@ -4124,18 +4165,18 @@ const moralesInvoiceStyles = `
     width: 210mm;
     height: 297mm;
     margin: 0;
-    padding: 10mm 14mm 8mm;
+    padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss};
     background: rgb(255, 255, 255);
     display: grid;
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) ${pdfFooterReserveCss};
     row-gap: 4mm;
     overflow: hidden;
     page-break-after: always;
     break-after: page;
   }
-  .page--header { grid-template-rows: auto minmax(0, 1fr); }
-  .page--footer { grid-template-rows: minmax(0, 1fr) auto; }
-  .page--header.page--footer { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .page--header { grid-template-rows: auto minmax(0, 1fr) ${pdfFooterReserveCss}; }
+  .page--footer { grid-template-rows: minmax(0, 1fr) ${pdfFooterReserveCss}; }
+  .page--header.page--footer { grid-template-rows: auto minmax(0, 1fr) ${pdfFooterReserveCss}; }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .sheet-body {
     min-height: 0;
@@ -4386,6 +4427,7 @@ const moralesInvoiceStyles = `
     font-weight: 800;
   }
   .thank-you {
+    width: 100%;
     min-height: 8mm;
     display: flex;
     align-items: end;
@@ -4400,9 +4442,20 @@ const moralesInvoiceStyles = `
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  .page-footer {
+    min-height: ${pdfFooterReserveCss};
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .page-footer--empty {
+    visibility: hidden;
+  }
   .attachment-page {
-    padding-left: 16mm;
-    padding-right: 16mm;
+    padding-left: ${pdfPageHorizontalMarginCss};
+    padding-right: ${pdfPageHorizontalMarginCss};
   }
   .attachment-heading {
     padding: 0 0 3mm;
@@ -4593,7 +4646,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
       </table>
     </section>
   `;
-  const footerHtml = '<footer class="thank-you">Thank You for Your Business!</footer>';
+  const footerHtml = '<div class="thank-you">Thank You for Your Business!</div>';
 
   const buildPageHtml = (
     rows: SterlingInvoiceRow[],
@@ -4639,7 +4692,9 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
           ${options.tailHtml ?? ''}
           ${attachmentRowsHtml}
         </main>
-        ${options.includeFooter ? footerHtml : ''}
+        <footer class="page-footer ${options.includeFooter ? '' : 'page-footer--empty'}">
+          ${options.includeFooter ? footerHtml : ''}
+        </footer>
       </div>
     `;
   };
@@ -4694,6 +4749,20 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     });
     document.body.appendChild(measurementHost);
     const measurementRoot = measurementHost.attachShadow({ mode: 'open' });
+    const measureCssLengthInPixels = (value: string) => {
+      const measure = document.createElement('div');
+      Object.assign(measure.style, {
+        height: value,
+        width: '0',
+        position: 'absolute',
+        visibility: 'hidden',
+      });
+      measurementRoot.appendChild(measure);
+      const pixels = measure.getBoundingClientRect().height;
+      measure.remove();
+      return pixels;
+    };
+    const contentBottomGuardPixels = measureCssLengthInPixels(pdfContentBottomGuardCss);
 
     const pageFits = (
       rows: SterlingInvoiceRow[],
@@ -4714,7 +4783,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
 
       const measuredElements = Array.from(
         measurementRoot.querySelectorAll<HTMLElement>(
-          '.title-row, .customer-table, .invoice-table, .last-section, .attachment-heading, .attachment-row',
+          '.title-row, .customer-table, .invoice-table, .invoice-table tr, .invoice-table td, .last-section, .attachment-heading, .attachment-row',
         ),
       );
       if (!measuredElements.length) return true;
@@ -4724,7 +4793,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
         ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
       );
 
-      return contentBottom <= bodyBottom + 0.5;
+      return contentBottom <= bodyBottom - contentBottomGuardPixels + 0.5;
     };
 
     const splitRowForPage = (
@@ -5048,14 +5117,15 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     @page { size: A4; margin: 0; }
     html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #ffffff; font-family: ${pdfTypewriterFontFamily}; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { overflow: auto; }
-    .page { width: 210mm; height: 297mm; margin: 0; padding: 14mm 12mm 10mm 12mm; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
+    .page { width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #ffffff; overflow: hidden; box-sizing: border-box; page-break-after: always; break-after: page; }
     .page:last-child { page-break-after: auto; break-after: auto; }
     .legacy-page { display: flex; flex-direction: column; }
-    .legacy-page--continue { padding: 12mm 12mm 10mm 12mm; }
-    .legacy-page--last { padding-bottom: 10mm; }
-    .ryan-body-page { padding: 14mm 12mm 10mm 12mm; }
-    .ryan-body-page.legacy-page--continue { padding: 12mm 12mm 10mm 12mm; }
-    .ryan-body { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .legacy-page--continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+    .legacy-page--last { padding-bottom: ${pdfPageVerticalMarginCss}; }
+    .legacy-footer-space { flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; overflow: hidden; }
+    .ryan-body-page { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+    .ryan-body-page.legacy-page--continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+    .ryan-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .ryan-title-band { width: 100%; padding: 18px 0; margin: 0 0 8px 0; color: #ffffff; background-color: #24c6dc; background-image: linear-gradient(to bottom, #24c6dc, #c471ed); }
     .ryan-title-band-inner { width: 100%; margin: 0 auto; padding: 0 24px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; }
     .ryan-title-left { line-height: 0.9; }
@@ -5072,10 +5142,10 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .company-name { display: block; font-size: 30px; font-weight: 700; margin-bottom: 8px; }
     .company-info { font-size: 13px; }
     .company-info strong { font-weight: 800; }
-    .invoice-body { padding: 8px 16px 0 16px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+    .invoice-body { padding: 8px 0 0 0; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
     .invoice-body--continue { padding-top: 0; }
-    .legacy-table-shell { flex: 1 1 auto; min-height: 0; padding-bottom: 12mm; box-sizing: border-box; }
-    .legacy-table-shell--last { padding-bottom: 16mm; }
+    .legacy-table-shell { flex: 1 1 auto; min-height: 0; padding-bottom: ${pdfContentBottomGuardCss}; box-sizing: border-box; overflow: hidden; }
+    .legacy-table-shell--last { padding-bottom: ${pdfContentBottomGuardCss}; }
     .ryan-table-shell { flex: 0 0 auto; padding-bottom: 0; overflow: visible; }
     .ryan-table-shell--last { padding-bottom: 0; }
     table { border-collapse: collapse; width: 100%; background-color: #ffffff; }
@@ -5143,6 +5213,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           </table>
         </div>
       </main>
+      <div class="legacy-footer-space" aria-hidden="true"></div>
     </div>
   `;
 
@@ -5173,6 +5244,20 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
       zIndex: '-1',
     });
     document.body.appendChild(measurementHost);
+    const measureCssLengthInPixels = (value: string) => {
+      const measure = document.createElement('div');
+      Object.assign(measure.style, {
+        height: value,
+        width: '0',
+        position: 'absolute',
+        visibility: 'hidden',
+      });
+      measurementHost.appendChild(measure);
+      const pixels = measure.getBoundingClientRect().height;
+      measure.remove();
+      return pixels;
+    };
+    const contentBottomGuardPixels = measureCssLengthInPixels(pdfContentBottomGuardCss);
 
     const pageFits = (chunks: RyanInvoiceChunk[], options: { isFirstPage: boolean; includeSummary: boolean }) => {
       measurementHost.innerHTML = `<style>${legacySterlingPdfStyles}</style>${buildRyanPageHtml(chunks, options)}`;
@@ -5185,7 +5270,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
       const bodyRect = body.getBoundingClientRect();
       const tableRect = table.getBoundingClientRect();
-      return tableRect.bottom <= bodyRect.bottom + 0.5;
+      return tableRect.bottom <= bodyRect.bottom - contentBottomGuardPixels + 0.5;
     };
 
     const pages: RyanInvoiceChunk[][] = [[]];
@@ -5330,6 +5415,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
                     </table>
                   </div>
                 </div>
+                <div class="legacy-footer-space" aria-hidden="true"></div>
               </div>
             `;
           }
@@ -5345,6 +5431,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
                   </table>
                 </div>
               </div>
+              <div class="legacy-footer-space" aria-hidden="true"></div>
             </div>
           `;
         })
