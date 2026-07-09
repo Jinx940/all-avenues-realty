@@ -107,6 +107,8 @@ type AzeInvoiceDisplayRow = AzeInvoiceRow & {
   areaRowSpan: number;
   showServiceCell: boolean;
   serviceRowSpan: number;
+  showPriceCell: boolean;
+  priceRowSpan: number;
 };
 
 type AzeInvoiceData = {
@@ -1277,6 +1279,8 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
     areaRowSpan: 1,
     showServiceCell: true,
     serviceRowSpan: 1,
+    showPriceCell: true,
+    priceRowSpan: 1,
   }));
 
   for (let index = 0; index < displayRows.length; ) {
@@ -1339,6 +1343,29 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
     }
 
     displayRows[index].serviceRowSpan = rowSpan;
+    index = endIndex;
+  }
+
+  for (let index = 0; index < displayRows.length; ) {
+    const current = displayRows[index];
+    let endIndex = index + 1;
+    let rowSpan = 1;
+
+    while (
+      endIndex < displayRows.length &&
+      displayRows[endIndex].story === current.story &&
+      displayRows[endIndex].unit === current.unit &&
+      displayRows[endIndex].area === current.area &&
+      displayRows[endIndex].service === current.service &&
+      displayRows[endIndex].totalPrice === current.totalPrice
+    ) {
+      rowSpan += 1;
+      displayRows[endIndex].showPriceCell = false;
+      displayRows[endIndex].priceRowSpan = 0;
+      endIndex += 1;
+    }
+
+    displayRows[index].priceRowSpan = rowSpan;
     index = endIndex;
   }
 
@@ -1457,7 +1484,11 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
               : ''
           }
           <td class="desc">${bulletHtml}</td>
-          <td class="cost${row.showPrice === false ? ' is-empty' : ''}">${costHtml}</td>
+          ${
+            row.showPriceCell
+              ? `<td class="cost${row.showPrice === false ? ' is-empty' : ''}" rowspan="${row.priceRowSpan}">${costHtml}</td>`
+              : ''
+          }
         </tr>
       `;
     })
