@@ -101,6 +101,8 @@ type AzeInvoiceDisplayRow = AzeInvoiceRow & {
   unitRowSpan: number;
   showAreaCell: boolean;
   areaRowSpan: number;
+  showServiceCell: boolean;
+  serviceRowSpan: number;
 };
 
 type AzeInvoiceData = {
@@ -1269,6 +1271,8 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
     unitRowSpan: 1,
     showAreaCell: true,
     areaRowSpan: 1,
+    showServiceCell: true,
+    serviceRowSpan: 1,
   }));
 
   for (let index = 0; index < displayRows.length; ) {
@@ -1309,6 +1313,28 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
     }
 
     displayRows[index].areaRowSpan = rowSpan;
+    index = endIndex;
+  }
+
+  for (let index = 0; index < displayRows.length; ) {
+    const current = displayRows[index];
+    let endIndex = index + 1;
+    let rowSpan = 1;
+
+    while (
+      endIndex < displayRows.length &&
+      displayRows[endIndex].story === current.story &&
+      displayRows[endIndex].unit === current.unit &&
+      displayRows[endIndex].area === current.area &&
+      displayRows[endIndex].service === current.service
+    ) {
+      rowSpan += 1;
+      displayRows[endIndex].showServiceCell = false;
+      displayRows[endIndex].serviceRowSpan = 0;
+      endIndex += 1;
+    }
+
+    displayRows[index].serviceRowSpan = rowSpan;
     index = endIndex;
   }
 
@@ -1396,7 +1422,7 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
       const bulletHtml = row.bullets.length
         ? `<ul>${row.bullets.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
         : '<ul><li></li></ul>';
-      const serviceHtml = row.showService === false ? '&nbsp;' : escapeHtml(row.service);
+      const serviceIsEmpty = !row.service.trim();
       const costHtml =
         row.showPrice === false ? '&nbsp;' : escapeHtml(formatPdfMoney(row.totalPrice));
       const rowClass = [
@@ -1419,9 +1445,13 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
               ? `<td class="area" rowspan="${row.areaRowSpan}">${buildInvoiceCellHtml(row.area)}</td>`
               : ''
           }
-          <td class="service${row.showService === false ? ' is-empty' : ''}">${
-            row.showService === false ? serviceHtml : buildInvoiceCellHtml(row.service)
-          }</td>
+          ${
+            row.showServiceCell
+              ? `<td class="service${serviceIsEmpty ? ' is-empty' : ''}" rowspan="${row.serviceRowSpan}">${
+                  serviceIsEmpty ? '&nbsp;' : buildInvoiceCellHtml(row.service)
+                }</td>`
+              : ''
+          }
           <td class="desc">${bulletHtml}</td>
           <td class="cost${row.showPrice === false ? ' is-empty' : ''}">${costHtml}</td>
         </tr>
