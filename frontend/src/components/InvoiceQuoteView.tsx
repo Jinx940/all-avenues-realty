@@ -2266,7 +2266,8 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const documentTypeLabel = data.documentType;
   const documentTypeLower = documentTypeLabel.toLowerCase();
-  const toddA4MarginCss = '25.4mm';
+  const toddVerticalMarginCss = '25.4mm';
+  const toddHorizontalMarginCss = '15mm';
   const toddFooterReserveCss = '30mm';
   const toddContentBottomGuardCss = '4mm';
 
@@ -2352,9 +2353,9 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     * { box-sizing: border-box; }
     html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #eceff1 !important; color: #1f2328; font-family: ${pdfTypewriterFontFamily}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { overflow: auto; }
-    .page { width: 210mm; height: 297mm; margin: 0; padding: ${toddA4MarginCss}; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+    .page { width: 210mm; height: 297mm; margin: 0; padding: ${toddVerticalMarginCss} ${toddHorizontalMarginCss}; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
     .page:last-child { page-break-after: auto; break-after: auto; }
-    .page-continue { padding-top: ${toddA4MarginCss}; }
+    .page-continue { padding-top: ${toddVerticalMarginCss}; }
     .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .page-footer { flex: 0 0 ${toddFooterReserveCss}; min-height: ${toddFooterReserveCss}; display: flex; align-items: flex-end; overflow: hidden; }
     .page-footer--empty { visibility: hidden; }
