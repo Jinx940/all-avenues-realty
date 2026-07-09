@@ -2444,7 +2444,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
             ? `
               <table class="todd-invoice-table">
                 ${azeInvoiceTableColumnsHtml}
-                ${azeInvoiceTableHeadHtml}
+                ${options.isFirstPage ? azeInvoiceTableHeadHtml : ''}
                 <tbody>${buildAzeInvoiceRowsHtml(pageRows)}</tbody>
               </table>
             `
