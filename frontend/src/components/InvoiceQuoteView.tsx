@@ -2237,8 +2237,8 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const documentTypeLabel = data.documentType;
   const documentTypeLower = documentTypeLabel.toLowerCase();
   const toddA4MarginCss = '25.4mm';
-  const toddFirstPageBottomGuardCss = '14mm';
-  const toddPaginationBottomGuardCss = '8mm';
+  const toddFooterReserveCss = '30mm';
+  const toddContentBottomGuardCss = '4mm';
 
   const summaryHtml = `
     <section class="summary-wrap">
@@ -2256,7 +2256,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   `;
 
   const paymentHtml = `
-    <footer class="payment-grid">
+    <div class="payment-grid">
       <div>
         <span>Payment Method</span>
         <strong>Payment due upon receipt</strong>
@@ -2276,7 +2276,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
         <strong>Todd Goertler</strong>
         <small>Owner</small>
       </div>
-    </footer>
+    </div>
   `;
 
   const bodyIntroHtml = `
@@ -2326,8 +2326,8 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .page:last-child { page-break-after: auto; break-after: auto; }
     .page-continue { padding-top: ${toddA4MarginCss}; }
     .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-    .page-first .sheet-body { padding-bottom: ${toddFirstPageBottomGuardCss}; }
-    .page-continue .sheet-body { padding-bottom: ${toddPaginationBottomGuardCss}; }
+    .page-footer { flex: 0 0 ${toddFooterReserveCss}; min-height: ${toddFooterReserveCss}; display: flex; align-items: flex-end; overflow: hidden; }
+    .page-footer--empty { visibility: hidden; }
     .body-intro { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
     .brand-lockup { display: flex; align-items: center; gap: 18px; min-width: 0; }
     .home-envy-logo { width: 116px; height: 96px; display: block; flex: 0 0 116px; position: relative; overflow: hidden; }
@@ -2348,12 +2348,15 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .client-grid strong { display: block; color: #1f2328; font-size: 13px; line-height: 1.25; }
     .client-grid small { display: block; color: #58636f; font-size: 11px; line-height: 1.3; margin-top: 3px; }
     .todd-invoice-table { width: 100%; margin: 0; border-collapse: collapse; table-layout: fixed; background: transparent; }
+    .todd-invoice-table thead { display: table-header-group; }
+    .todd-invoice-table tbody { display: table-row-group; }
     .todd-invoice-table .aze-unit-col { width: 72px; }
     .todd-invoice-table .aze-area-col { width: 86px; }
     .todd-invoice-table .aze-service-col { width: 108px; }
     .todd-invoice-table .aze-price-col { width: 108px; }
     .todd-invoice-table th { height: 38px; padding: 0 8px; border-bottom: 2px solid #1f2328; color: #1f2328; font-size: 11px; line-height: 1.2; text-align: center; text-transform: uppercase; font-weight: 800; }
-    .todd-invoice-table td { padding: 9px 8px; border-bottom: 1px solid #b8c0c8; border-right: 1px solid #c9d0d7; vertical-align: middle; text-align: center; }
+    .todd-invoice-table tr { break-inside: avoid; page-break-inside: avoid; }
+    .todd-invoice-table td { padding: 9px 8px; border-bottom: 1px solid #b8c0c8; border-right: 1px solid #c9d0d7; vertical-align: middle; text-align: center; break-inside: avoid; page-break-inside: avoid; }
     .todd-invoice-table td:last-child, .todd-invoice-table th:last-child { border-right: 0; }
     .todd-invoice-table .unit,
     .todd-invoice-table .area,
@@ -2390,7 +2393,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .attachment-caption--empty { min-height: 42px; padding: 9px 11px 10px; }
     .attachment-caption span { color: #69737f; font-size: 9px; font-weight: 800; text-transform: uppercase; }
     .attachment-caption strong { color: #1f2328; font-size: 11px; line-height: 1.25; }
-    .payment-grid { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr 130px; gap: 16px; padding-top: 14px; margin-top: 10px; border-top: 1px solid #b8c0c8; color: #343b43; text-align: left; align-items: start; break-inside: avoid; page-break-inside: avoid; }
+    .payment-grid { width: 100%; display: grid; grid-template-columns: 1fr 1fr 1fr 130px; gap: 16px; padding-top: 14px; border-top: 1px solid #b8c0c8; color: #343b43; text-align: left; align-items: start; break-inside: avoid; page-break-inside: avoid; }
     .payment-grid span { display: block; color: #69737f; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; }
     .payment-grid strong { display: block; color: #1f2328; font-size: 11px; line-height: 1.25; }
     .payment-grid small { display: block; color: #58636f; font-size: 9px; line-height: 1.35; margin-top: 3px; }
@@ -2411,7 +2414,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
             ? `
               <table class="todd-invoice-table">
                 ${azeInvoiceTableColumnsHtml}
-                ${options.isFirstPage ? azeInvoiceTableHeadHtml : ''}
+                ${azeInvoiceTableHeadHtml}
                 <tbody>${buildAzeInvoiceRowsHtml(pageRows)}</tbody>
               </table>
             `
@@ -2419,7 +2422,9 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
         }
         ${options.tailBlocks?.join('') ?? ''}
       </main>
-      ${options.includeFooter ? paymentHtml : ''}
+      <footer class="page-footer ${options.includeFooter ? '' : 'page-footer--empty'}">
+        ${options.includeFooter ? paymentHtml : ''}
+      </footer>
     </div>
   `;
 
@@ -2485,9 +2490,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
       probe.remove();
       return pixels;
     };
-    const toddA4MarginPixels = measureCssLengthInPixels(toddA4MarginCss);
-    const toddFirstPageBottomGuardPixels = measureCssLengthInPixels(toddFirstPageBottomGuardCss);
-    const toddBottomGuardPixels = measureCssLengthInPixels(toddPaginationBottomGuardCss);
+    const toddContentBottomGuardPixels = measureCssLengthInPixels(toddContentBottomGuardCss);
 
     const pageFits = (
       pageRows: AzeInvoiceRow[],
@@ -2503,7 +2506,6 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
       `;
 
       const body = measurementRoot.querySelector<HTMLElement>('.sheet-body');
-      const page = measurementRoot.querySelector<HTMLElement>('.page');
       if (!body) {
         return true;
       }
@@ -2529,9 +2531,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
       }
 
       const bodyBottom = body.getBoundingClientRect().bottom;
-      const pageBottom = page?.getBoundingClientRect().bottom ?? bodyBottom;
-      const bottomGuardPixels = options.isFirstPage ? toddFirstPageBottomGuardPixels : toddBottomGuardPixels;
-      const safeBodyBottom = Math.min(bodyBottom, pageBottom - toddA4MarginPixels) - bottomGuardPixels;
+      const safeBodyBottom = bodyBottom - toddContentBottomGuardPixels;
       const contentBottom = Math.max(
         ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
       );
