@@ -122,6 +122,10 @@ type AzeInvoiceData = {
   attachments: PdfAttachmentFile[];
 };
 
+type ToddModernInvoiceData = AzeInvoiceData & {
+  documentType: DocumentType;
+};
+
 type LegacyPdfData = {
   ownerKey: OwnerKey;
   documentType: DocumentType;
@@ -2227,9 +2231,11 @@ const paginateToddInvoiceRows = (rows: AzeInvoiceRow[]) => {
   return pages.length ? pages : [[]];
 };
 
-const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
+const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
+  const documentTypeLabel = data.documentType;
+  const documentTypeLower = documentTypeLabel.toLowerCase();
 
   const summaryHtml = `
     <section class="summary-wrap">
@@ -2251,7 +2257,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
       <div>
         <span>Payment Method</span>
         <strong>Payment due upon receipt</strong>
-        <small>Please include the invoice number with payment.</small>
+        <small>Please include the ${escapeHtml(documentTypeLower)} number with payment.</small>
       </div>
       <div>
         <span>Contact</span>
@@ -2283,9 +2289,9 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
         </div>
       </div>
       <div class="invoice-heading">
-        <h1>Invoice</h1>
+        <h1>${escapeHtml(documentTypeLabel)}</h1>
         <dl>
-          <div><dt>Invoice #</dt><dd>${escapeHtml(data.invoiceNumber)}</dd></div>
+          <div><dt>${escapeHtml(documentTypeLabel)} #</dt><dd>${escapeHtml(data.invoiceNumber)}</dd></div>
           <div><dt>Date</dt><dd>${escapeHtml(formatPdfDate(data.docDate))}</dd></div>
         </dl>
       </div>
@@ -2668,7 +2674,7 @@ const buildToddModernInvoiceHtml = (data: AzeInvoiceData) => {
     <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <title>Invoice ${escapeHtml(data.invoiceNumber)}</title>
+        <title>${escapeHtml(documentTypeLabel)} ${escapeHtml(data.invoiceNumber)}</title>
         <style>${toddModernInvoiceLayoutStyles}</style>
       </head>
       <body>${pagesHtml}</body>
@@ -5755,7 +5761,7 @@ export function InvoiceQuoteView({
 
     const useSterlingMechanicalInvoice = ownerKey === 'ryan' && documentType === 'Invoice';
     const useAzeModernInvoice = ownerKey === 'aze' && documentType === 'Invoice';
-    const useToddModernInvoice = ownerKey === 'todd' && documentType === 'Invoice';
+    const useToddModernInvoice = ownerKey === 'todd';
     const useMoralesInvoice = ownerKey === 'morales' && documentType === 'Invoice';
     const safeDocumentNumber =
       String(documentNumberOverride ?? effectiveDocumentNumber).trim() || '00000000';
@@ -5818,6 +5824,7 @@ export function InvoiceQuoteView({
       : useToddModernInvoice
         ? buildToddModernInvoiceHtml({
             invoiceNumber: safeDocumentNumber,
+            documentType,
             docDate: issueDate,
             clientName,
             clientCompany,
