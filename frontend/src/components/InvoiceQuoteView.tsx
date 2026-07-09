@@ -2319,9 +2319,9 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     * { box-sizing: border-box; }
     html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #eceff1 !important; color: #1f2328; font-family: ${pdfTypewriterFontFamily}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { overflow: auto; }
-    .page { width: 210mm; height: 297mm; margin: 0; padding: 16mm 14mm 12mm; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+    .page { width: 210mm; height: 297mm; margin: 0; padding: 25.4mm; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
     .page:last-child { page-break-after: auto; break-after: auto; }
-    .page-continue { padding-top: 12mm; }
+    .page-continue { padding-top: 25.4mm; }
     .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .body-intro { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
     .brand-lockup { display: flex; align-items: center; gap: 18px; min-width: 0; }
@@ -2342,7 +2342,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .client-grid span { display: block; color: #4f5963; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
     .client-grid strong { display: block; color: #1f2328; font-size: 13px; line-height: 1.25; }
     .client-grid small { display: block; color: #58636f; font-size: 11px; line-height: 1.3; margin-top: 3px; }
-    .todd-invoice-table { width: 94%; margin: 0 auto; border-collapse: collapse; table-layout: fixed; background: transparent; }
+    .todd-invoice-table { width: 100%; margin: 0; border-collapse: collapse; table-layout: fixed; background: transparent; }
     .todd-invoice-table .aze-unit-col { width: 72px; }
     .todd-invoice-table .aze-area-col { width: 86px; }
     .todd-invoice-table .aze-service-col { width: 108px; }
@@ -2363,7 +2363,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .todd-invoice-table .row-continuation .cost { padding-top: 0; }
     .todd-invoice-table .row-no-divider .service,
     .todd-invoice-table .row-no-divider .cost { padding-bottom: 0; }
-    .summary-wrap { flex: 0 0 auto; width: 94%; display: flex; justify-content: flex-end; margin: 12px auto 0; border-top: 2px solid #1f2328; padding-top: 9px; break-inside: avoid; page-break-inside: avoid; }
+    .summary-wrap { flex: 0 0 auto; width: 100%; display: flex; justify-content: flex-end; margin: 12px 0 0; border-top: 2px solid #1f2328; padding-top: 9px; break-inside: avoid; page-break-inside: avoid; }
     .summary { width: 260px; display: grid; gap: 0; }
     .summary-row { display: grid; grid-template-columns: 1fr 110px; min-height: 27px; align-items: center; border-bottom: 1px solid #c3cbd3; color: #343b43; font-size: 11px; }
     .summary-row span { padding-right: 12px; text-align: center; }
@@ -2375,7 +2375,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .summary-row-total span { color: #ffffff; }
     .attachment-section-start { flex: 0 0 auto; margin-top: 14px; break-inside: avoid; page-break-inside: avoid; }
     .attachment-heading { padding: 0 0 7px 0; border-bottom: 2px solid #1f2328; color: #1f2328; font-size: 13px; line-height: 1.2; font-weight: 800; text-transform: uppercase; break-inside: avoid; page-break-inside: avoid; }
-    .attachment-row { flex: 0 0 72mm; height: 72mm; width: 94%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px auto 0; break-inside: avoid; page-break-inside: avoid; }
+    .attachment-row { flex: 0 0 72mm; height: 72mm; width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0 0; break-inside: avoid; page-break-inside: avoid; }
     .attachment-card { height: 100%; background: rgba(255, 255, 255, 0.5); border: 1px solid #b8c0c8; display: flex; flex-direction: column; min-height: 0; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
     .attachment-card--empty { background: transparent; border-color: transparent; }
     .attachment-frame { flex: 1 1 auto; min-height: 0; background: #eceff1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
