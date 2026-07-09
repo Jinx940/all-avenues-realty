@@ -2451,7 +2451,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .todd-invoice-table .desc { color: #343b43; font-size: 11px; line-height: 1.35; text-align: left; }
     .todd-invoice-table .desc ul { margin: 0; padding-left: 16px; list-style-position: outside; }
     .todd-invoice-table .desc li + li { margin-top: 3px; }
-    .todd-invoice-table .cost { color: #1f2328; font-size: 11px; font-weight: 800; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .todd-invoice-table td.cost { color: #1f2328; font-size: 11px; font-weight: 800; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; border-left: 1px solid #c9d0d7; border-right: 1px solid #c9d0d7; }
     .todd-invoice-table .cost.is-empty { color: transparent; }
     .todd-invoice-table .row-continuation .service,
     .todd-invoice-table .row-continuation .cost { padding-top: 0; }
