@@ -1587,7 +1587,7 @@ const azeModernInvoiceLayoutStyles = `
   .page:last-child { page-break-after: auto; break-after: auto; }
   .page-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .page-footer { flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
-  .page-footer--empty { visibility: hidden; }
+  .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
   .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
   .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
   .continue-main { justify-content: flex-start; }
@@ -2161,7 +2161,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
             .page:last-child { page-break-after: auto; break-after: auto; }
             .page-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
             .page-footer { flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
-            .page-footer--empty { visibility: hidden; }
+            .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
             .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
             .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
             .continue-main { justify-content: flex-start; }
