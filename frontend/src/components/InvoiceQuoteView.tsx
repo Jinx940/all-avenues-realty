@@ -2237,7 +2237,8 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const documentTypeLabel = data.documentType;
   const documentTypeLower = documentTypeLabel.toLowerCase();
   const toddA4MarginCss = '25.4mm';
-  const toddPaginationBottomGuardCss = '6mm';
+  const toddFirstPageBottomGuardCss = '14mm';
+  const toddPaginationBottomGuardCss = '8mm';
 
   const summaryHtml = `
     <section class="summary-wrap">
@@ -2325,6 +2326,8 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .page:last-child { page-break-after: auto; break-after: auto; }
     .page-continue { padding-top: ${toddA4MarginCss}; }
     .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .page-first .sheet-body { padding-bottom: ${toddFirstPageBottomGuardCss}; }
+    .page-continue .sheet-body { padding-bottom: ${toddPaginationBottomGuardCss}; }
     .body-intro { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
     .brand-lockup { display: flex; align-items: center; gap: 18px; min-width: 0; }
     .home-envy-logo { width: 116px; height: 96px; display: block; flex: 0 0 116px; position: relative; overflow: hidden; }
@@ -2483,6 +2486,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
       return pixels;
     };
     const toddA4MarginPixels = measureCssLengthInPixels(toddA4MarginCss);
+    const toddFirstPageBottomGuardPixels = measureCssLengthInPixels(toddFirstPageBottomGuardCss);
     const toddBottomGuardPixels = measureCssLengthInPixels(toddPaginationBottomGuardCss);
 
     const pageFits = (
@@ -2506,7 +2510,17 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
 
       const measuredElements = Array.from(
         measurementRoot.querySelectorAll<HTMLElement>(
-          '.body-intro, .client-grid, .todd-invoice-table, .summary-wrap, .attachment-section-start, .attachment-row',
+          [
+            '.body-intro',
+            '.client-grid',
+            '.todd-invoice-table',
+            '.todd-invoice-table tr',
+            '.todd-invoice-table td',
+            '.todd-invoice-table li',
+            '.summary-wrap',
+            '.attachment-section-start',
+            '.attachment-row',
+          ].join(', '),
         ),
       );
 
@@ -2516,7 +2530,8 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
 
       const bodyBottom = body.getBoundingClientRect().bottom;
       const pageBottom = page?.getBoundingClientRect().bottom ?? bodyBottom;
-      const safeBodyBottom = Math.min(bodyBottom, pageBottom - toddA4MarginPixels) - toddBottomGuardPixels;
+      const bottomGuardPixels = options.isFirstPage ? toddFirstPageBottomGuardPixels : toddBottomGuardPixels;
+      const safeBodyBottom = Math.min(bodyBottom, pageBottom - toddA4MarginPixels) - bottomGuardPixels;
       const contentBottom = Math.max(
         ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
       );
