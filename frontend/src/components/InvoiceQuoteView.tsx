@@ -3466,7 +3466,7 @@ const sterlingMechanicalInvoiceStyles = `
     line-height: 1.5;
   }
   .last-section {
-    margin-top: 16mm;
+    margin-top: 8mm;
     padding-top: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 82mm;
@@ -3499,7 +3499,7 @@ const sterlingMechanicalInvoiceStyles = `
   .total-line {
     display: grid;
     grid-template-columns: 1fr 31mm;
-    min-height: 12.5mm;
+    min-height: 10mm;
     align-items: center;
     border-bottom: 1px solid #c9c9c9;
     font-size: 18px;
@@ -3516,10 +3516,10 @@ const sterlingMechanicalInvoiceStyles = `
     font-variant-numeric: tabular-nums;
   }
   .total-line.total {
-    margin-top: 3mm;
+    margin-top: 2mm;
     border-top: 2px solid #111111;
     border-bottom: 0;
-    min-height: 13mm;
+    min-height: 11mm;
     font-size: 21px;
     font-weight: 800;
   }
@@ -3527,7 +3527,7 @@ const sterlingMechanicalInvoiceStyles = `
     font-weight: 800;
   }
   .footer-note {
-    margin-top: 20mm;
+    margin-top: 10mm;
     text-align: center;
     font-size: 21px;
     font-weight: 400;
@@ -3990,12 +3990,14 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
 
       let tailPageIndex = pageLayouts.length - 1;
       const summaryLayout = pageLayouts[tailPageIndex];
+      const summaryFitsByEstimate =
+        estimateSterlingRowsUnits(summaryLayout.rows) + 6.6 <= (tailPageIndex === 0 ? 12.5 : 26.5);
 
       if (
         pageFits(summaryLayout.rows, {
           isFirstPage: tailPageIndex === 0,
           tailBlocks: [summarySectionHtml],
-        })
+        }) || summaryFitsByEstimate
       ) {
         summaryLayout.tailBlocks = [summarySectionHtml];
       } else {
@@ -4006,12 +4008,15 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
       const appendTailBlock = (tailBlock: string) => {
         const currentLayout = pageLayouts[tailPageIndex];
         const candidateTailBlocks = [...currentLayout.tailBlocks, tailBlock];
+        const footerFitsByEstimate =
+          tailBlock === footerNoteHtml &&
+          estimateSterlingRowsUnits(currentLayout.rows) + 8 <= (tailPageIndex === 0 ? 12.5 : 26.5);
 
         if (
           pageFits(currentLayout.rows, {
             isFirstPage: tailPageIndex === 0,
             tailBlocks: candidateTailBlocks,
-          })
+          }) || footerFitsByEstimate
         ) {
           currentLayout.tailBlocks.push(tailBlock);
           return;
