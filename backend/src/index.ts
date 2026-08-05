@@ -96,6 +96,7 @@ import {
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerUserRoutes } from './routes/users.js';
 import { registerWorkerRoutes } from './routes/workers.js';
+import { registerRyanInvoiceRoutes } from './routes/ryanInvoice.js';
 
 const app = express();
 const currentFilePath = fileURLToPath(import.meta.url);
@@ -1237,6 +1238,8 @@ app.get(
 );
 
 app.use('/api', sessionMiddleware);
+
+registerRyanInvoiceRoutes(app);
 
 if (env.ENABLE_NEMT) {
   const { registerNemtRoutes } = await import('./routes/nemt.js');
