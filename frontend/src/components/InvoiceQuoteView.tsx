@@ -3197,7 +3197,7 @@ const sterlingMechanicalInvoiceStyles = `
     width: 210mm;
     height: 297mm;
     margin: 0;
-    padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss};
+    padding: 12mm ${pdfPageHorizontalMarginCss} 16mm;
     background: #ffffff;
     display: flex;
     flex-direction: column;
@@ -3213,8 +3213,8 @@ const sterlingMechanicalInvoiceStyles = `
     flex-basis: 0;
   }
   .ryan-sheet-foot {
-    flex: 0 0 ${pdfFooterReserveCss};
-    min-height: ${pdfFooterReserveCss};
+    flex: 0 0 16mm;
+    min-height: 16mm;
   }
   .sterling-invoice-content {
     flex: 1 1 auto;
@@ -3229,8 +3229,8 @@ const sterlingMechanicalInvoiceStyles = `
     grid-template-columns: minmax(0, 1fr) 73mm;
     gap: 8mm;
     align-items: center;
-    min-height: 46mm;
-    padding: 0 2mm 7mm;
+    min-height: 38mm;
+    padding: 0 2mm 4mm;
     border-bottom: 1.5px solid #111111;
   }
   .invoice-brand {
@@ -3268,8 +3268,8 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-meta {
     display: grid;
-    gap: 3mm;
-    padding: 0 0 4mm;
+    gap: 2mm;
+    padding: 0 0 1mm;
     font-size: 13px;
     line-height: 1.15;
   }
@@ -3303,7 +3303,7 @@ const sterlingMechanicalInvoiceStyles = `
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 0;
-    padding: 9mm 2mm 13mm;
+    padding: 5mm 2mm 7mm;
   }
   .party-block {
     min-height: auto;
@@ -3314,7 +3314,7 @@ const sterlingMechanicalInvoiceStyles = `
     padding-left: 12mm;
   }
   .block-title {
-    margin: 0 0 3mm;
+    margin: 0 0 2mm;
     font-size: 20px;
     line-height: 1;
     font-weight: 800;
@@ -3386,8 +3386,8 @@ const sterlingMechanicalInvoiceStyles = `
     overflow-wrap: anywhere;
   }
   .invoice-table td {
-    padding-top: 7mm;
-    padding-bottom: 2mm;
+    padding-top: 4mm;
+    padding-bottom: 1.5mm;
     font-size: 15px;
     line-height: 1.5;
   }
@@ -3420,7 +3420,7 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .description-stack {
     display: grid;
-    gap: 2mm;
+    gap: 1mm;
     justify-items: stretch;
     text-align: left;
   }
