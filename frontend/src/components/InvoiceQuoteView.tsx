@@ -3501,6 +3501,7 @@ const sterlingMechanicalInvoiceStyles = `
     word-break: break-word;
     line-height: 1.45;
     font-size: 14px;
+    font-weight: 400;
   }
   .totals-panel {
     padding-top: 0;
