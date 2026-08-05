@@ -3395,6 +3395,9 @@ const sterlingMechanicalInvoiceStyles = `
     page-break-inside: avoid;
   }
   .invoice-row--open td { border-bottom-color: transparent; }
+  .invoice-table tbody .invoice-row:last-child:not(.invoice-row--open) td {
+    border-bottom: 1.5px solid #111111;
+  }
   .invoice-row--continuation td { padding-top: 2mm; }
   .invoice-table td.unit-cell,
   .invoice-table td.area-cell,
