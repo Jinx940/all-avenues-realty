@@ -3877,9 +3877,12 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
       while (low <= high) {
         const mid = Math.floor((low + high) / 2);
         const isCompleteRow = mid >= row.descriptionLines.length;
+        const candidateGroups = sliceSterlingDescriptionGroups(
+          getSterlingDescriptionGroups(row),
+          mid,
+        ).chunkGroups;
         const candidateChunk: SterlingInvoiceRow = {
-          ...row,
-          descriptionLines: row.descriptionLines.slice(0, mid),
+          ...buildSterlingRowWithDescriptionGroups(row, candidateGroups),
           showDivider: isCompleteRow ? row.showDivider : false,
         };
 
