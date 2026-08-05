@@ -21,6 +21,7 @@ const pdfPageVerticalMarginCss = '25.4mm';
 const pdfPageHorizontalMarginCss = '15mm';
 const pdfFooterReserveCss = '30mm';
 const pdfContentBottomGuardCss = '4mm';
+const ryanBillToMaxLength = 40;
 
 type PdfServiceItem = {
   story: string;
@@ -3299,6 +3300,7 @@ const sterlingMechanicalInvoiceStyles = `
     padding: 4mm 2mm;
   }
   .party-block {
+    min-width: 0;
     min-height: auto;
     padding: 0;
     display: flex;
@@ -3319,10 +3321,14 @@ const sterlingMechanicalInvoiceStyles = `
     letter-spacing: 0;
   }
   .bill-to-content {
+    min-width: 0;
+    flex: 1 1 auto;
     white-space: pre-line;
     line-height: 1.2;
     color: #111111;
     font-size: 18px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .address-content {
     white-space: pre-line;
@@ -3641,7 +3647,7 @@ const sterlingMechanicalInvoiceStyles = `
 const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData) => {
   const tableRows = buildSterlingInvoiceTableRows(data.selectedItems);
   const attachmentTailBlocks = buildAttachmentTailBlocks(data.attachments);
-  const billToHtml = escapeHtml(data.billTo.trim()).replace(/\r?\n/g, '<br>');
+  const billToHtml = escapeHtml(data.billTo.trim().slice(0, ryanBillToMaxLength)).replace(/\r?\n/g, '<br>');
   const observationHtml = escapeHtml(data.observation.trim()).replace(/\r?\n/g, '<br>');
   const summaryAmountHtml = (value: number) => `
     <span class="total-amount">
@@ -6404,8 +6410,14 @@ export function InvoiceQuoteView({
                 rows={4}
                 value={billTo}
                 onChange={(event) => setBillTo(event.target.value)}
+                maxLength={ownerKey === 'ryan' && documentType === 'Invoice' ? ryanBillToMaxLength : undefined}
                 placeholder="Customer name and address"
               />
+              {ownerKey === 'ryan' && documentType === 'Invoice' ? (
+                <small className="muted-copy">
+                  {Math.min(billTo.length, ryanBillToMaxLength)}/{ryanBillToMaxLength} characters maximum for Ryan invoice.
+                </small>
+              ) : null}
             </label>
 
             <div className="invoice-attachment-picker span-2">
