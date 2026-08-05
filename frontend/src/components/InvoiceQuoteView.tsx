@@ -3254,10 +3254,11 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .invoice-number-main {
     margin: 0;
-    font-size: 30px;
+    font-size: 24px;
     line-height: 1;
     font-weight: 800;
     letter-spacing: 1px;
+    white-space: nowrap;
   }
   .invoice-meta {
     display: grid;
