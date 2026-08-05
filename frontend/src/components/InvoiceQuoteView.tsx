@@ -3303,18 +3303,22 @@ const sterlingMechanicalInvoiceStyles = `
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 0;
-    padding: 5mm 2mm 7mm;
+    padding: 4mm 2mm;
   }
   .party-block {
     min-height: auto;
     padding: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 3mm;
   }
   .party-block + .party-block {
     border-left: 1px solid #b8b8b8;
     padding-left: 12mm;
   }
   .block-title {
-    margin: 0 0 2mm;
+    margin: 0;
+    flex: 0 0 auto;
     font-size: 20px;
     line-height: 1;
     font-weight: 800;
@@ -3323,13 +3327,13 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .bill-to-content {
     white-space: pre-line;
-    line-height: 1.55;
+    line-height: 1.2;
     color: #111111;
     font-size: 18px;
   }
   .address-content {
     white-space: pre-line;
-    line-height: 1.55;
+    line-height: 1.2;
     color: #111111;
     font-size: 17px;
     max-width: 100%;
