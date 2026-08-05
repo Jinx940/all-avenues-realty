@@ -3469,8 +3469,8 @@ const sterlingMechanicalInvoiceStyles = `
     margin-top: 8mm;
     padding-top: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 82mm;
-    gap: 17mm;
+    grid-template-columns: minmax(0, 1fr) 72mm;
+    gap: 12mm;
     align-items: start;
     break-inside: avoid;
     page-break-inside: avoid;
@@ -3498,11 +3498,12 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .total-line {
     display: grid;
-    grid-template-columns: 1fr 31mm;
-    min-height: 10mm;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    column-gap: 3mm;
+    min-height: 8.5mm;
     align-items: center;
     border-bottom: 1px solid #c9c9c9;
-    font-size: 18px;
+    font-size: 14px;
   }
   .total-line span {
     padding: 0 1mm;
@@ -3514,13 +3515,14 @@ const sterlingMechanicalInvoiceStyles = `
     text-align: right;
     font-weight: 400;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   .total-line.total {
     margin-top: 2mm;
     border-top: 2px solid #111111;
     border-bottom: 0;
-    min-height: 11mm;
-    font-size: 21px;
+    min-height: 10mm;
+    font-size: 18px;
     font-weight: 800;
   }
   .total-line.total span:last-child {
