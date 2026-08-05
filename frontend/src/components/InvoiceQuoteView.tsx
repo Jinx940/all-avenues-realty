@@ -32,10 +32,6 @@ type PdfServiceItem = {
   unitPrice: number;
 };
 
-type RyanPreparedDescriptionsResponse = {
-  items: Array<{ description: string }>;
-};
-
 type PdfAttachmentFile = {
   id: string;
   kind: 'before' | 'after' | 'receipt';
@@ -5633,25 +5629,6 @@ export function InvoiceQuoteView({
     },
     [descriptionEdits, itemLaborEdits, itemUnitPriceEdits, selectedJobs, usesLineItemInvoice],
   );
-  const ryanPreparedItemsCacheRef = useRef(new Map<string, PdfServiceItem[]>());
-  const prepareRyanInvoiceItems = useCallback(async () => {
-    const cacheKey = JSON.stringify(selectedItems.map(({ area, service, description }) => ({ area, service, description })));
-    const cached = ryanPreparedItemsCacheRef.current.get(cacheKey);
-    if (cached) return cached;
-
-    const payload = await requestJson<RyanPreparedDescriptionsResponse>('/api/ryan-invoice/prepare-descriptions', {
-      method: 'POST',
-      body: JSON.stringify({
-        items: selectedItems.map(({ area, service, description }) => ({ area, service, description })),
-      }),
-    });
-    const prepared = selectedItems.map((item, index) => ({
-      ...item,
-      description: payload.items[index]?.description?.trim() || item.description,
-    }));
-    ryanPreparedItemsCacheRef.current.set(cacheKey, prepared);
-    return prepared;
-  }, [selectedItems]);
   const selectedPhotoAttachments = useMemo(
     () => buildPdfAttachmentsForJobs(selectedJobs, invoicePhotoAttachmentKinds),
     [selectedJobs],
@@ -5970,7 +5947,6 @@ export function InvoiceQuoteView({
   const buildGeneratedDocumentContent = useCallback((
     documentNumberOverride?: string,
     attachmentsOverride?: PdfAttachmentFile[],
-    selectedItemsOverride?: PdfServiceItem[],
   ): GeneratedDocumentContent | null => {
     if (!selectedItems.length) {
       return null;
@@ -5980,7 +5956,6 @@ export function InvoiceQuoteView({
     const useAzeModernInvoice = ownerKey === 'aze' && documentType === 'Invoice';
     const useToddModernInvoice = ownerKey === 'todd';
     const useMoralesInvoice = ownerKey === 'morales' && documentType === 'Invoice';
-    const documentItems = selectedItemsOverride ?? selectedItems;
     const safeDocumentNumber =
       String(documentNumberOverride ?? effectiveDocumentNumber).trim() || '00000000';
     const safeBaseName = `${documentType}_${(activeProperty?.name || 'property')
@@ -5995,7 +5970,7 @@ export function InvoiceQuoteView({
           docDate: issueDate,
           billTo,
           propertyName: activeProperty?.name || propertyAddress,
-          selectedItems: documentItems,
+          selectedItems,
           laborTotal: sterlingLaborTotal,
           expenses,
           invoicingServices,
@@ -6113,24 +6088,13 @@ export function InvoiceQuoteView({
   const buildGeneratedDocumentContentForPdf = useCallback(async (
     documentNumberOverride?: string,
   ): Promise<GeneratedDocumentContent | null> => {
-    const ryanItems = ownerKey === 'ryan' && documentType === 'Invoice'
-      ? await prepareRyanInvoiceItems()
-      : undefined;
-
     if (!includeInlineInvoicePhotosInPdf) {
-      return buildGeneratedDocumentContent(documentNumberOverride, undefined, ryanItems);
+      return buildGeneratedDocumentContent(documentNumberOverride);
     }
 
     const embeddedAttachments = await inlinePdfAttachmentImages(selectedInvoicePhotoAttachments);
-    return buildGeneratedDocumentContent(documentNumberOverride, embeddedAttachments, ryanItems);
-  }, [
-    buildGeneratedDocumentContent,
-    documentType,
-    includeInlineInvoicePhotosInPdf,
-    ownerKey,
-    prepareRyanInvoiceItems,
-    selectedInvoicePhotoAttachments,
-  ]);
+    return buildGeneratedDocumentContent(documentNumberOverride, embeddedAttachments);
+  }, [buildGeneratedDocumentContent, includeInlineInvoicePhotosInPdf, selectedInvoicePhotoAttachments]);
 
   const buildReceiptAppendicesForPdf = useCallback(async (): Promise<GeneratedPdfReceiptAppendix[]> => {
     if (!includeReceiptAppendicesInPdf) {
