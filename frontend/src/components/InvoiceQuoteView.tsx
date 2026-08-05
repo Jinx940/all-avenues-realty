@@ -3034,9 +3034,7 @@ const buildSterlingDescriptionHtml = (lines: string[]) => {
     return escapeHtml(normalizedLines[0]);
   }
 
-  return `<div class="description-stack">${normalizedLines
-    .map((line) => `<div>${escapeHtml(line)}</div>`)
-    .join('')}</div>`;
+  return `<div class="description-stack">${normalizedLines.map(escapeHtml).join(' ')}</div>`;
 };
 
 const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
@@ -3416,20 +3414,21 @@ const sterlingMechanicalInvoiceStyles = `
     border-top: 1px solid #111111;
   }
   .invoice-table td.description-cell {
-    text-align: left;
+    text-align: justify;
+    text-align-last: left;
+    text-justify: inter-word;
     padding-left: 2mm;
     padding-right: 4mm;
     vertical-align: top;
   }
-  .invoice-table td.description-cell .description-stack,
-  .invoice-table td.description-cell .description-stack div {
-    text-align: left;
+  .invoice-table td.description-cell .description-stack {
+    text-align: justify;
+    text-align-last: left;
+    text-justify: inter-word;
   }
   .description-stack {
-    display: grid;
-    gap: 1mm;
-    justify-items: stretch;
-    text-align: left;
+    display: block;
+    width: 100%;
   }
   .continuation-cell {
     color: transparent;
