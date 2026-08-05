@@ -3275,7 +3275,7 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .meta-row {
     display: grid;
-    grid-template-columns: 22mm minmax(0, 1fr);
+    grid-template-columns: 25mm minmax(0, 1fr);
     gap: 4mm;
     align-items: baseline;
   }
@@ -3283,6 +3283,7 @@ const sterlingMechanicalInvoiceStyles = `
     font-weight: 800;
     text-transform: uppercase;
     white-space: nowrap;
+    text-align: right;
   }
   .meta-value {
     min-height: 0;
