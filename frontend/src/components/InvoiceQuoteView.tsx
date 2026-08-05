@@ -2941,15 +2941,8 @@ const buildSterlingInvoiceTableRows = (items: PdfServiceItem[]): SterlingInvoice
         invoiceCellCollator.compare(left.description, right.description),
     )
     .flatMap((item) => {
-      const descriptionLineGroups = item.description
-        .split(/\r?\n\s*\r?\n+/)
-        .map((group) =>
-          group
-            .split(/\r?\n+/)
-            .map((line) => line.replace(/\s+/g, ' ').trim())
-            .filter(Boolean)
-            .flatMap(splitLongSterlingInvoiceLine),
-        )
+      const descriptionLineGroups = splitDescriptionIntoSentences(item.description)
+        .map((sentence) => splitLongSterlingInvoiceLine(sentence))
         .filter((group) => group.length);
       const normalizedDescriptionLineGroups = descriptionLineGroups.length ? descriptionLineGroups : [['-']];
       const baseRow: SterlingInvoiceRow = {
@@ -3023,18 +3016,19 @@ const buildSterlingInvoiceDisplayRows = (rows: SterlingInvoiceRow[]): SterlingIn
   return displayRows;
 };
 
-const buildSterlingDescriptionHtml = (lines: string[]) => {
-  const normalizedLines = lines.filter(Boolean);
+const buildSterlingDescriptionHtml = (groups: string[] | string[][]) => {
+  const sourceGroups = typeof groups[0] === 'string' ? [groups as string[]] : groups as string[][];
+  const normalizedGroups = sourceGroups
+    .map((group) => group.filter(Boolean))
+    .filter((group) => group.length);
 
-  if (!normalizedLines.length) {
+  if (!normalizedGroups.length) {
     return '-';
   }
 
-  if (normalizedLines.length === 1) {
-    return escapeHtml(normalizedLines[0]);
-  }
-
-  return `<div class="description-stack">${normalizedLines.map(escapeHtml).join(' ')}</div>`;
+  return `<div class="description-stack">${normalizedGroups
+    .map((group) => `<div class="description-sentence">${group.map(escapeHtml).join(' ')}</div>`)
+    .join('')}</div>`;
 };
 
 const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
@@ -3070,7 +3064,7 @@ const buildSterlingMechanicalRowsHtml = (rows: SterlingInvoiceRow[]) =>
                 }</td>`
               : ''
           }
-          <td class="description-cell">${buildSterlingDescriptionHtml(row.descriptionLines)}</td>
+          <td class="description-cell">${buildSterlingDescriptionHtml(getSterlingDescriptionGroups(row))}</td>
           <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatSterlingTableAmount(row.labor) : '&nbsp;'}</td>
           <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatSterlingTableAmount(row.unitPrice) : '&nbsp;'}</td>
         </tr>
@@ -3430,6 +3424,14 @@ const sterlingMechanicalInvoiceStyles = `
     display: block;
     width: 100%;
   }
+  .description-sentence {
+    display: block;
+    margin: 0 0 1.5mm;
+    text-align: justify;
+    text-align-last: left;
+    text-justify: inter-word;
+  }
+  .description-sentence:last-child { margin-bottom: 0; }
   .continuation-cell {
     color: transparent;
   }
