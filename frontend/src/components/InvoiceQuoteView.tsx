@@ -3479,6 +3479,7 @@ const sterlingMechanicalInvoiceStyles = `
     page-break-inside: avoid;
   }
   .observation-box {
+    min-width: 0;
     min-height: 28mm;
     border: 0;
     padding: 0;
@@ -3489,10 +3490,15 @@ const sterlingMechanicalInvoiceStyles = `
     margin-bottom: 7mm;
   }
   .observation-text {
+    width: 100%;
+    max-width: 100%;
     min-height: 13mm;
     border: 1.2px solid #111111;
     padding: 3mm;
+    box-sizing: border-box;
     white-space: pre-line;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     line-height: 1.45;
     font-size: 14px;
   }
