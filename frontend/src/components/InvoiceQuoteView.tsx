@@ -3189,7 +3189,7 @@ const sterlingMechanicalInvoiceStyles = `
     width: 210mm;
     height: 297mm;
     margin: 0;
-    padding: 12mm ${pdfPageHorizontalMarginCss} 16mm;
+    padding: 12mm ${pdfPageHorizontalMarginCss} 8mm;
     background: #ffffff;
     display: flex;
     flex-direction: column;
@@ -3205,8 +3205,8 @@ const sterlingMechanicalInvoiceStyles = `
     flex-basis: 0;
   }
   .ryan-sheet-foot {
-    flex: 0 0 16mm;
-    min-height: 16mm;
+    flex: 0 0 4mm;
+    min-height: 4mm;
   }
   .sterling-invoice-content {
     flex: 1 1 auto;
