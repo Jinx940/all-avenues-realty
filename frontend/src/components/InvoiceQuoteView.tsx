@@ -2807,7 +2807,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
 };
 
 const splitLongSterlingInvoiceLine = (value: string) => {
-  const maxLength = 170;
+  const maxLength = 38;
 
   if (value.length <= maxLength) {
     return [value];
@@ -3393,8 +3393,10 @@ const sterlingMechanicalInvoiceStyles = `
   .invoice-table td {
     padding-top: 4mm;
     padding-bottom: 1.5mm;
-    font-size: 15px;
-    line-height: 1.5;
+    font-family: "Lucida Console", Monaco, "Liberation Mono", monospace;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.35;
   }
   .invoice-row {
     break-inside: avoid;
