@@ -3501,25 +3501,33 @@ const sterlingMechanicalInvoiceStyles = `
   }
   .total-line {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-columns: minmax(0, 1fr) 29mm;
     column-gap: 3mm;
     min-height: 8.5mm;
     align-items: center;
     border-bottom: 1px solid #c9c9c9;
     font-size: 14px;
   }
-  .total-line span {
+  .total-line > span {
     padding: 0 1mm;
   }
-  .total-line span:first-child {
+  .total-line > span:first-child {
     font-weight: 800;
   }
-  .total-line span:last-child {
+  .total-line > span:last-child {
     text-align: right;
     font-weight: 400;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
+  .total-amount {
+    display: grid;
+    grid-template-columns: 4mm minmax(0, 1fr);
+    column-gap: 1.5mm;
+    align-items: baseline;
+  }
+  .total-currency { text-align: center; }
+  .total-value { text-align: right; }
   .total-line.total {
     margin-top: 2mm;
     border-top: 2px solid #111111;
@@ -3528,7 +3536,7 @@ const sterlingMechanicalInvoiceStyles = `
     font-size: 18px;
     font-weight: 800;
   }
-  .total-line.total span:last-child {
+  .total-line.total > span:last-child {
     font-weight: 800;
   }
   .footer-note {
@@ -3628,6 +3636,12 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
   const attachmentTailBlocks = buildAttachmentTailBlocks(data.attachments);
   const billToHtml = escapeHtml(data.billTo.trim()).replace(/\r?\n/g, '<br>');
   const observationHtml = escapeHtml(data.observation.trim()).replace(/\r?\n/g, '<br>');
+  const summaryAmountHtml = (value: number) => `
+    <span class="total-amount">
+      <span class="total-currency">$</span>
+      <span class="total-value">${formatPdfNumber(value)}</span>
+    </span>
+  `;
   const tableColumnsHtml = `
     <colgroup>
       <col />
@@ -3660,23 +3674,23 @@ const buildSterlingMechanicalInvoiceHtml = (data: SterlingMechanicalInvoiceData)
         <div class="totals-panel">
           <div class="total-line">
             <span>Labor Total</span>
-            <span>${formatPdfMoney(data.laborTotal)}</span>
+            ${summaryAmountHtml(data.laborTotal)}
           </div>
           <div class="total-line">
             <span>Job Total</span>
-            <span>${formatPdfMoney(data.jobTotal)}</span>
+            ${summaryAmountHtml(data.jobTotal)}
           </div>
           <div class="total-line">
             <span>Expenses</span>
-            <span>${formatPdfMoney(data.expenses)}</span>
+            ${summaryAmountHtml(data.expenses)}
           </div>
           <div class="total-line">
             <span>Invoicing Services</span>
-            <span>${formatPdfMoney(data.invoicingServices)}</span>
+            ${summaryAmountHtml(data.invoicingServices)}
           </div>
           <div class="total-line total">
             <span>Total Due</span>
-            <span>${formatPdfMoney(data.totalDue)}</span>
+            ${summaryAmountHtml(data.totalDue)}
           </div>
         </div>
       </div>
