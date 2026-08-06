@@ -25,6 +25,11 @@ type DocumentCenterItem = {
   documentId?: string;
 };
 
+export type DocumentCenterDeleteItem = Pick<
+  DocumentCenterItem,
+  'id' | 'kind' | 'documentNumber' | 'fileName' | 'jobId' | 'fileId' | 'documentId'
+>;
+
 type DocumentPreviewMode = 'image' | 'pdf' | 'frame' | 'unsupported';
 type DocumentOwnerFilter = 'ALL' | GeneratedDocumentHistoryItem['ownerLabel'];
 
@@ -108,6 +113,7 @@ export function DocumentCenterView({
   canDelete,
   onDeleteReceipt,
   onDeleteDocument,
+  onDeleteItems,
 }: {
   properties: PropertySummary[];
   jobs: JobRow[];
@@ -118,6 +124,7 @@ export function DocumentCenterView({
     documentId: string,
     options: { kind: 'Invoice' | 'Quote'; documentNumber: string; fileName: string },
   ) => void;
+  onDeleteItems: (items: DocumentCenterDeleteItem[]) => void;
 }) {
   const [search, setSearch] = useState('');
   const [propertyId, setPropertyId] = useState('');
@@ -125,6 +132,7 @@ export function DocumentCenterView({
   const [owner, setOwner] = useState<DocumentOwnerFilter>('ALL');
   const [dateRange, setDateRange] = useState<'ALL' | 'TODAY' | '7' | '30'>('ALL');
   const [previewItem, setPreviewItem] = useState<DocumentCenterItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const items = useMemo<DocumentCenterItem[]>(() => {
     const generatedItems = documents.map<DocumentCenterItem>((document) => ({
@@ -198,6 +206,34 @@ export function DocumentCenterView({
     });
   }, [items, search, propertyId, kind, owner, dateRange]);
 
+  const selectableItems = useMemo(
+    () => filteredItems.filter((item) => item.kind !== 'Receipt' || (item.jobId && item.fileId)),
+    [filteredItems],
+  );
+  const selectedItems = useMemo(
+    () => selectableItems.filter((item) => selectedIds.has(item.id)),
+    [selectableItems, selectedIds],
+  );
+  const allFilteredSelected = selectableItems.length > 0 && selectedItems.length === selectableItems.length;
+
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  const toggleAllFiltered = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allFilteredSelected) selectableItems.forEach((item) => next.delete(item.id));
+      else selectableItems.forEach((item) => next.add(item.id));
+      return next;
+    });
+  };
+
   const stats = {
     total: filteredItems.length,
     invoices: filteredItems.filter((item) => item.kind === 'Invoice').length,
@@ -262,6 +298,20 @@ export function DocumentCenterView({
                 <span>Find documents fast</span>
               </h3>
             </div>
+            {canDelete ? (
+              <div className="document-bulk-actions">
+                <span>{selectedItems.length} selected</span>
+                <button
+                  type="button"
+                  className="ghost-button danger"
+                  disabled={!selectedItems.length}
+                  onClick={() => onDeleteItems(selectedItems)}
+                >
+                  <UiIcon name="trash" size={15} />
+                  Delete selected
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div className="document-center-filters">
@@ -331,6 +381,16 @@ export function DocumentCenterView({
 
           <div className="document-center-table-shell">
             <div className="document-center-table document-center-row document-center-row--header">
+              <span className="document-selection-cell">
+                {canDelete ? (
+                  <input
+                    type="checkbox"
+                    aria-label="Select all filtered documents"
+                    checked={allFilteredSelected}
+                    onChange={toggleAllFiltered}
+                  />
+                ) : null}
+              </span>
               <span>No.</span>
               <span>Type</span>
               <span>Owner</span>
@@ -343,6 +403,16 @@ export function DocumentCenterView({
             {filteredItems.length ? (
               filteredItems.map((item) => (
                 <div key={`${item.kind}-${item.id}`} className="document-center-table document-center-row">
+                  <span className="document-selection-cell">
+                    {canDelete ? (
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${item.kind} ${item.documentNumber}`}
+                        checked={selectedIds.has(item.id)}
+                        onChange={() => toggleItemSelection(item.id)}
+                      />
+                    ) : null}
+                  </span>
                   <span className="document-center-number">{item.documentNumber}</span>
                   <span>
                     <span className={`pill ${documentKindClassFor(item.kind)}`}>

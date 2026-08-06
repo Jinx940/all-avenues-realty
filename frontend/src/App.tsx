@@ -45,6 +45,7 @@ import type {
 } from './types';
 import type { JobFormState } from './components/JobsView';
 import type { PropertyFormState } from './components/PropertiesView';
+import type { DocumentCenterDeleteItem } from './components/DocumentCenterView';
 import { AdvanceCashAlertsBell } from './components/AdvanceCashAlertsBell';
 import { UiIcon } from './components/UiIcon';
 import { ConfirmDialog } from './components/ConfirmDialog';
@@ -1311,6 +1312,57 @@ export default function App() {
     });
   };
 
+  const deleteDocumentCenterItems = (items: DocumentCenterDeleteItem[]) => {
+    if (!items.length) return;
+    if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can delete saved documents.')) return;
+
+    openConfirmDialog({
+      title: 'Delete selected documents',
+      text: `Permanently delete ${items.length} selected document${items.length === 1 ? '' : 's'}? This action cannot be undone.`,
+      confirmLabel: `Delete ${items.length}`,
+      tone: 'danger',
+      onConfirm: async () => {
+        let deletedCount = 0;
+        let failedCount = 0;
+
+        for (const item of items) {
+          try {
+            if (item.kind === 'Receipt') {
+              if (!item.jobId || !item.fileId) {
+                failedCount += 1;
+                continue;
+              }
+              await requestJson<{ message: string }>(`/api/jobs/${item.jobId}/files/${item.fileId}`, {
+                method: 'DELETE',
+              });
+            } else {
+              if (!item.documentId) {
+                failedCount += 1;
+                continue;
+              }
+              await requestJson<{ message: string }>(`/api/generated-documents/${item.documentId}`, {
+                method: 'DELETE',
+              });
+            }
+            deletedCount += 1;
+          } catch {
+            failedCount += 1;
+          }
+        }
+
+        await refreshAll(
+          {
+            type: failedCount ? 'error' : 'success',
+            text: failedCount
+              ? `${deletedCount} document(s) deleted; ${failedCount} could not be deleted.`
+              : `${deletedCount} document(s) deleted successfully.`,
+          },
+          { includeDocuments: true },
+        );
+      },
+    });
+  };
+
   const addPropertyStory = () => {
     const story = createEmptyPropertyStoryForm(`Floor ${propertyForm.stories.length + 1}`);
     setPropertyForm((current) => ({
@@ -2224,6 +2276,7 @@ export default function App() {
               });
             }}
             onDeleteDocument={(documentId, options) => deleteGeneratedDocument(documentId, options)}
+            onDeleteItems={deleteDocumentCenterItems}
           />
         ) : null}
 
