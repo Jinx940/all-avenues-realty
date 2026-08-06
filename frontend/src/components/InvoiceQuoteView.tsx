@@ -4275,15 +4275,15 @@ const moralesInvoiceStyles = `
   }
   .morales-header {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8mm;
+    grid-template-columns: 44% minmax(0, 1fr);
+    gap: 10mm;
     align-items: center;
-    min-height: 38mm;
-    padding: 0 2mm 2mm;
+    min-height: 54mm;
+    padding: 0 2mm 4mm;
   }
   .logo-wrap {
-    width: 56mm;
-    height: 38mm;
+    width: 70mm;
+    height: 50mm;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -4291,16 +4291,60 @@ const moralesInvoiceStyles = `
     justify-self: center;
   }
   .logo-wrap img {
-    width: 56mm;
-    height: 38mm;
+    width: 70mm;
+    height: 50mm;
     object-fit: contain;
     display: block;
   }
+  .morales-header-copy {
+    min-width: 0;
+    display: grid;
+    gap: 5mm;
+    align-content: center;
+  }
+  .header-invoice-block {
+    display: grid;
+    justify-items: start;
+    gap: 2mm;
+  }
+  .header-invoice-block::after {
+    content: "";
+    grid-row: 2;
+    width: 18mm;
+    height: 1px;
+    background: rgb(239, 108, 0);
+  }
+  .header-invoice-word {
+    grid-row: 1;
+    font-size: 30px;
+    line-height: 0.95;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+  }
+  .header-invoice-number {
+    grid-row: 3;
+    display: flex;
+    align-items: baseline;
+    gap: 2mm;
+    white-space: nowrap;
+  }
+  .header-invoice-number-label {
+    font-size: 20px;
+    line-height: 1;
+    font-weight: 700;
+  }
+  .header-invoice-number-value {
+    color: rgb(239, 108, 0);
+    font-size: 23px;
+    line-height: 1;
+    font-weight: 800;
+    font-style: normal;
+    font-variant-numeric: tabular-nums;
+  }
   .contact-list {
     display: grid;
-    gap: 2.8mm;
-    width: min(100%, 76mm);
-    justify-self: center;
+    gap: 3mm;
+    width: 100%;
     color: rgb(17, 17, 17);
   }
   .contact-row {
@@ -4316,52 +4360,11 @@ const moralesInvoiceStyles = `
     width: 4.4mm;
     height: 4.4mm;
     display: block;
-    color: rgb(17, 17, 17);
+    color: rgb(239, 108, 0);
   }
   .contact-row span {
     display: block;
     overflow-wrap: anywhere;
-  }
-  .title-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 13mm;
-    padding: 2mm;
-    border: 0;
-    margin-bottom: 3mm;
-  }
-  .invoice-word {
-    font-size: 22px;
-    line-height: 1;
-    font-weight: 800;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-    margin-right: 2.5mm;
-  }
-  .invoice-title-block {
-    min-width: 0;
-    display: flex;
-    gap: 1.5mm;
-    align-items: baseline;
-    flex-wrap: nowrap;
-    font-size: 22px;
-    line-height: 1;
-    white-space: nowrap;
-  }
-  .invoice-number-label {
-    position: relative;
-    top: -1.2mm;
-    font-size: 22px;
-    line-height: 1;
-    font-weight: 700;
-  }
-  .invoice-number-value {
-    font-size: 22px;
-    line-height: 1;
-    font-weight: 800;
-    font-style: normal;
-    font-variant-numeric: tabular-nums;
   }
   .invoice-table,
   .totals-table {
@@ -4731,30 +4734,30 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
       <div class="logo-wrap">
         <img src="${escapeHtml(moralesLogoUrl)}" alt="Morales Home Improvement logo">
       </div>
-      <div class="contact-list">
-        <div class="contact-row">
-          ${moralesContactIconSvg('location')}
-          <span>3820 Superior Ave, Cleveland, OH 44114</span>
+      <div class="morales-header-copy">
+        <div class="header-invoice-block">
+          <span class="header-invoice-word">INVOICE</span>
+          <div class="header-invoice-number">
+            <span class="header-invoice-number-label">Nro.</span>
+            <span class="header-invoice-number-value">${escapeHtml(data.invoiceNumber)}</span>
+          </div>
         </div>
-        <div class="contact-row">
-          ${moralesContactIconSvg('mail')}
-          <span>Moralesroofing520@gmail.com</span>
-        </div>
-        <div class="contact-row">
-          ${moralesContactIconSvg('phone')}
-          <span>(216) 926-1765</span>
+        <div class="contact-list">
+          <div class="contact-row">
+            ${moralesContactIconSvg('location')}
+            <span>3820 Superior Ave, Cleveland, OH 44114</span>
+          </div>
+          <div class="contact-row">
+            ${moralesContactIconSvg('mail')}
+            <span>Moralesroofing520@gmail.com</span>
+          </div>
+          <div class="contact-row">
+            ${moralesContactIconSvg('phone')}
+            <span>(216) 926-1765</span>
+          </div>
         </div>
       </div>
     </header>
-  `;
-  const titleHtml = `
-    <section class="title-row">
-      <div class="invoice-title-block">
-        <span class="invoice-word">INVOICE</span>
-        <span class="invoice-number-label">Nro.</span>
-        <span class="invoice-number-value">${escapeHtml(data.invoiceNumber)}</span>
-      </div>
-    </section>
   `;
   const customerDetailsHtml = `
     <section class="customer-details">
@@ -4860,7 +4863,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
       <div class="${pageClassName}">
         ${options.isFirstPage ? headerHtml : ''}
         <main class="sheet-body">
-          ${options.isFirstPage ? `${titleHtml}${customerDetailsHtml}` : ''}
+          ${options.isFirstPage ? customerDetailsHtml : ''}
           ${tableHtml}
           ${options.tailHtml ?? ''}
           ${attachmentRowsHtml}
