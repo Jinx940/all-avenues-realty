@@ -4334,6 +4334,8 @@ const moralesInvoiceStyles = `
     font-weight: 700;
   }
   .header-invoice-number-value {
+    position: relative;
+    top: 0.8mm;
     color: rgb(239, 108, 0);
     font-size: 20px;
     line-height: 1;
