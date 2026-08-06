@@ -765,11 +765,11 @@ const estimateLegacyChunkUnits = (chunk: LegacyServiceChunk) =>
   chunk.sentences.reduce((sum, sentence) => sum + estimateLegacySentenceUnits(sentence), 0) +
   Math.max(0, Math.ceil(chunk.service.length / 18) - 1) * 0.12;
 
-const buildLegacyPageCapacities = (pageCount: number, compact = false) => {
-  const firstOnlyPageLimit = compact ? 22 : 14.8;
-  const firstPageLimit = compact ? 31 : 18.9;
-  const middlePageLimit = compact ? 44 : 24.9;
-  const lastContinuePageLimit = compact ? 34 : 22;
+const buildLegacyPageCapacities = (pageCount: number) => {
+  const firstOnlyPageLimit = 14.8;
+  const firstPageLimit = 18.9;
+  const middlePageLimit = 24.9;
+  const lastContinuePageLimit = 22;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -827,13 +827,13 @@ const fitLegacyChunk = (
   };
 };
 
-const paginateLegacyServiceGroups = (groups: LegacyServiceGroup[], compact = false) => {
+const paginateLegacyServiceGroups = (groups: LegacyServiceGroup[]) => {
   if (!groups.length) return [[]];
 
   const maxPageCount = groups.reduce((total, group) => total + group.sentences.length, 0) + 1;
 
   for (let pageCount = 1; pageCount <= maxPageCount; pageCount += 1) {
-    const capacities = buildLegacyPageCapacities(pageCount, compact);
+    const capacities = buildLegacyPageCapacities(pageCount);
     const pages = capacities.map(() => [] as LegacyServiceChunk[]);
     let pageIndex = 0;
     let usedUnits = 0;
@@ -5577,14 +5577,174 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     }
   };
 
-  const renderedPageRows = isRyanInvoice
+  const buildRyanQuotePageHtml = (
+    chunks: LegacyServiceChunk[],
+    options: { isFirstPage: boolean; includeSummary: boolean },
+  ) => `
+    <div class="page legacy-page ryan-quote-page ${options.isFirstPage ? '' : 'legacy-page--continue'} ${options.includeSummary ? 'legacy-page--last' : ''}">
+      ${options.isFirstPage ? headerHtml : ''}
+      <main class="invoice-body ${options.isFirstPage ? '' : 'invoice-body--continue'}">
+        ${options.isFirstPage ? paymentDetailsHtml : ''}
+        <div class="legacy-table-shell ${options.includeSummary ? 'legacy-table-shell--last' : ''}">
+          <table class="ryan-quote-table">
+            ${options.isFirstPage ? tableHeadHtml : ''}
+            ${buildLegacyRowsHtml(chunks)}
+            ${options.includeSummary ? summaryRowsHtml : ''}
+          </table>
+        </div>
+      </main>
+      <div class="legacy-footer-space" aria-hidden="true"></div>
+    </div>
+  `;
+
+  const renderRyanQuotePagesHtml = () => {
+    const groups = buildLegacyServiceGroups(data.selectedItems);
+    const fallbackPage: LegacyServiceChunk[] = groups.map((group) => ({
+      ...group,
+      continuation: false,
+      showPrice: true,
+    }));
+
+    if (typeof document === 'undefined') {
+      return buildRyanQuotePageHtml(fallbackPage, { isFirstPage: true, includeSummary: true });
+    }
+
+    const measurementHost = document.createElement('div');
+    Object.assign(measurementHost.style, {
+      position: 'fixed',
+      left: '-250vw',
+      top: '0',
+      width: '210mm',
+      minHeight: '297mm',
+      visibility: 'hidden',
+      pointerEvents: 'none',
+      zIndex: '-1',
+    });
+    document.body.appendChild(measurementHost);
+
+    const pageFits = (
+      chunks: LegacyServiceChunk[],
+      options: { isFirstPage: boolean; includeSummary: boolean },
+    ) => {
+      measurementHost.innerHTML = `<style>${legacySterlingPdfStyles}</style>${buildRyanQuotePageHtml(chunks, options)}`;
+      const body = measurementHost.querySelector<HTMLElement>('.invoice-body');
+      const table = measurementHost.querySelector<HTMLElement>('.ryan-quote-table');
+
+      if (!body || !table) return true;
+
+      const bodyRect = body.getBoundingClientRect();
+      const tableRect = table.getBoundingClientRect();
+      return tableRect.bottom <= bodyRect.bottom - 1;
+    };
+
+    const pages: LegacyServiceChunk[][] = [[]];
+
+    try {
+      let pageIndex = 0;
+
+      for (const group of groups) {
+        let sentenceIndex = 0;
+
+        while (sentenceIndex < group.sentences.length) {
+          const currentPage = pages[pageIndex];
+          const isFirstPage = pageIndex === 0;
+          let bestSentenceCount = 0;
+          let low = 1;
+          let high = group.sentences.length - sentenceIndex;
+
+          while (low <= high) {
+            const mid = Math.floor((low + high) / 2);
+            const candidateChunk: LegacyServiceChunk = {
+              ...group,
+              sentences: group.sentences.slice(sentenceIndex, sentenceIndex + mid),
+              continuation: sentenceIndex > 0,
+              showPrice: sentenceIndex === 0,
+            };
+
+            if (pageFits([...currentPage, candidateChunk], { isFirstPage, includeSummary: false })) {
+              bestSentenceCount = mid;
+              low = mid + 1;
+            } else {
+              high = mid - 1;
+            }
+          }
+
+          if (bestSentenceCount === 0) {
+            if (currentPage.length === 0) {
+              currentPage.push({
+                ...group,
+                sentences: [group.sentences[sentenceIndex]],
+                continuation: sentenceIndex > 0,
+                showPrice: sentenceIndex === 0,
+              });
+              sentenceIndex += 1;
+            }
+
+            pages.push([]);
+            pageIndex += 1;
+            continue;
+          }
+
+          currentPage.push({
+            ...group,
+            sentences: group.sentences.slice(sentenceIndex, sentenceIndex + bestSentenceCount),
+            continuation: sentenceIndex > 0,
+            showPrice: sentenceIndex === 0,
+          });
+          sentenceIndex += bestSentenceCount;
+
+          if (sentenceIndex < group.sentences.length) {
+            pages.push([]);
+            pageIndex += 1;
+          }
+        }
+      }
+
+      while (pages.length > 1 && pages[pages.length - 1].length === 0) pages.pop();
+
+      const lastPageIndex = pages.length - 1;
+      if (!pageFits(pages[lastPageIndex], { isFirstPage: lastPageIndex === 0, includeSummary: true })) {
+        const summaryPageChunks: LegacyServiceChunk[] = [];
+
+        for (let sourceIndex = pages.length - 1; sourceIndex >= 0; sourceIndex -= 1) {
+          const sourcePage = pages[sourceIndex];
+
+          while (sourcePage.length > 0) {
+            const candidate = sourcePage[sourcePage.length - 1];
+            if (!pageFits([candidate, ...summaryPageChunks], { isFirstPage: false, includeSummary: true })) break;
+            summaryPageChunks.unshift(sourcePage.pop() as LegacyServiceChunk);
+          }
+
+          if (sourcePage.length > 0) break;
+        }
+
+        while (pages.length > 1 && pages[pages.length - 1].length === 0) pages.pop();
+        pages.push(summaryPageChunks);
+      }
+
+      return pages
+        .map((chunks, index) =>
+          buildRyanQuotePageHtml(chunks, {
+            isFirstPage: index === 0,
+            includeSummary: index === pages.length - 1,
+          }),
+        )
+        .join('');
+    } finally {
+      measurementHost.remove();
+    }
+  };
+
+  const renderedPageRows = isRyanInvoice || isRyanQuote
     ? []
-    : paginateLegacyServiceGroups(buildLegacyServiceGroups(data.selectedItems), isRyanQuote).map((pageChunks) =>
+    : paginateLegacyServiceGroups(buildLegacyServiceGroups(data.selectedItems)).map((pageChunks) =>
         buildLegacyRowsHtml(pageChunks),
       );
 
   const pagesHtml = isRyanInvoice
     ? renderRyanPagesHtml()
+    : isRyanQuote
+      ? renderRyanQuotePagesHtml()
     : renderedPageRows
         .map((rowsHtml, pageIndex) => {
           const isFirstPage = pageIndex === 0;
