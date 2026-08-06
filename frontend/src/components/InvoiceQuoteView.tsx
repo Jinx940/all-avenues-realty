@@ -4357,6 +4357,7 @@ const moralesInvoiceStyles = `
     gap: 4mm;
     align-items: baseline;
     flex-wrap: nowrap;
+    justify-self: center;
   }
   .invoice-number-line {
     margin: 0;
@@ -4385,7 +4386,7 @@ const moralesInvoiceStyles = `
     font-size: 11px;
     line-height: 1;
     white-space: nowrap;
-    justify-self: end;
+    justify-self: center;
   }
   .date-line span {
     font-weight: 700;
