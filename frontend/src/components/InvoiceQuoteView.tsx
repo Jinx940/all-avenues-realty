@@ -4482,7 +4482,7 @@ const moralesInvoiceStyles = `
     border-right: 0;
   }
   .totals-table td {
-    border: 1px solid rgb(17, 17, 17);
+    border: 0;
   }
   .invoice-table {
     margin-top: 0;
@@ -4578,25 +4578,47 @@ const moralesInvoiceStyles = `
     border: 0;
   }
   .totals-table td {
-    height: 7.5mm;
-    padding: 1mm 2mm;
+    height: 7mm;
+    padding: 1mm 1.5mm;
     font-size: 11px;
     line-height: 1.1;
     vertical-align: middle;
-    text-align: center;
+    border-bottom: 1px solid rgb(205, 205, 205);
   }
   .totals-table td:first-child {
-    width: 41mm;
-    font-weight: 800;
+    width: 36mm;
+    text-align: left;
+    font-weight: 700;
   }
   .totals-table td:last-child {
-    text-align: center;
+    width: 31mm;
+    text-align: right;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
+  .totals-table .total-amount {
+    display: grid;
+    grid-template-columns: 4mm minmax(0, 1fr);
+    column-gap: 1.5mm;
+    align-items: baseline;
+    width: 100%;
+    font-weight: 400;
+  }
+  .totals-table .total-currency {
+    text-align: center;
+  }
+  .totals-table .total-value {
+    text-align: right;
+  }
   .totals-table .total-due td {
-    height: 9mm;
-    font-size: 13px;
+    height: 10mm;
+    padding-top: 2mm;
+    border-top: 1.5px solid rgb(17, 17, 17);
+    border-bottom: 0;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .totals-table .total-due .total-amount {
     font-weight: 800;
   }
   .thank-you {
@@ -4780,6 +4802,12 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
       </div>
     </section>
   `;
+  const summaryAmountHtml = (value: number) => `
+    <span class="total-amount">
+      <span class="total-currency">$</span>
+      <span class="total-value">${formatPdfNumber(value)}</span>
+    </span>
+  `;
   const summaryHtml = `
     <section class="last-section">
       <div class="observation-box">
@@ -4792,23 +4820,23 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
         <tbody>
           <tr>
             <td>Labor Total</td>
-            <td>${formatPdfMoney(data.laborTotal)}</td>
+            <td>${summaryAmountHtml(data.laborTotal)}</td>
           </tr>
           <tr>
             <td>Job Total</td>
-            <td>${formatPdfMoney(data.jobTotal)}</td>
+            <td>${summaryAmountHtml(data.jobTotal)}</td>
           </tr>
           <tr>
             <td>Expenses</td>
-            <td>${formatPdfMoney(data.expenses)}</td>
+            <td>${summaryAmountHtml(data.expenses)}</td>
           </tr>
           <tr>
             <td>Invoicing Services</td>
-            <td>${formatPdfMoney(data.invoicingServices)}</td>
+            <td>${summaryAmountHtml(data.invoicingServices)}</td>
           </tr>
           <tr class="total-due">
             <td>Total Due</td>
-            <td>${formatPdfMoney(data.totalDue)}</td>
+            <td>${summaryAmountHtml(data.totalDue)}</td>
           </tr>
         </tbody>
       </table>
