@@ -4365,7 +4365,7 @@ const moralesInvoiceStyles = `
   }
   .invoice-number-line > span {
     position: relative;
-    top: -1.2mm;
+    top: -2.2mm;
   }
   .date-line {
     display: flex;
