@@ -4414,12 +4414,11 @@ const moralesInvoiceStyles = `
   }
   .customer-detail {
     min-width: 0;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    display: flex;
     gap: 2mm;
-    align-items: baseline;
+    align-items: center;
     font-size: 11px;
-    line-height: 1.25;
+    line-height: 1.2;
   }
   .customer-detail--address {
     grid-area: address;
@@ -4435,14 +4434,18 @@ const moralesInvoiceStyles = `
     text-align: left;
   }
   .customer-detail strong {
+    flex: 0 0 auto;
     white-space: nowrap;
     font-weight: 800;
+    line-height: 1.2;
   }
   .customer-detail span {
     min-width: 0;
+    flex: 1 1 auto;
     overflow-wrap: anywhere;
     word-break: break-word;
     font-weight: 400;
+    line-height: 1.2;
   }
   .invoice-table th,
   .invoice-table td {
