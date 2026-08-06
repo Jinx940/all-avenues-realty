@@ -4335,7 +4335,7 @@ const moralesInvoiceStyles = `
   }
   .title-row h1 {
     margin: 0;
-    font-size: 30px;
+    font-size: 22px;
     line-height: 1;
     font-weight: 800;
     letter-spacing: 0.3px;
@@ -4353,13 +4353,13 @@ const moralesInvoiceStyles = `
     display: flex;
     gap: 1.5mm;
     align-items: center;
-    font-size: 11px;
+    font-size: 22px;
     line-height: 1;
     font-weight: 700;
     white-space: nowrap;
   }
   .invoice-number-line strong {
-    font-size: 13px;
+    font-size: 22px;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
   }
