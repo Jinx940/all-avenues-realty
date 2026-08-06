@@ -766,10 +766,10 @@ const estimateLegacyChunkUnits = (chunk: LegacyServiceChunk) =>
   Math.max(0, Math.ceil(chunk.service.length / 18) - 1) * 0.12;
 
 const buildLegacyPageCapacities = (pageCount: number, compact = false) => {
-  const firstOnlyPageLimit = compact ? 19.2 : 14.8;
-  const firstPageLimit = compact ? 23.5 : 18.9;
-  const middlePageLimit = compact ? 28 : 24.9;
-  const lastContinuePageLimit = compact ? 25 : 22;
+  const firstOnlyPageLimit = compact ? 22 : 14.8;
+  const firstPageLimit = compact ? 31 : 18.9;
+  const middlePageLimit = compact ? 44 : 24.9;
+  const lastContinuePageLimit = compact ? 34 : 22;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -5308,10 +5308,10 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .legacy-page--continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .legacy-page--last { padding-bottom: ${pdfPageVerticalMarginCss}; }
     .legacy-footer-space { flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; overflow: hidden; }
-    .ryan-quote-page { padding-top: 10mm; padding-bottom: 8mm; }
-    .ryan-quote-page.legacy-page--continue { padding-top: 10mm; padding-bottom: 8mm; }
-    .ryan-quote-page.legacy-page--last { padding-bottom: 8mm; }
-    .ryan-quote-page .legacy-footer-space { flex-basis: 6mm; min-height: 6mm; }
+    .page.ryan-quote-page { padding-top: 4mm !important; padding-bottom: 4mm !important; }
+    .page.ryan-quote-page.legacy-page--continue { padding-top: 4mm !important; padding-bottom: 4mm !important; }
+    .page.ryan-quote-page.legacy-page--last { padding-bottom: 4mm !important; }
+    .ryan-quote-page .legacy-footer-space { flex-basis: 2mm; min-height: 2mm; }
     .ryan-body-page { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .ryan-body-page.legacy-page--continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .ryan-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -5615,7 +5615,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
               <div class="invoice-body invoice-body--continue">
                 <div class="legacy-table-shell ${isLastPage ? 'legacy-table-shell--last' : ''}">
                   <table class="${tableClassName}">
-                    ${tableHeadHtml}
+                    ${isRyanQuote ? '' : tableHeadHtml}
                     ${rowsHtml}
                     ${isLastPage ? summaryRowsHtml : ''}
                   </table>
