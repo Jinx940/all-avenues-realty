@@ -4265,8 +4265,8 @@ const moralesInvoiceStyles = `
   }
   .morales-header {
     display: grid;
-    grid-template-columns: 62mm minmax(0, 1fr);
-    gap: 14mm;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8mm;
     align-items: center;
     min-height: 38mm;
     padding: 0 2mm 2mm;
@@ -4278,6 +4278,7 @@ const moralesInvoiceStyles = `
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    justify-self: center;
   }
   .logo-wrap img {
     width: 56mm;
@@ -4288,8 +4289,8 @@ const moralesInvoiceStyles = `
   .contact-list {
     display: grid;
     gap: 2.8mm;
-    width: min(100%, 92mm);
-    justify-self: end;
+    width: min(100%, 76mm);
+    justify-self: center;
     color: rgb(17, 17, 17);
   }
   .contact-row {
@@ -4369,7 +4370,6 @@ const moralesInvoiceStyles = `
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
-  .customer-table,
   .invoice-table,
   .totals-table {
     width: 100%;
@@ -4377,34 +4377,55 @@ const moralesInvoiceStyles = `
     table-layout: fixed;
     color: rgb(17, 17, 17);
   }
-  .customer-table {
+  .customer-details {
     margin-bottom: 4mm;
+    border-top: 1.5px solid rgb(17, 17, 17);
+    border-bottom: 1px solid rgb(17, 17, 17);
   }
-  .customer-table th,
-  .customer-table td,
-  .invoice-table th,
-  .invoice-table td,
-  .totals-table td {
-    border: 1px solid rgb(17, 17, 17);
-  }
-  .customer-table th {
-    height: 7mm;
-    padding: 1mm 2.5mm;
+  .customer-details-title {
+    margin: 0;
+    padding: 1.5mm 2.5mm;
+    border-bottom: 1px solid rgb(17, 17, 17);
     font-size: 12px;
     line-height: 1;
-    text-align: left;
     font-weight: 800;
   }
-  .customer-table td {
-    min-height: 7mm;
-    padding: 1.4mm 2.5mm;
+  .customer-details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 12mm;
+    row-gap: 2mm;
+    padding: 2mm 2.5mm;
+  }
+  .customer-detail {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 2mm;
+    align-items: baseline;
     font-size: 11px;
     line-height: 1.25;
-    vertical-align: middle;
   }
-  .customer-table td:first-child {
-    width: 36mm;
+  .customer-detail--address {
+    grid-column: 1 / -1;
+  }
+  .customer-detail strong {
+    white-space: nowrap;
     font-weight: 800;
+  }
+  .customer-detail span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-weight: 400;
+  }
+  .invoice-table th,
+  .invoice-table td {
+    border-left: 0;
+    border-right: 0;
+  }
+  .totals-table td {
+    border: 1px solid rgb(17, 17, 17);
   }
   .invoice-table {
     margin-top: 0;
@@ -4423,6 +4444,8 @@ const moralesInvoiceStyles = `
     text-align: center;
     font-weight: 800;
     vertical-align: middle;
+    border-top: 1.5px solid rgb(17, 17, 17);
+    border-bottom: 1.5px solid rgb(17, 17, 17);
   }
   .invoice-table td {
     min-height: 9mm;
@@ -4434,6 +4457,7 @@ const moralesInvoiceStyles = `
     vertical-align: middle;
     text-align: center;
     overflow-wrap: anywhere;
+    border-bottom: 1px solid rgb(120, 120, 120);
   }
   .invoice-table .description-cell {
     text-align: justify;
@@ -4682,25 +4706,23 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     </section>
   `;
   const customerDetailsHtml = `
-    <table class="customer-table">
-      <thead>
-        <tr><th colspan="2">Customer Details</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Bill To:</td>
-          <td>${escapeHtml(data.customerName || '-')}</td>
-        </tr>
-        <tr>
-          <td>Address:</td>
-          <td>${escapeHtml(data.customerAddress || '-')}</td>
-        </tr>
-        <tr>
-          <td>Property:</td>
-          <td>${escapeHtml(data.propertyName || '-')}</td>
-        </tr>
-      </tbody>
-    </table>
+    <section class="customer-details">
+      <p class="customer-details-title">Customer Details</p>
+      <div class="customer-details-grid">
+        <div class="customer-detail">
+          <strong>Bill To:</strong>
+          <span>${escapeHtml(data.customerName || '-')}</span>
+        </div>
+        <div class="customer-detail">
+          <strong>Property:</strong>
+          <span>${escapeHtml(data.propertyName || '-')}</span>
+        </div>
+        <div class="customer-detail customer-detail--address">
+          <strong>Address:</strong>
+          <span>${escapeHtml(data.customerAddress || '-')}</span>
+        </div>
+      </div>
+    </section>
   `;
   const summaryHtml = `
     <section class="last-section">
@@ -4876,7 +4898,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
 
       const measuredElements = Array.from(
         measurementRoot.querySelectorAll<HTMLElement>(
-          '.title-row, .customer-table, .invoice-table, .invoice-table tr, .invoice-table td, .last-section, .attachment-heading, .attachment-row',
+          '.title-row, .customer-details, .invoice-table, .invoice-table tr, .invoice-table td, .last-section, .attachment-heading, .attachment-row',
         ),
       );
       if (!measuredElements.length) return true;
