@@ -4324,7 +4324,7 @@ const moralesInvoiceStyles = `
   .header-invoice-number {
     grid-row: 3;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 2mm;
     white-space: nowrap;
   }
@@ -4335,7 +4335,7 @@ const moralesInvoiceStyles = `
   }
   .header-invoice-number-value {
     color: rgb(239, 108, 0);
-    font-size: 23px;
+    font-size: 20px;
     line-height: 1;
     font-weight: 800;
     font-style: normal;
