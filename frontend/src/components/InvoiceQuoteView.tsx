@@ -4343,34 +4343,31 @@ const moralesInvoiceStyles = `
     background: rgb(17, 17, 17);
     transform: translateX(-0.5px);
   }
-  .title-row h1 {
-    margin: 0;
+  .invoice-word {
     font-size: 22px;
     line-height: 1;
     font-weight: 800;
     letter-spacing: 0.3px;
     text-transform: uppercase;
+    margin-right: 2.5mm;
   }
   .invoice-title-block {
     min-width: 0;
     display: flex;
-    gap: 4mm;
-    align-items: center;
+    gap: 1.5mm;
+    align-items: baseline;
     flex-wrap: nowrap;
     justify-self: center;
-  }
-  .invoice-number-line {
-    margin: 0;
-    display: flex;
-    gap: 1.5mm;
-    align-items: center;
     font-size: 22px;
     line-height: 1;
-    font-weight: 700;
     white-space: nowrap;
   }
-  .invoice-number-line strong {
+  .invoice-number-label {
+    font-weight: 700;
+  }
+  .invoice-number-value {
     font-size: 22px;
+    line-height: 1;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
   }
@@ -4771,8 +4768,9 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
   const titleHtml = `
     <section class="title-row">
       <div class="invoice-title-block">
-        <h1>INVOICE</h1>
-        <p class="invoice-number-line"><span>Nro.</span><strong>${escapeHtml(data.invoiceNumber)}</strong></p>
+        <span class="invoice-word">INVOICE</span>
+        <span class="invoice-number-label">Nro.</span>
+        <strong class="invoice-number-value">${escapeHtml(data.invoiceNumber)}</strong>
       </div>
       <div class="date-line">
         <span>Date:</span>
