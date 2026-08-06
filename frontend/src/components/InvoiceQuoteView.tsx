@@ -4391,6 +4391,7 @@ const moralesInvoiceStyles = `
   .customer-details {
     margin-bottom: 4mm;
     border: 0;
+    border-top: 1.5px solid rgb(17, 17, 17);
   }
   .customer-details-title {
     margin: 0;
