@@ -4390,19 +4390,19 @@ const moralesInvoiceStyles = `
   }
   .customer-details {
     margin-bottom: 4mm;
-    border-top: 1.5px solid rgb(17, 17, 17);
-    border-bottom: 1px solid rgb(17, 17, 17);
+    border: 0;
   }
   .customer-details-title {
     margin: 0;
     padding: 1.5mm 2.5mm;
-    border-bottom: 1px solid rgb(17, 17, 17);
+    border: 0;
     font-size: 12px;
     line-height: 1;
     font-weight: 800;
     text-align: center;
   }
   .customer-details-grid {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
@@ -4411,6 +4411,16 @@ const moralesInvoiceStyles = `
     column-gap: 12mm;
     row-gap: 2mm;
     padding: 2mm 2.5mm;
+  }
+  .customer-details-grid::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgb(17, 17, 17);
+    transform: translateX(-0.5px);
   }
   .customer-detail {
     min-width: 0;
