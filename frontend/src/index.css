@@ -9511,7 +9511,7 @@ input.invoice-service-check:focus-visible {
 
 .document-center-row {
   display: grid;
-  grid-template-columns: 90px 104px 90px minmax(220px, 1fr) 110px minmax(220px, 1fr) 280px;
+  grid-template-columns: 32px 90px 104px 90px minmax(220px, 1fr) 110px minmax(220px, 1fr) 280px;
   gap: 14px;
   align-items: center;
   padding: 14px 16px;
@@ -9535,10 +9535,36 @@ input.invoice-service-check:focus-visible {
   min-width: 0;
 }
 
-.document-center-row > span:nth-child(4),
-.document-center-row > span:nth-child(6) {
+.document-center-row > span:nth-child(5),
+.document-center-row > span:nth-child(7) {
   display: grid;
   gap: 4px;
+}
+
+.document-selection-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.document-selection-cell input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #4c88c6;
+  cursor: pointer;
+}
+
+.document-bulk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.document-bulk-actions > span {
+  color: #5c7896;
+  font-weight: 800;
 }
 
 .document-center-row strong {
