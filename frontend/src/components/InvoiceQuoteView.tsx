@@ -4400,10 +4400,14 @@ const moralesInvoiceStyles = `
     font-size: 12px;
     line-height: 1;
     font-weight: 800;
+    text-align: center;
   }
   .customer-details-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "bill property"
+      "address property";
     column-gap: 12mm;
     row-gap: 2mm;
     padding: 2mm 2.5mm;
@@ -4418,11 +4422,15 @@ const moralesInvoiceStyles = `
     line-height: 1.25;
   }
   .customer-detail--address {
-    grid-column: 1 / -1;
+    grid-area: address;
+  }
+  .customer-detail--bill {
+    grid-area: bill;
   }
   .customer-detail--property {
-    align-self: start;
-    padding-top: 1mm;
+    grid-area: property;
+    align-self: center;
+    padding-top: 0;
     justify-self: stretch;
     text-align: left;
   }
@@ -4726,7 +4734,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
     <section class="customer-details">
       <p class="customer-details-title">Customer Details</p>
       <div class="customer-details-grid">
-        <div class="customer-detail">
+        <div class="customer-detail customer-detail--bill">
           <strong>Bill To:</strong>
           <span>${escapeHtml(data.customerName || '-')}</span>
         </div>
