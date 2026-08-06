@@ -4355,7 +4355,7 @@ const moralesInvoiceStyles = `
     min-width: 0;
     display: flex;
     gap: 4mm;
-    align-items: baseline;
+    align-items: center;
     flex-wrap: nowrap;
     justify-self: center;
   }
@@ -4363,7 +4363,7 @@ const moralesInvoiceStyles = `
     margin: 0;
     display: flex;
     gap: 1.5mm;
-    align-items: baseline;
+    align-items: center;
     font-size: 22px;
     line-height: 1;
     font-weight: 700;
@@ -4373,10 +4373,6 @@ const moralesInvoiceStyles = `
     font-size: 22px;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
-  }
-  .invoice-number-line > span {
-    position: relative;
-    top: -1.45mm;
   }
   .date-line {
     display: flex;
