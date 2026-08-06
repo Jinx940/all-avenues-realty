@@ -4335,14 +4335,14 @@ const moralesInvoiceStyles = `
     min-width: 0;
     display: flex;
     gap: 4mm;
-    align-items: baseline;
+    align-items: center;
     flex-wrap: nowrap;
   }
   .invoice-number-line {
     margin: 0;
     display: flex;
     gap: 1.5mm;
-    align-items: baseline;
+    align-items: center;
     font-size: 11px;
     line-height: 1;
     font-weight: 700;
