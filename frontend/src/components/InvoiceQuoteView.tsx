@@ -4158,7 +4158,7 @@ const buildMoralesInvoiceRowsHtml = (rows: SterlingInvoiceRow[]) =>
                 }</td>`
               : ''
           }
-          <td class="description-cell">${buildSterlingDescriptionHtml(row.descriptionLines)}</td>
+          <td class="description-cell">${buildSterlingDescriptionHtml(getSterlingDescriptionGroups(row))}</td>
           <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatPdfMoney(row.labor) : '&nbsp;'}</td>
           <td class="money-cell${showMoney ? '' : ' continuation-cell'}">${showMoney ? formatPdfMoney(row.unitPrice) : '&nbsp;'}</td>
         </tr>
@@ -4170,7 +4170,7 @@ const paginateMoralesInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
   if (!rows.length) return [[]];
 
   const pages: SterlingInvoiceRow[][] = [[]];
-  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 9.8 : 14.4);
+  const pageCapacityFor = (pageIndex: number) => (pageIndex === 0 ? 13.5 : 22.5);
   let pageIndex = 0;
   let usedUnits = 0;
 
@@ -4212,7 +4212,7 @@ const paginateMoralesInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
     }
   });
 
-  const summaryUnits = 7.4;
+  const summaryUnits = 5.8;
   const lastPageIndex = pages.length - 1;
   const lastPageUnits = estimateSterlingRowsUnits(pages[lastPageIndex] ?? []);
 
@@ -4244,18 +4244,18 @@ const moralesInvoiceStyles = `
     width: 210mm;
     height: 297mm;
     margin: 0;
-    padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss};
+    padding: 12mm ${pdfPageHorizontalMarginCss} 8mm;
     background: rgb(255, 255, 255);
     display: grid;
-    grid-template-rows: minmax(0, 1fr) ${pdfFooterReserveCss};
-    row-gap: 4mm;
+    grid-template-rows: minmax(0, 1fr) 8mm;
+    row-gap: 2mm;
     overflow: hidden;
     page-break-after: always;
     break-after: page;
   }
-  .page--header { grid-template-rows: auto minmax(0, 1fr) ${pdfFooterReserveCss}; }
-  .page--footer { grid-template-rows: minmax(0, 1fr) ${pdfFooterReserveCss}; }
-  .page--header.page--footer { grid-template-rows: auto minmax(0, 1fr) ${pdfFooterReserveCss}; }
+  .page--header { grid-template-rows: auto minmax(0, 1fr) 8mm; }
+  .page--footer { grid-template-rows: minmax(0, 1fr) 8mm; }
+  .page--header.page--footer { grid-template-rows: auto minmax(0, 1fr) 8mm; }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .sheet-body {
     min-height: 0;
@@ -4268,12 +4268,12 @@ const moralesInvoiceStyles = `
     grid-template-columns: 62mm minmax(0, 1fr);
     gap: 14mm;
     align-items: center;
-    min-height: 45mm;
-    padding: 0 2mm 4mm;
+    min-height: 38mm;
+    padding: 0 2mm 2mm;
   }
   .logo-wrap {
     width: 56mm;
-    height: 45mm;
+    height: 38mm;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -4281,7 +4281,7 @@ const moralesInvoiceStyles = `
   }
   .logo-wrap img {
     width: 56mm;
-    height: 45mm;
+    height: 38mm;
     object-fit: contain;
     display: block;
   }
@@ -4316,11 +4316,11 @@ const moralesInvoiceStyles = `
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8mm;
     align-items: center;
-    min-height: 16mm;
-    padding: 3mm 2mm;
+    min-height: 13mm;
+    padding: 2mm;
     border-top: 1.5px solid rgb(17, 17, 17);
     border-bottom: 1px solid rgb(17, 17, 17);
-    margin-bottom: 5mm;
+    margin-bottom: 3mm;
   }
   .title-row h1 {
     margin: 0;
@@ -4378,7 +4378,7 @@ const moralesInvoiceStyles = `
     color: rgb(17, 17, 17);
   }
   .customer-table {
-    margin-bottom: 6mm;
+    margin-bottom: 4mm;
   }
   .customer-table th,
   .customer-table td,
@@ -4388,17 +4388,17 @@ const moralesInvoiceStyles = `
     border: 1px solid rgb(17, 17, 17);
   }
   .customer-table th {
-    height: 8.5mm;
-    padding: 1.5mm 3mm;
-    font-size: 13px;
+    height: 7mm;
+    padding: 1mm 2.5mm;
+    font-size: 12px;
     line-height: 1;
     text-align: left;
     font-weight: 800;
   }
   .customer-table td {
-    min-height: 8.4mm;
-    padding: 2mm 3mm;
-    font-size: 12px;
+    min-height: 7mm;
+    padding: 1.4mm 2.5mm;
+    font-size: 11px;
     line-height: 1.25;
     vertical-align: middle;
   }
@@ -4416,33 +4416,43 @@ const moralesInvoiceStyles = `
   .invoice-table col:nth-child(5) { width: 12%; }
   .invoice-table col:nth-child(6) { width: 14%; }
   .invoice-table th {
-    height: 9mm;
-    padding: 1.5mm 2mm;
-    font-size: 11.5px;
+    height: 7.5mm;
+    padding: 1mm 1.5mm;
+    font-size: 10.5px;
     line-height: 1.1;
     text-align: center;
     font-weight: 800;
     vertical-align: middle;
   }
   .invoice-table td {
-    min-height: 11mm;
-    height: 11mm;
-    padding: 2mm;
-    font-size: 10.5px;
-    line-height: 1.3;
+    min-height: 9mm;
+    height: 9mm;
+    padding: 1.5mm;
+    font-size: 9.5px;
+    line-height: 1.25;
+    font-weight: 400;
     vertical-align: middle;
     text-align: center;
     overflow-wrap: anywhere;
   }
   .invoice-table .description-cell {
-    text-align: left;
-    vertical-align: middle;
+    text-align: justify;
+    text-align-last: left;
+    text-justify: inter-word;
+    vertical-align: top;
   }
   .description-stack {
-    display: grid;
-    gap: 1.5mm;
-    align-content: center;
+    display: block;
+    width: 100%;
   }
+  .description-sentence {
+    display: block;
+    margin: 0 0 1mm;
+    text-align: justify;
+    text-align-last: left;
+    text-justify: inter-word;
+  }
+  .description-sentence:last-child { margin-bottom: 0; }
   .money-cell {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -4451,7 +4461,7 @@ const moralesInvoiceStyles = `
     color: transparent;
   }
   .last-section {
-    margin-top: 8mm;
+    margin-top: 5mm;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 67mm;
     gap: 12mm;
@@ -4460,22 +4470,26 @@ const moralesInvoiceStyles = `
     page-break-inside: avoid;
   }
   .observation-box {
-    min-height: 38mm;
+    min-width: 0;
+    min-height: 28mm;
   }
   .observation-title {
-    margin: 0 0 4mm;
-    font-size: 14px;
+    margin: 0 0 2mm;
+    font-size: 13px;
     font-weight: 800;
   }
   .observation-lines {
     display: grid;
-    gap: 5mm;
-    font-size: 12px;
+    gap: 2.5mm;
+    font-size: 11px;
     line-height: 1.35;
     white-space: pre-line;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-weight: 400;
   }
   .observation-lines span {
-    min-height: 8mm;
+    min-height: 6mm;
     border-bottom: 1px solid rgb(17, 17, 17);
   }
   .observation-lines i {
@@ -4484,9 +4498,9 @@ const moralesInvoiceStyles = `
     border-bottom: 1px solid rgb(17, 17, 17);
   }
   .totals-table td {
-    height: 9.2mm;
-    padding: 1.5mm 2.5mm;
-    font-size: 12px;
+    height: 7.5mm;
+    padding: 1mm 2mm;
+    font-size: 11px;
     line-height: 1.1;
     vertical-align: middle;
     text-align: center;
@@ -4501,8 +4515,8 @@ const moralesInvoiceStyles = `
     font-variant-numeric: tabular-nums;
   }
   .totals-table .total-due td {
-    height: 10.5mm;
-    font-size: 14px;
+    height: 9mm;
+    font-size: 13px;
     font-weight: 800;
   }
   .thank-you {
@@ -4522,7 +4536,7 @@ const moralesInvoiceStyles = `
     page-break-inside: avoid;
   }
   .page-footer {
-    min-height: ${pdfFooterReserveCss};
+    min-height: 8mm;
     display: flex;
     align-items: flex-end;
     overflow: hidden;
@@ -4795,7 +4809,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
       const safeLayouts = layouts.length ? layouts : [{ rows: [], tailHtml: '', includeFooter: false }];
       const lastPageIndex = safeLayouts.length - 1;
 
-      if (estimateSterlingRowsUnits(safeLayouts[lastPageIndex].rows) + 7.4 <= (lastPageIndex === 0 ? 9.8 : 14.4)) {
+      if (estimateSterlingRowsUnits(safeLayouts[lastPageIndex].rows) + 5.8 <= (lastPageIndex === 0 ? 13.5 : 22.5)) {
         safeLayouts[lastPageIndex].tailHtml = summaryHtml;
         safeLayouts[lastPageIndex].includeFooter = true;
       } else {
@@ -4987,12 +5001,15 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
 
       const summaryPageIndex = invoiceLayouts.length - 1;
       const summaryLayout = invoiceLayouts[summaryPageIndex];
+      const summaryFitsByEstimate =
+        estimateSterlingRowsUnits(summaryLayout.rows) + 5.8 <=
+        (summaryPageIndex === 0 ? 15 : 24.5);
       if (
         pageFits(summaryLayout.rows, {
           isFirstPage: summaryPageIndex === 0,
           includeFooter: true,
           tailHtml: summaryHtml,
-        })
+        }) || summaryFitsByEstimate
       ) {
         summaryLayout.tailHtml = summaryHtml;
         summaryLayout.includeFooter = true;
