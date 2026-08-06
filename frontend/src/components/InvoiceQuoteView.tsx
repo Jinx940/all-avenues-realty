@@ -4197,6 +4197,16 @@ const paginateMoralesInvoiceRowsByEstimate = (rows: SterlingInvoiceRow[]) => {
       }
 
       if (currentPage.length) {
+        if (availableUnits >= 1.4) {
+          const { chunk, remaining } = splitSterlingRowForCapacity(remainingRow, availableUnits);
+          if (remaining) {
+            currentPage.push(chunk);
+            usedUnits += estimateSterlingInvoiceRowUnits(chunk);
+            remainingRow = remaining;
+            startNextPage();
+            continue;
+          }
+        }
         startNextPage();
         continue;
       }
@@ -4965,9 +4975,12 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
 
       while (low <= high) {
         const mid = Math.floor((low + high) / 2);
+        const candidateGroups = sliceSterlingDescriptionGroups(
+          getSterlingDescriptionGroups(row),
+          mid,
+        ).chunkGroups;
         const candidateChunk: SterlingInvoiceRow = {
-          ...row,
-          descriptionLines: row.descriptionLines.slice(0, mid),
+          ...buildSterlingRowWithDescriptionGroups(row, candidateGroups),
           showDivider: mid >= row.descriptionLines.length ? row.showDivider : false,
         };
 
