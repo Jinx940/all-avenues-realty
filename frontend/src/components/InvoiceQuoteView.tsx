@@ -765,11 +765,11 @@ const estimateLegacyChunkUnits = (chunk: LegacyServiceChunk) =>
   chunk.sentences.reduce((sum, sentence) => sum + estimateLegacySentenceUnits(sentence), 0) +
   Math.max(0, Math.ceil(chunk.service.length / 18) - 1) * 0.12;
 
-const buildLegacyPageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 14.8;
-  const firstPageLimit = 18.9;
-  const middlePageLimit = 24.9;
-  const lastContinuePageLimit = 22;
+const buildLegacyPageCapacities = (pageCount: number, compact = false) => {
+  const firstOnlyPageLimit = compact ? 19.2 : 14.8;
+  const firstPageLimit = compact ? 23.5 : 18.9;
+  const middlePageLimit = compact ? 28 : 24.9;
+  const lastContinuePageLimit = compact ? 25 : 22;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -827,13 +827,13 @@ const fitLegacyChunk = (
   };
 };
 
-const paginateLegacyServiceGroups = (groups: LegacyServiceGroup[]) => {
+const paginateLegacyServiceGroups = (groups: LegacyServiceGroup[], compact = false) => {
   if (!groups.length) return [[]];
 
   const maxPageCount = groups.reduce((total, group) => total + group.sentences.length, 0) + 1;
 
   for (let pageCount = 1; pageCount <= maxPageCount; pageCount += 1) {
-    const capacities = buildLegacyPageCapacities(pageCount);
+    const capacities = buildLegacyPageCapacities(pageCount, compact);
     const pages = capacities.map(() => [] as LegacyServiceChunk[]);
     let pageIndex = 0;
     let usedUnits = 0;
@@ -5196,6 +5196,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         ].join('<br>');
 
   const isRyanInvoice = data.ownerKey === 'ryan' && data.documentType === 'Invoice';
+  const isRyanQuote = data.ownerKey === 'ryan' && data.documentType === 'Quote';
   const ryanGroups = isRyanInvoice ? buildRyanInvoiceGroups(data.selectedItems) : [];
   const ryanColumnLayout = buildRyanInvoiceColumnLayout(ryanGroups);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
@@ -5307,6 +5308,10 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .legacy-page--continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .legacy-page--last { padding-bottom: ${pdfPageVerticalMarginCss}; }
     .legacy-footer-space { flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; overflow: hidden; }
+    .ryan-quote-page { padding-top: 10mm; padding-bottom: 8mm; }
+    .ryan-quote-page.legacy-page--continue { padding-top: 10mm; padding-bottom: 8mm; }
+    .ryan-quote-page.legacy-page--last { padding-bottom: 8mm; }
+    .ryan-quote-page .legacy-footer-space { flex-basis: 6mm; min-height: 6mm; }
     .ryan-body-page { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .ryan-body-page.legacy-page--continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .ryan-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -5574,7 +5579,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
   const renderedPageRows = isRyanInvoice
     ? []
-    : paginateLegacyServiceGroups(buildLegacyServiceGroups(data.selectedItems)).map((pageChunks) =>
+    : paginateLegacyServiceGroups(buildLegacyServiceGroups(data.selectedItems), isRyanQuote).map((pageChunks) =>
         buildLegacyRowsHtml(pageChunks),
       );
 
@@ -5584,10 +5589,11 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         .map((rowsHtml, pageIndex) => {
           const isFirstPage = pageIndex === 0;
           const isLastPage = pageIndex === renderedPageRows.length - 1;
+          const quotePageClass = isRyanQuote ? ' ryan-quote-page' : '';
 
           if (isFirstPage) {
             return `
-              <div class="page legacy-page ${isLastPage ? 'legacy-page--last' : ''}">
+              <div class="page legacy-page${quotePageClass} ${isLastPage ? 'legacy-page--last' : ''}">
                 ${headerHtml}
                 <div class="invoice-body">
                   ${paymentDetailsHtml}
@@ -5605,7 +5611,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           }
 
           return `
-            <div class="page legacy-page legacy-page--continue ${isLastPage ? 'legacy-page--last' : ''}">
+            <div class="page legacy-page legacy-page--continue${quotePageClass} ${isLastPage ? 'legacy-page--last' : ''}">
               <div class="invoice-body invoice-body--continue">
                 <div class="legacy-table-shell ${isLastPage ? 'legacy-table-shell--last' : ''}">
                   <table class="${tableClassName}">
