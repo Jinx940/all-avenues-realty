@@ -4363,6 +4363,10 @@ const moralesInvoiceStyles = `
     font-weight: 800;
     font-variant-numeric: tabular-nums;
   }
+  .invoice-number-line > span {
+    position: relative;
+    top: -1.2mm;
+  }
   .date-line {
     display: flex;
     gap: 1.5mm;
