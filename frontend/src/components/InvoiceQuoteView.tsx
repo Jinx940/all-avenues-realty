@@ -4365,7 +4365,7 @@ const moralesInvoiceStyles = `
   }
   .invoice-number-line > span {
     position: relative;
-    top: -2.2mm;
+    top: -1.45mm;
   }
   .date-line {
     display: flex;
@@ -4550,8 +4550,9 @@ const moralesInvoiceStyles = `
     font-weight: 800;
   }
   .observation-lines {
-    display: grid;
-    gap: 2.5mm;
+    display: block;
+    width: 100%;
+    max-width: 100%;
     font-size: 11px;
     line-height: 1.35;
     white-space: pre-line;
@@ -4560,13 +4561,11 @@ const moralesInvoiceStyles = `
     font-weight: 400;
   }
   .observation-lines span {
-    min-height: 6mm;
-    border-bottom: 1px solid rgb(17, 17, 17);
-  }
-  .observation-lines i {
     display: block;
-    min-height: 0;
-    border-bottom: 1px solid rgb(17, 17, 17);
+    width: 100%;
+    max-width: 100%;
+    min-height: 6mm;
+    border: 0;
   }
   .totals-table td {
     height: 7.5mm;
@@ -4777,9 +4776,6 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
         <p class="observation-title">Observation:</p>
         <div class="observation-lines">
           <span>${observationText ? escapeHtml(observationText).replace(/\r?\n/g, '<br>') : '&nbsp;'}</span>
-          <i></i>
-          <i></i>
-          <i></i>
         </div>
       </div>
       <table class="totals-table">
