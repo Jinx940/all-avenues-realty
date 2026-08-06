@@ -4323,25 +4323,13 @@ const moralesInvoiceStyles = `
     overflow-wrap: anywhere;
   }
   .title-row {
-    position: relative;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8mm;
+    display: flex;
+    justify-content: center;
     align-items: center;
     min-height: 13mm;
     padding: 2mm;
     border: 0;
     margin-bottom: 3mm;
-  }
-  .title-row::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 2mm;
-    bottom: 2mm;
-    width: 1px;
-    background: rgb(17, 17, 17);
-    transform: translateX(-0.5px);
   }
   .invoice-word {
     font-size: 22px;
@@ -4357,7 +4345,6 @@ const moralesInvoiceStyles = `
     gap: 1.5mm;
     align-items: baseline;
     flex-wrap: nowrap;
-    justify-self: center;
     font-size: 22px;
     line-height: 1;
     white-space: nowrap;
@@ -4374,24 +4361,6 @@ const moralesInvoiceStyles = `
     line-height: 1;
     font-weight: 800;
     font-style: normal;
-    font-variant-numeric: tabular-nums;
-  }
-  .date-line {
-    display: flex;
-    gap: 1.5mm;
-    align-items: baseline;
-    min-width: 42mm;
-    font-size: 11px;
-    line-height: 1;
-    white-space: nowrap;
-    justify-self: center;
-  }
-  .date-line span {
-    font-weight: 700;
-  }
-  .date-line strong {
-    font-size: 12px;
-    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
   .invoice-table,
@@ -4418,24 +4387,26 @@ const moralesInvoiceStyles = `
   .customer-details-grid {
     position: relative;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 44% 28% 28%;
     grid-template-areas:
-      "bill property"
-      "address property";
-    column-gap: 12mm;
+      "bill property date"
+      "address property date";
+    column-gap: 0;
     row-gap: 2mm;
     padding: 2mm 2.5mm;
   }
+  .customer-details-grid::before,
   .customer-details-grid::after {
     content: "";
     position: absolute;
-    left: 50%;
     top: 0;
     bottom: 0;
     width: 1px;
     background: rgb(17, 17, 17);
     transform: translateX(-0.5px);
   }
+  .customer-details-grid::before { left: 44%; }
+  .customer-details-grid::after { left: 72%; }
   .customer-detail {
     min-width: 0;
     display: flex;
@@ -4453,9 +4424,15 @@ const moralesInvoiceStyles = `
   .customer-detail--property {
     grid-area: property;
     align-self: center;
-    padding-top: 0;
+    padding: 0 4mm;
     justify-self: stretch;
     text-align: left;
+  }
+  .customer-detail--date {
+    grid-area: date;
+    align-self: center;
+    padding-left: 4mm;
+    white-space: nowrap;
   }
   .customer-detail strong {
     flex: 0 0 auto;
@@ -4777,10 +4754,6 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
         <span class="invoice-number-label">Nro.</span>
         <span class="invoice-number-value">${escapeHtml(data.invoiceNumber)}</span>
       </div>
-      <div class="date-line">
-        <span>Date:</span>
-        <strong>${escapeHtml(formatPdfDate(data.docDate))}</strong>
-      </div>
     </section>
   `;
   const customerDetailsHtml = `
@@ -4794,6 +4767,10 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
         <div class="customer-detail customer-detail--property">
           <strong>Property:</strong>
           <span>${escapeHtml(data.propertyName || '-')}</span>
+        </div>
+        <div class="customer-detail customer-detail--date">
+          <strong>Date:</strong>
+          <span>${escapeHtml(formatPdfDate(data.docDate))}</span>
         </div>
         <div class="customer-detail customer-detail--address">
           <strong>Address:</strong>
