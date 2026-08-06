@@ -4313,15 +4313,25 @@ const moralesInvoiceStyles = `
     overflow-wrap: anywhere;
   }
   .title-row {
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8mm;
     align-items: center;
     min-height: 13mm;
     padding: 2mm;
-    border-top: 1.5px solid rgb(17, 17, 17);
-    border-bottom: 1px solid rgb(17, 17, 17);
+    border: 0;
     margin-bottom: 3mm;
+  }
+  .title-row::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 2mm;
+    bottom: 2mm;
+    width: 1px;
+    background: rgb(17, 17, 17);
+    transform: translateX(-0.5px);
   }
   .title-row h1 {
     margin: 0;
@@ -4361,6 +4371,7 @@ const moralesInvoiceStyles = `
     font-size: 11px;
     line-height: 1;
     white-space: nowrap;
+    justify-self: end;
   }
   .date-line span {
     font-weight: 700;
@@ -4408,6 +4419,12 @@ const moralesInvoiceStyles = `
   }
   .customer-detail--address {
     grid-column: 1 / -1;
+  }
+  .customer-detail--property {
+    align-self: start;
+    padding-top: 1mm;
+    justify-self: stretch;
+    text-align: left;
   }
   .customer-detail strong {
     white-space: nowrap;
@@ -4713,7 +4730,7 @@ const buildMoralesInvoiceHtml = (data: MoralesInvoiceData) => {
           <strong>Bill To:</strong>
           <span>${escapeHtml(data.customerName || '-')}</span>
         </div>
-        <div class="customer-detail">
+        <div class="customer-detail customer-detail--property">
           <strong>Property:</strong>
           <span>${escapeHtml(data.propertyName || '-')}</span>
         </div>
