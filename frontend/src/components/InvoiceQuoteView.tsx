@@ -4416,7 +4416,7 @@ const moralesInvoiceStyles = `
     min-width: 0;
     display: flex;
     gap: 2mm;
-    align-items: center;
+    align-items: flex-start;
     font-size: 11px;
     line-height: 1.2;
   }
@@ -4437,7 +4437,8 @@ const moralesInvoiceStyles = `
     flex: 0 0 auto;
     white-space: nowrap;
     font-weight: 800;
-    line-height: 1.2;
+    font-size: 11px;
+    line-height: 1;
   }
   .customer-detail span {
     min-width: 0;
@@ -4445,7 +4446,8 @@ const moralesInvoiceStyles = `
     overflow-wrap: anywhere;
     word-break: break-word;
     font-weight: 400;
-    line-height: 1.2;
+    font-size: 11px;
+    line-height: 1;
   }
   .invoice-table th,
   .invoice-table td {
