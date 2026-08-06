@@ -4345,14 +4345,14 @@ const moralesInvoiceStyles = `
     min-width: 0;
     display: flex;
     gap: 4mm;
-    align-items: center;
+    align-items: baseline;
     flex-wrap: nowrap;
   }
   .invoice-number-line {
     margin: 0;
     display: flex;
     gap: 1.5mm;
-    align-items: center;
+    align-items: baseline;
     font-size: 22px;
     line-height: 1;
     font-weight: 700;
