@@ -4441,6 +4441,8 @@ const moralesInvoiceStyles = `
     line-height: 1;
   }
   .customer-detail span {
+    position: relative;
+    top: -0.45mm;
     min-width: 0;
     flex: 1 1 auto;
     overflow-wrap: anywhere;
