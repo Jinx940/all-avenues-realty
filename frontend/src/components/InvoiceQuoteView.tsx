@@ -5332,6 +5332,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .page.ryan-quote-page.legacy-page--continue { padding-top: 4mm !important; padding-bottom: 4mm !important; }
     .page.ryan-quote-page.legacy-page--last { padding-bottom: 4mm !important; }
     .ryan-quote-page .legacy-footer-space { flex-basis: 2mm; min-height: 2mm; }
+    .morales-quote-page .legacy-footer-space { flex-basis: 0; min-height: 0; }
     .ryan-body-page { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .ryan-body-page.legacy-page--continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .ryan-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -5603,7 +5604,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     chunks: LegacyServiceChunk[],
     options: { isFirstPage: boolean; includeSummary: boolean },
   ) => `
-    <div class="page legacy-page ryan-quote-page ${options.isFirstPage ? '' : 'legacy-page--continue'} ${options.includeSummary ? 'legacy-page--last' : ''}">
+    <div class="page legacy-page ryan-quote-page ${isMoralesQuote ? 'morales-quote-page' : ''} ${options.isFirstPage ? '' : 'legacy-page--continue'} ${options.includeSummary ? 'legacy-page--last' : ''}">
       ${options.isFirstPage ? headerHtml : ''}
       <main class="invoice-body ${options.isFirstPage ? '' : 'invoice-body--continue'}">
         ${options.isFirstPage ? paymentDetailsHtml : ''}
@@ -5665,22 +5666,24 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
       let pageIndex = 0;
 
       for (const group of groups) {
+        const groupSentences = [...group.sentences];
         let sentenceIndex = 0;
+        let firstSentenceWasSplit = false;
 
-        while (sentenceIndex < group.sentences.length) {
+        while (sentenceIndex < groupSentences.length) {
           const currentPage = pages[pageIndex];
           const isFirstPage = pageIndex === 0;
           let bestSentenceCount = 0;
           let low = 1;
-          let high = group.sentences.length - sentenceIndex;
+          let high = groupSentences.length - sentenceIndex;
 
           while (low <= high) {
             const mid = Math.floor((low + high) / 2);
             const candidateChunk: LegacyServiceChunk = {
               ...group,
-              sentences: group.sentences.slice(sentenceIndex, sentenceIndex + mid),
-              continuation: sentenceIndex > 0,
-              showPrice: sentenceIndex === 0,
+              sentences: groupSentences.slice(sentenceIndex, sentenceIndex + mid),
+              continuation: sentenceIndex > 0 || firstSentenceWasSplit,
+              showPrice: sentenceIndex === 0 && !firstSentenceWasSplit,
             };
 
             if (pageFits([...currentPage, candidateChunk], { isFirstPage, includeSummary: false })) {
@@ -5692,12 +5695,50 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           }
 
           if (bestSentenceCount === 0) {
+            if (isMoralesQuote && currentPage.length > 0) {
+              const sentenceWords = groupSentences[sentenceIndex].split(/\s+/).filter(Boolean);
+              let bestWordCount = 0;
+              let wordLow = 1;
+              let wordHigh = sentenceWords.length - 1;
+
+              while (wordLow <= wordHigh) {
+                const wordMid = Math.floor((wordLow + wordHigh) / 2);
+                const candidateChunk: LegacyServiceChunk = {
+                  ...group,
+                  sentences: [sentenceWords.slice(0, wordMid).join(' ')],
+                  continuation: sentenceIndex > 0 || firstSentenceWasSplit,
+                  showPrice: sentenceIndex === 0 && !firstSentenceWasSplit,
+                };
+
+                if (pageFits([...currentPage, candidateChunk], { isFirstPage, includeSummary: false })) {
+                  bestWordCount = wordMid;
+                  wordLow = wordMid + 1;
+                } else {
+                  wordHigh = wordMid - 1;
+                }
+              }
+
+              if (bestWordCount > 0) {
+                currentPage.push({
+                  ...group,
+                  sentences: [sentenceWords.slice(0, bestWordCount).join(' ')],
+                  continuation: sentenceIndex > 0 || firstSentenceWasSplit,
+                  showPrice: sentenceIndex === 0 && !firstSentenceWasSplit,
+                });
+                groupSentences[sentenceIndex] = sentenceWords.slice(bestWordCount).join(' ');
+                firstSentenceWasSplit = sentenceIndex === 0;
+                pages.push([]);
+                pageIndex += 1;
+                continue;
+              }
+            }
+
             if (currentPage.length === 0) {
               currentPage.push({
                 ...group,
-                sentences: [group.sentences[sentenceIndex]],
-                continuation: sentenceIndex > 0,
-                showPrice: sentenceIndex === 0,
+                sentences: [groupSentences[sentenceIndex]],
+                continuation: sentenceIndex > 0 || firstSentenceWasSplit,
+                showPrice: sentenceIndex === 0 && !firstSentenceWasSplit,
               });
               sentenceIndex += 1;
             }
@@ -5709,13 +5750,13 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
           currentPage.push({
             ...group,
-            sentences: group.sentences.slice(sentenceIndex, sentenceIndex + bestSentenceCount),
-            continuation: sentenceIndex > 0,
-            showPrice: sentenceIndex === 0,
+            sentences: groupSentences.slice(sentenceIndex, sentenceIndex + bestSentenceCount),
+            continuation: sentenceIndex > 0 || firstSentenceWasSplit,
+            showPrice: sentenceIndex === 0 && !firstSentenceWasSplit,
           });
           sentenceIndex += bestSentenceCount;
 
-          if (sentenceIndex < group.sentences.length) {
+          if (sentenceIndex < groupSentences.length) {
             pages.push([]);
             pageIndex += 1;
           }
