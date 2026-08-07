@@ -17,7 +17,7 @@ type DocumentOwnerLabel = 'AZE' | 'Ryan Goertler' | 'Todd Goertler' | 'Morales H
 
 const pdfTypewriterFontFamily = '"Courier New", Courier, "Liberation Mono", monospace';
 const azeInvoiceFontFamily = '"Segoe UI", Arial, Helvetica, sans-serif';
-const pdfPageVerticalMarginCss = '13mm';
+const pdfPageVerticalMarginCss = '23mm';
 const pdfPageHorizontalMarginCss = '15mm';
 const pdfFooterReserveCss = '30mm';
 const pdfContentBottomGuardCss = '4mm';
