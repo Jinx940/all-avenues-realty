@@ -1944,9 +1944,12 @@ export default function App() {
           <div className="brand-card">
             <div className="brand-title">
               <span className="brand-icon">
-                <UiIcon name="database" size={24} />
+                <UiIcon name="home" size={22} />
               </span>
-              <h1>All Avenues Realty</h1>
+              <div className="brand-copy">
+                <h1>All Avenues Realty</h1>
+                <span>Property operations</span>
+              </div>
             </div>
           </div>
 
@@ -1964,6 +1967,7 @@ export default function App() {
         </div>
 
         <nav className="nav-stack" aria-label="Workspace sections">
+          <span className="nav-stack-label">Workspace</span>
           {availableNavGroups.map((group) => {
             const isOpen = openNavGroupId === group.id;
             const isActiveGroup = group.id === activeNavGroupId;
