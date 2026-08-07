@@ -5332,7 +5332,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .page.ryan-quote-page.legacy-page--continue { padding-top: 4mm !important; padding-bottom: 4mm !important; }
     .page.ryan-quote-page.legacy-page--last { padding-bottom: 4mm !important; }
     .ryan-quote-page .legacy-footer-space { flex-basis: 2mm; min-height: 2mm; }
-    .page.ryan-quote-page.morales-quote-page { padding-top: 25.4mm !important; padding-bottom: 25.4mm !important; }
+    .page.ryan-quote-page.morales-quote-page { padding-top: 13mm !important; padding-bottom: 13mm !important; }
     .morales-quote-page .legacy-footer-space { flex-basis: 0; min-height: 0; }
     .ryan-body-page { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .ryan-body-page.legacy-page--continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
