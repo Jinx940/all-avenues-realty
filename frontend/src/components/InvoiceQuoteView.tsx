@@ -5181,6 +5181,13 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
           '<strong>Secondary (440)666-5608</strong>',
           '<strong>ryangoertler1313@gmail.com</strong>',
         ].join('<br>')
+      : data.ownerKey === 'morales'
+        ? [
+            '3820 Superior Ave,',
+            'Cleveland, OH 44114',
+            '<strong>(216) 926-1765</strong>',
+            '<strong>Moralesroofing520@gmail.com</strong>',
+          ].join('<br>')
       : data.ownerKey === 'todd'
         ? [
             'Concord Twp, Ohio 44077',
@@ -5197,20 +5204,33 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
   const isRyanInvoice = data.ownerKey === 'ryan' && data.documentType === 'Invoice';
   const isRyanQuote = data.ownerKey === 'ryan' && data.documentType === 'Quote';
+  const isMoralesQuote = data.ownerKey === 'morales' && data.documentType === 'Quote';
+  const usesMeasuredQuoteLayout = isRyanQuote || isMoralesQuote;
   const ryanGroups = isRyanInvoice ? buildRyanInvoiceGroups(data.selectedItems) : [];
   const ryanColumnLayout = buildRyanInvoiceColumnLayout(ryanGroups);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const docDateHtml = escapeHtml(data.docDate);
-  const companyNameHtml = data.ownerKey === 'todd' ? 'Todd<br>Goertler' : 'Ryan<br>Goertler';
+  const companyNameHtml =
+    data.ownerKey === 'morales'
+      ? 'Morales<br>Home Improvement'
+      : data.ownerKey === 'todd'
+        ? 'Todd<br>Goertler'
+        : 'Ryan<br>Goertler';
   const headerClass =
     data.ownerKey === 'ryan'
       ? 'invoice-header ryan'
+      : data.ownerKey === 'morales'
+        ? 'invoice-header morales'
       : data.ownerKey === 'todd'
         ? 'invoice-header todd'
         : 'invoice-header aze';
   const materialLabel = data.documentType === 'Quote' ? 'Material Expense Estimate' : 'Material Expense';
   const primaryLaborLabel =
-    data.ownerKey === 'todd' ? 'Todd Labor' : data.ownerKey === 'ryan' ? 'Labor' : 'Primary Labor';
+    data.ownerKey === 'todd'
+      ? 'Todd Labor'
+      : data.ownerKey === 'ryan' || data.ownerKey === 'morales'
+        ? 'Labor'
+        : 'Primary Labor';
   const summaryLabelColspan = isRyanInvoice ? 4 : 2;
   const tableHeadHtml = isRyanInvoice ? ryanInvoiceTableHeadHtml : legacyTableHeadHtml;
   const tableClassName = isRyanInvoice ? 'ryan-invoice-table' : '';
@@ -5321,6 +5341,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .ryan-title-right { text-align: right; font-size: 12px; line-height: 1.5; }
     .invoice-header { width: 100%; padding: 18px 0; margin: 0; color: #ffffff; }
     .invoice-header.aze { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
+    .invoice-header.morales { background-color: #b40000; background-image: linear-gradient(to bottom, #b40000, #ff7c7c); }
     .invoice-header.ryan { background-color: #24c6dc; background-image: linear-gradient(to bottom, #24c6dc, #c471ed); }
     .invoice-header.todd { background-color: #1f2328; background-image: linear-gradient(to bottom, #1f2328, #58636f); }
     .header-inner { width: 100%; margin: 0 auto; padding: 0 24px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; }
@@ -5329,6 +5350,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .invoice-number { display: block; font-size: 58px; font-weight: 800; color: #ffffff; }
     .header-right { text-align: right; font-size: 12px; line-height: 1.5; }
     .company-name { display: block; font-size: 30px; font-weight: 700; margin-bottom: 8px; }
+    .invoice-header.morales .company-name { font-size: 22px; line-height: 1.1; }
     .company-info { font-size: 13px; }
     .company-info strong { font-weight: 800; }
     .invoice-body { padding: 8px 0 0 0; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
@@ -5735,7 +5757,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     }
   };
 
-  const renderedPageRows = isRyanInvoice || isRyanQuote
+  const renderedPageRows = isRyanInvoice || usesMeasuredQuoteLayout
     ? []
     : paginateLegacyServiceGroups(buildLegacyServiceGroups(data.selectedItems)).map((pageChunks) =>
         buildLegacyRowsHtml(pageChunks),
@@ -5743,7 +5765,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 
   const pagesHtml = isRyanInvoice
     ? renderRyanPagesHtml()
-    : isRyanQuote
+    : usesMeasuredQuoteLayout
       ? renderRyanQuotePagesHtml()
     : renderedPageRows
         .map((rowsHtml, pageIndex) => {
