@@ -5748,13 +5748,45 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
             continue;
           }
 
+          const chunkSentenceStart = sentenceIndex;
+          const fittingSentences = groupSentences.slice(sentenceIndex, sentenceIndex + bestSentenceCount);
+          sentenceIndex += bestSentenceCount;
+
+          if (isMoralesQuote && sentenceIndex < groupSentences.length) {
+            const nextSentenceWords = groupSentences[sentenceIndex].split(/\s+/).filter(Boolean);
+            let bestWordCount = 0;
+            let wordLow = 1;
+            let wordHigh = nextSentenceWords.length - 1;
+
+            while (wordLow <= wordHigh) {
+              const wordMid = Math.floor((wordLow + wordHigh) / 2);
+              const candidateChunk: LegacyServiceChunk = {
+                ...group,
+                sentences: [...fittingSentences, nextSentenceWords.slice(0, wordMid).join(' ')],
+                continuation: chunkSentenceStart > 0 || firstSentenceWasSplit,
+                showPrice: chunkSentenceStart === 0 && !firstSentenceWasSplit,
+              };
+
+              if (pageFits([...currentPage, candidateChunk], { isFirstPage, includeSummary: false })) {
+                bestWordCount = wordMid;
+                wordLow = wordMid + 1;
+              } else {
+                wordHigh = wordMid - 1;
+              }
+            }
+
+            if (bestWordCount > 0) {
+              fittingSentences.push(nextSentenceWords.slice(0, bestWordCount).join(' '));
+              groupSentences[sentenceIndex] = nextSentenceWords.slice(bestWordCount).join(' ');
+            }
+          }
+
           currentPage.push({
             ...group,
-            sentences: groupSentences.slice(sentenceIndex, sentenceIndex + bestSentenceCount),
-            continuation: sentenceIndex > 0 || firstSentenceWasSplit,
-            showPrice: sentenceIndex === 0 && !firstSentenceWasSplit,
+            sentences: fittingSentences,
+            continuation: chunkSentenceStart > 0 || firstSentenceWasSplit,
+            showPrice: chunkSentenceStart === 0 && !firstSentenceWasSplit,
           });
-          sentenceIndex += bestSentenceCount;
 
           if (sentenceIndex < groupSentences.length) {
             pages.push([]);
