@@ -12760,6 +12760,11 @@ input.invoice-service-check:focus-visible {
 }
 
 .sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  min-height: 100vh;
   gap: 18px;
   padding: 20px 14px 16px;
   background:
@@ -13031,6 +13036,10 @@ input.invoice-service-check:focus-visible {
   }
 
   .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    height: 100vh;
     width: min(86vw, 272px);
   }
 }
