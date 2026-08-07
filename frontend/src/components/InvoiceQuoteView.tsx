@@ -5290,6 +5290,11 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     </div>
   `;
 
+  const summaryMoneyHtml = (value: number) =>
+    isMoralesQuote
+      ? `<span class="summary-money"><span class="summary-currency">$</span><span class="summary-value">${escapeHtml(formatPdfNumber(value))}</span></span>`
+      : formatPdfMoney(value);
+
   const summaryRowsHtml = `
     <tr>
       <td colspan="${summaryLabelColspan + 1}" class="terms-cell">
@@ -5298,23 +5303,23 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     </tr>
     <tr>
       <td colspan="${summaryLabelColspan}" class="summary-label-blue">${escapeHtml(primaryLaborLabel)}</td>
-      <td class="amount-blue">${formatPdfMoney(data.ryanLabor)}</td>
+      <td class="amount-blue">${summaryMoneyHtml(data.ryanLabor)}</td>
     </tr>
     <tr>
       <td colspan="${summaryLabelColspan}" class="summary-label-blue">Juan Labor</td>
-      <td class="amount-blue">${formatPdfMoney(data.juanLabor)}</td>
+      <td class="amount-blue">${summaryMoneyHtml(data.juanLabor)}</td>
     </tr>
     <tr>
       <td colspan="${summaryLabelColspan}" class="summary-label-blue">Job Total</td>
-      <td class="amount-blue">${formatPdfMoney(data.jobTotal)}</td>
+      <td class="amount-blue">${summaryMoneyHtml(data.jobTotal)}</td>
     </tr>
     <tr>
       <td colspan="${summaryLabelColspan}" class="summary-label-blue" style="color:red;">${escapeHtml(materialLabel)}</td>
-      <td class="amount-blue" style="color:red;">${formatPdfMoney(data.materialExpense)}</td>
+      <td class="amount-blue" style="color:red;">${summaryMoneyHtml(data.materialExpense)}</td>
     </tr>
     <tr>
       <td colspan="${summaryLabelColspan}" class="summary-label-blue" style="font-size:16px;">Total Due</td>
-      <td class="amount-blue" style="font-size:16px;">${formatPdfMoney(data.totalDue)}</td>
+      <td class="amount-blue" style="font-size:16px;">${summaryMoneyHtml(data.totalDue)}</td>
     </tr>
   `;
 
@@ -5399,6 +5404,9 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     td.ryan-meta-cell--continuation { font-size: 9px; }
     .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
     .amount-blue { text-align: center; color: #1f4dbb; font-weight: 800; font-size: 11px; vertical-align: middle; }
+    .morales-quote-page .summary-money { width: 100%; display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: baseline; column-gap: 4px; }
+    .morales-quote-page .summary-currency { text-align: left; }
+    .morales-quote-page .summary-value { text-align: right; }
     .terms-cell { color: #000000; font-size: 10px; line-height: 1.45; background: #f7fbff; text-align: left; }
     td.is-empty { color: transparent; }
     .top-details-wrap { border-top: 3px solid #1f4dbb; margin-top: 4px; padding-top: 6px; margin-bottom: 8px; }
