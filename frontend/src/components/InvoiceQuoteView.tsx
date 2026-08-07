@@ -2303,8 +2303,8 @@ const paginateToddInvoiceRows = (rows: AzeInvoiceRow[]) => {
   if (!rows.length) return [[]];
 
   const pages: AzeInvoiceRow[][] = [[]];
-  const pageLimitFor = (pageIndex: number) => (pageIndex === 0 ? 15.8 : 19.2);
-  const summaryUnits = 2.8;
+  const pageLimitFor = (pageIndex: number) => (pageIndex === 0 ? 12.8 : 16.2);
+  const summaryUnits = 3.4;
   let pageIndex = 0;
   let usedUnits = 0;
 
@@ -2340,7 +2340,9 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const toddVerticalMarginCss = pdfPageVerticalMarginCss;
   const toddHorizontalMarginCss = pdfPageHorizontalMarginCss;
   const toddFooterReserveCss = pdfFooterReserveCss;
-  const toddContentBottomGuardCss = pdfContentBottomGuardCss;
+  // Todd's tall rowspans can paint beyond the flex content box, so pagination
+  // must reserve the full visible footer margin instead of only the generic guard.
+  const toddContentBottomGuardCss = pdfPageVerticalMarginCss;
 
   const summaryHtml = `
     <section class="summary-wrap">
@@ -2429,10 +2431,10 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     * { box-sizing: border-box; }
     html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #eceff1 !important; color: #1f2328; font-family: ${pdfTypewriterFontFamily}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { overflow: auto; }
-    .page { width: 210mm; height: 297mm; margin: 0; padding: ${toddVerticalMarginCss} ${toddHorizontalMarginCss}; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+    .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${toddVerticalMarginCss} ${toddHorizontalMarginCss}; box-sizing: border-box !important; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
     .page:last-child { page-break-after: auto; break-after: auto; }
     .page-continue { padding-top: ${toddVerticalMarginCss}; }
-    .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; contain: layout paint; }
     .page-footer { flex: 0 0 ${toddFooterReserveCss}; min-height: ${toddFooterReserveCss}; display: flex; align-items: flex-end; overflow: hidden; }
     .page-footer--empty { flex: 0 0 0; min-height: 0; visibility: hidden; }
     .body-intro { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
