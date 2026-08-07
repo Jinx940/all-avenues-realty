@@ -5404,7 +5404,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     td.ryan-meta-cell--continuation { font-size: 9px; }
     .summary-label-blue { text-align: right; vertical-align: middle; color: #1f4dbb; font-weight: 800; }
     .amount-blue { text-align: center; color: #1f4dbb; font-weight: 800; font-size: 11px; vertical-align: middle; }
-    .morales-quote-page .summary-money { width: 100%; display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: baseline; column-gap: 4px; }
+    .morales-quote-page .summary-money { width: 126px; margin: 0 auto; display: grid; grid-template-columns: 16px 104px; align-items: baseline; column-gap: 6px; }
     .morales-quote-page .summary-currency { text-align: left; }
     .morales-quote-page .summary-value { text-align: right; }
     .terms-cell { color: #000000; font-size: 10px; line-height: 1.45; background: #f7fbff; text-align: left; }
