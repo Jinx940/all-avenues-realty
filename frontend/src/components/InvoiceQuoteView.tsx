@@ -2340,9 +2340,9 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const toddVerticalMarginCss = pdfPageVerticalMarginCss;
   const toddHorizontalMarginCss = pdfPageHorizontalMarginCss;
   const toddFooterReserveCss = pdfFooterReserveCss;
-  // Todd's tall rowspans can paint beyond the flex content box, so pagination
-  // must reserve the full visible footer margin instead of only the generic guard.
-  const toddContentBottomGuardCss = pdfPageVerticalMarginCss;
+  // The physical bottom-margin block below already removes 23 mm from the
+  // usable page height. Keep only the renderer's sub-pixel tolerance here.
+  const toddContentBottomGuardCss = '0px';
 
   const summaryHtml = `
     <section class="summary-wrap">
@@ -2431,12 +2431,13 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     * { box-sizing: border-box; }
     html, body { width: 210mm; min-height: 297mm; margin: 0; padding: 0; background: #eceff1 !important; color: #1f2328; font-family: ${pdfTypewriterFontFamily}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { overflow: auto; }
-    .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${toddVerticalMarginCss} ${toddHorizontalMarginCss}; box-sizing: border-box !important; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+    .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${toddVerticalMarginCss} ${toddHorizontalMarginCss} 0; box-sizing: border-box !important; background: #f7f8f8; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
     .page:last-child { page-break-after: auto; break-after: auto; }
     .page-continue { padding-top: ${toddVerticalMarginCss}; }
     .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; contain: layout paint; }
     .page-footer { flex: 0 0 ${toddFooterReserveCss}; min-height: ${toddFooterReserveCss}; display: flex; align-items: flex-end; overflow: hidden; }
     .page-footer--empty { flex: 0 0 0; min-height: 0; visibility: hidden; }
+    .page-bottom-margin { flex: 0 0 ${toddVerticalMarginCss}; min-height: ${toddVerticalMarginCss}; width: 100%; background: #f7f8f8; position: relative; z-index: 2; pointer-events: none; }
     .body-intro { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
     .brand-lockup { display: flex; align-items: center; gap: 18px; min-width: 0; }
     .home-envy-logo { width: 116px; height: 96px; display: block; flex: 0 0 116px; position: relative; overflow: hidden; }
@@ -2536,6 +2537,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
       <footer class="page-footer ${options.includeFooter ? '' : 'page-footer--empty'}">
         ${options.includeFooter ? paymentHtml : ''}
       </footer>
+      <div class="page-bottom-margin" aria-hidden="true"></div>
     </div>
   `;
 
