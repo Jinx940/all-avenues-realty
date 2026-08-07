@@ -52,6 +52,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { LoginView } from './components/LoginView';
 import { GlobalSearch } from './components/GlobalSearch';
 import { ClientPortalView, PublicClientPortalView } from './components/ClientPortalView';
+import sidebarBrandLogo from './assets/all-avenues-realty-logo.png';
 import {
   createEditableJobFormState,
   serializeJobFormDraft,
@@ -1942,15 +1943,8 @@ export default function App() {
       >
         <div className="sidebar-top">
           <div className="brand-card">
-            <div className="brand-title">
-              <span className="brand-icon">
-                <UiIcon name="home" size={22} />
-              </span>
-              <div className="brand-copy">
-                <h1>All Avenues Realty</h1>
-                <span>Property operations</span>
-              </div>
-            </div>
+            <img className="sidebar-brand-logo" src={sidebarBrandLogo} alt="All Avenues Realty" />
+            <span className="sidebar-brand-caption">Property operations</span>
           </div>
 
           <div className="sidebar-account-card">
