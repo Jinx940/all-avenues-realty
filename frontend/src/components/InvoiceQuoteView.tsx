@@ -17,7 +17,7 @@ type DocumentOwnerLabel = 'AZE' | 'Ryan Goertler' | 'Todd Goertler' | 'Morales H
 
 const pdfTypewriterFontFamily = '"Courier New", Courier, "Liberation Mono", monospace';
 const azeInvoiceFontFamily = '"Segoe UI", Arial, Helvetica, sans-serif';
-const pdfPageVerticalMarginCss = '25.4mm';
+const pdfPageVerticalMarginCss = '13mm';
 const pdfPageHorizontalMarginCss = '15mm';
 const pdfFooterReserveCss = '30mm';
 const pdfContentBottomGuardCss = '4mm';
@@ -2414,7 +2414,7 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .page-continue { padding-top: ${toddVerticalMarginCss}; }
     .sheet-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .page-footer { flex: 0 0 ${toddFooterReserveCss}; min-height: ${toddFooterReserveCss}; display: flex; align-items: flex-end; overflow: hidden; }
-    .page-footer--empty { visibility: hidden; }
+    .page-footer--empty { flex: 0 0 0; min-height: 0; visibility: hidden; }
     .body-intro { flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 18px 28px; padding-bottom: 15px; border-bottom: 2px solid #1f2328; }
     .brand-lockup { display: flex; align-items: center; gap: 18px; min-width: 0; }
     .home-envy-logo { width: 116px; height: 96px; display: block; flex: 0 0 116px; position: relative; overflow: hidden; }
@@ -3190,7 +3190,7 @@ const sterlingMechanicalInvoiceStyles = `
     width: 210mm;
     height: 297mm;
     margin: 0;
-    padding: 12mm ${pdfPageHorizontalMarginCss} 8mm;
+    padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss};
     background: #ffffff;
     display: flex;
     flex-direction: column;
@@ -3206,8 +3206,8 @@ const sterlingMechanicalInvoiceStyles = `
     flex-basis: 0;
   }
   .ryan-sheet-foot {
-    flex: 0 0 4mm;
-    min-height: 4mm;
+    flex: 0 0 0;
+    min-height: 0;
   }
   .sterling-invoice-content {
     flex: 1 1 auto;
@@ -4254,18 +4254,18 @@ const moralesInvoiceStyles = `
     width: 210mm;
     height: 297mm;
     margin: 0;
-    padding: 12mm ${pdfPageHorizontalMarginCss} 8mm;
+    padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss};
     background: rgb(255, 255, 255);
     display: grid;
-    grid-template-rows: minmax(0, 1fr) 8mm;
-    row-gap: 2mm;
+    grid-template-rows: minmax(0, 1fr) 0;
+    row-gap: 0;
     overflow: hidden;
     page-break-after: always;
     break-after: page;
   }
-  .page--header { grid-template-rows: auto minmax(0, 1fr) 8mm; }
-  .page--footer { grid-template-rows: minmax(0, 1fr) 8mm; }
-  .page--header.page--footer { grid-template-rows: auto minmax(0, 1fr) 8mm; }
+  .page--header { grid-template-rows: auto minmax(0, 1fr) 0; }
+  .page--footer { grid-template-rows: minmax(0, 1fr) 8mm; row-gap: 2mm; }
+  .page--header.page--footer { grid-template-rows: auto minmax(0, 1fr) 8mm; row-gap: 2mm; }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .sheet-body {
     min-height: 0;
@@ -4627,6 +4627,7 @@ const moralesInvoiceStyles = `
     page-break-inside: avoid;
   }
   .page-footer--empty {
+    min-height: 0;
     visibility: hidden;
   }
   .attachment-page {
@@ -5333,12 +5334,10 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     .legacy-page--continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .legacy-page--last { padding-bottom: ${pdfPageVerticalMarginCss}; }
     .legacy-footer-space { flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; overflow: hidden; }
-    .page.ryan-quote-page { padding-top: 4mm !important; padding-bottom: 4mm !important; }
-    .page.ryan-quote-page.legacy-page--continue { padding-top: 4mm !important; padding-bottom: 4mm !important; }
-    .page.ryan-quote-page.legacy-page--last { padding-bottom: 4mm !important; }
-    .ryan-quote-page .legacy-footer-space { flex-basis: 2mm; min-height: 2mm; }
-    .page.ryan-quote-page.morales-quote-page { padding-top: 13mm !important; padding-bottom: 13mm !important; }
-    .morales-quote-page .legacy-footer-space { flex-basis: 0; min-height: 0; }
+    .page.quote-page { padding-top: ${pdfPageVerticalMarginCss} !important; padding-bottom: ${pdfPageVerticalMarginCss} !important; }
+    .page.quote-page.legacy-page--continue { padding-top: ${pdfPageVerticalMarginCss} !important; padding-bottom: ${pdfPageVerticalMarginCss} !important; }
+    .page.quote-page.legacy-page--last { padding-bottom: ${pdfPageVerticalMarginCss} !important; }
+    .quote-page .legacy-footer-space { flex-basis: 0; min-height: 0; }
     .ryan-body-page { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .ryan-body-page.legacy-page--continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
     .ryan-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -5613,7 +5612,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
     chunks: LegacyServiceChunk[],
     options: { isFirstPage: boolean; includeSummary: boolean },
   ) => `
-    <div class="page legacy-page ryan-quote-page ${isMoralesQuote ? 'morales-quote-page' : ''} ${options.isFirstPage ? '' : 'legacy-page--continue'} ${options.includeSummary ? 'legacy-page--last' : ''}">
+    <div class="page legacy-page quote-page ryan-quote-page ${isMoralesQuote ? 'morales-quote-page' : ''} ${options.isFirstPage ? '' : 'legacy-page--continue'} ${options.includeSummary ? 'legacy-page--last' : ''}">
       ${options.isFirstPage ? headerHtml : ''}
       <main class="invoice-body ${options.isFirstPage ? '' : 'invoice-body--continue'}">
         ${options.isFirstPage ? paymentDetailsHtml : ''}
@@ -5853,7 +5852,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
         .map((rowsHtml, pageIndex) => {
           const isFirstPage = pageIndex === 0;
           const isLastPage = pageIndex === renderedPageRows.length - 1;
-          const quotePageClass = isRyanQuote ? ' ryan-quote-page' : '';
+          const quotePageClass = data.documentType === 'Quote' ? ' quote-page' : '';
 
           if (isFirstPage) {
             return `
