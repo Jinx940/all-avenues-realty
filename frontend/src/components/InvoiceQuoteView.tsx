@@ -91,6 +91,7 @@ type AzeInvoiceRow = {
   unit: string;
   area: string;
   service: string;
+  labor: number;
   totalPrice: number;
   bullets: string[];
   continuation?: boolean;
@@ -123,8 +124,7 @@ type AzeInvoiceData = {
   startDate: string;
   finishDate: string;
   selectedItems: PdfServiceItem[];
-  ryanLabor: number;
-  juanLabor: number;
+  laborTotal: number;
   jobTotal: number;
   expenses: number;
   totalDue: number;
@@ -1112,6 +1112,7 @@ const buildAzeInvoiceTableRows = (items: PdfServiceItem[]): AzeInvoiceRow[] =>
         unit: displayInvoiceCell(item.unit),
         area: displayInvoiceCell(item.area),
         service: displayInvoiceCell(item.service, 'General Service'),
+        labor: item.labor,
         totalPrice: item.unitPrice,
         bullets: bullets.length ? bullets : [''],
         showUnit: true,
@@ -1122,7 +1123,7 @@ const buildAzeInvoiceTableRows = (items: PdfServiceItem[]): AzeInvoiceRow[] =>
 
       return splitAzeInvoiceRow(baseRow);
     })
-    .filter((row) => row.story || row.unit || row.area || row.service || row.bullets.some(Boolean) || row.totalPrice);
+    .filter((row) => row.story || row.unit || row.area || row.service || row.bullets.some(Boolean) || row.labor || row.totalPrice);
 
 const estimateAzeInvoiceRowUnits = (row: AzeInvoiceRow) => {
   const unitLines = Math.max(1, Math.ceil(row.unit.length / 12));
@@ -1206,6 +1207,7 @@ const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
       unit: normalizedRow.unit,
       area: normalizedRow.area,
       service: normalizedRow.service,
+      labor: normalizedRow.labor,
       totalPrice: normalizedRow.totalPrice,
       bullets: chunkBullets,
       continuation: chunkIndex > 0,
@@ -1227,6 +1229,7 @@ const splitAzeInvoiceRow = (row: AzeInvoiceRow) => {
       unit: normalizedRow.unit,
       area: normalizedRow.area,
       service: normalizedRow.service,
+      labor: normalizedRow.labor,
       totalPrice: normalizedRow.totalPrice,
       bullets: candidateBullets,
       continuation: chunkIndex > 0,
@@ -1358,6 +1361,7 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
       displayRows[endIndex].unit === current.unit &&
       displayRows[endIndex].area === current.area &&
       displayRows[endIndex].service === current.service &&
+      displayRows[endIndex].labor === current.labor &&
       displayRows[endIndex].totalPrice === current.totalPrice
     ) {
       rowSpan += 1;
@@ -1448,7 +1452,7 @@ const paginateAzeInvoiceRowsByEstimate = (rows: AzeInvoiceRow[]) => {
   return [rows];
 };
 
-const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
+const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[], includeLabor = true) =>
   buildAzeInvoiceDisplayRows(rows)
     .map((row) => {
       const bulletHtml = row.bullets.length
@@ -1457,6 +1461,8 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
       const serviceIsEmpty = !row.service.trim();
       const costHtml =
         row.showPrice === false ? '&nbsp;' : escapeHtml(formatPdfMoney(row.totalPrice));
+      const laborHtml =
+        row.showPrice === false ? '&nbsp;' : escapeHtml(formatPdfMoney(row.labor));
       const rowClass = [
         'row',
         row.continuation ? 'row-continuation' : '',
@@ -1486,8 +1492,13 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
           }
           <td class="desc">${bulletHtml}</td>
           ${
+            includeLabor && row.showPriceCell
+              ? `<td class="cost labor-cost${row.showPrice === false ? ' is-empty' : ''}" rowspan="${row.priceRowSpan}">${laborHtml}</td>`
+              : ''
+          }
+          ${
             row.showPriceCell
-              ? `<td class="cost${row.showPrice === false ? ' is-empty' : ''}" rowspan="${row.priceRowSpan}">${costHtml}</td>`
+              ? `<td class="cost unit-price-cost${row.showPrice === false ? ' is-empty' : ''}" rowspan="${row.priceRowSpan}">${costHtml}</td>`
               : ''
           }
         </tr>
@@ -1495,23 +1506,25 @@ const buildAzeInvoiceRowsHtml = (rows: AzeInvoiceRow[]) =>
     })
     .join('');
 
-const azeInvoiceTableColumnsHtml = `
+const buildAzeInvoiceTableColumnsHtml = (includeLabor = true) => `
   <colgroup>
     <col class="aze-unit-col" />
     <col class="aze-area-col" />
     <col class="aze-service-col" />
     <col class="aze-desc-col" />
+    ${includeLabor ? '<col class="aze-labor-col" />' : ''}
     <col class="aze-price-col" />
   </colgroup>
 `;
 
-const azeInvoiceTableHeadHtml = `
+const buildAzeInvoiceTableHeadHtml = (includeLabor = true) => `
   <thead>
     <tr>
       <th>Unit</th>
       <th>Area</th>
       <th>Service</th>
       <th>Description</th>
+      ${includeLabor ? '<th>Labor</th>' : ''}
       <th>Unit Price</th>
     </tr>
   </thead>
@@ -1651,10 +1664,11 @@ const azeModernInvoiceLayoutStyles = `
   .table-block-continue { flex: 0 0 auto; }
   .table { width: 100%; }
   .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
-  .aze-unit-col { width: 72px; }
-  .aze-area-col { width: 86px; }
-  .aze-service-col { width: 108px; }
-  .aze-price-col { width: 108px; }
+  .aze-unit-col { width: 64px; }
+  .aze-area-col { width: 76px; }
+  .aze-service-col { width: 98px; }
+  .aze-labor-col { width: 86px; }
+  .aze-price-col { width: 92px; }
   .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 13px; line-height: 1.2; text-align: center; height: 58px; padding: 0 10px; }
   .aze-invoice-table td { min-height: 58px; padding: 12px 8px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
   .aze-invoice-table .unit,
@@ -1708,12 +1722,8 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
     <div class="summary-section">
       <div class="summary">
         <div class="sum-row teal">
-          <span>Primary Labor</span>
-          <span>${formatPdfMoney(data.ryanLabor)}</span>
-        </div>
-        <div class="sum-row teal">
-          <span>Juan Labor</span>
-          <span>${formatPdfMoney(data.juanLabor)}</span>
+          <span>Labor Total</span>
+          <span>${formatPdfMoney(data.laborTotal)}</span>
         </div>
         <div class="sum-row light">
           <span>Job Total</span>
@@ -1878,8 +1888,8 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
               <section class="main">
                 <div class="table-block">
                   <table class="table aze-invoice-table">
-                    ${azeInvoiceTableColumnsHtml}
-                    ${azeInvoiceTableHeadHtml}
+                    ${buildAzeInvoiceTableColumnsHtml()}
+                    ${buildAzeInvoiceTableHeadHtml()}
                     <tbody>${rowsHtml}</tbody>
                   </table>
                   ${tailBlocksHtml}
@@ -1898,7 +1908,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           <section class="main main-full continue-main">
             <div class="table-block table-block-continue">
               <table class="table aze-invoice-table continue-table">
-                ${azeInvoiceTableColumnsHtml}
+                ${buildAzeInvoiceTableColumnsHtml()}
                 <tbody>${rowsHtml}</tbody>
               </table>
               ${tailBlocksHtml}
@@ -2225,10 +2235,11 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .table-block-continue { flex: 0 0 auto; }
           .table { width: 100%; }
           .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
-          .aze-unit-col { width: 72px; }
-          .aze-area-col { width: 86px; }
-          .aze-service-col { width: 108px; }
-          .aze-price-col { width: 108px; }
+          .aze-unit-col { width: 64px; }
+          .aze-area-col { width: 76px; }
+          .aze-service-col { width: 98px; }
+          .aze-labor-col { width: 86px; }
+          .aze-price-col { width: 92px; }
           .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 13px; line-height: 1.2; text-align: center; height: 58px; padding: 0 10px; }
           .aze-invoice-table td { min-height: 58px; padding: 12px 8px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
           .aze-invoice-table .unit,
@@ -2321,6 +2332,7 @@ const paginateToddInvoiceRows = (rows: AzeInvoiceRow[]) => {
 
 const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
+  const showLaborColumn = data.documentType === 'Invoice';
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const documentTypeLabel = data.documentType;
   const documentTypeLower = documentTypeLabel.toLowerCase();
@@ -2333,6 +2345,14 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
   const summaryHtml = `
     <section class="summary-wrap">
       <div class="summary">
+        ${
+          showLaborColumn
+            ? `<div class="summary-row">
+          <span>Labor Total</span>
+          <strong>${formatPdfMoney(data.laborTotal)}</strong>
+        </div>`
+            : ''
+        }
         <div class="summary-row">
           <span>Job Total</span>
           <strong>${formatPdfMoney(data.jobTotal)}</strong>
@@ -2437,10 +2457,11 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
     .todd-invoice-table { width: 100%; margin: 0; border-collapse: collapse; table-layout: fixed; background: transparent; }
     .todd-invoice-table thead { display: table-header-group; }
     .todd-invoice-table tbody { display: table-row-group; }
-    .todd-invoice-table .aze-unit-col { width: 72px; }
-    .todd-invoice-table .aze-area-col { width: 86px; }
-    .todd-invoice-table .aze-service-col { width: 108px; }
-    .todd-invoice-table .aze-price-col { width: 108px; }
+    .todd-invoice-table .aze-unit-col { width: 64px; }
+    .todd-invoice-table .aze-area-col { width: 76px; }
+    .todd-invoice-table .aze-service-col { width: 98px; }
+    .todd-invoice-table .aze-labor-col { width: 86px; }
+    .todd-invoice-table .aze-price-col { width: 92px; }
     .todd-invoice-table th { height: 38px; padding: 0 8px; border-bottom: 2px solid #1f2328; color: #1f2328; font-size: 11px; line-height: 1.2; text-align: center; text-transform: uppercase; font-weight: 800; }
     .todd-invoice-table tr { break-inside: avoid; page-break-inside: avoid; }
     .todd-invoice-table td { padding: 9px 8px; border-bottom: 1px solid #b8c0c8; border-right: 1px solid #c9d0d7; vertical-align: middle; text-align: center; break-inside: avoid; page-break-inside: avoid; }
@@ -2501,9 +2522,9 @@ const buildToddModernInvoiceHtml = (data: ToddModernInvoiceData) => {
           pageRows.length
             ? `
               <table class="todd-invoice-table">
-                ${azeInvoiceTableColumnsHtml}
-                ${options.isFirstPage ? azeInvoiceTableHeadHtml : ''}
-                <tbody>${buildAzeInvoiceRowsHtml(pageRows)}</tbody>
+                ${buildAzeInvoiceTableColumnsHtml(showLaborColumn)}
+                ${options.isFirstPage ? buildAzeInvoiceTableHeadHtml(showLaborColumn) : ''}
+                <tbody>${buildAzeInvoiceRowsHtml(pageRows, showLaborColumn)}</tbody>
               </table>
             `
             : ''
@@ -5993,6 +6014,9 @@ export function InvoiceQuoteView({
   const usesSterlingInvoice = ownerKey === 'ryan' && documentType === 'Invoice';
   const usesMoralesInvoice = ownerKey === 'morales' && documentType === 'Invoice';
   const usesLineItemInvoice = usesSterlingInvoice || usesMoralesInvoice;
+  const usesAzeInvoice = ownerKey === 'aze' && documentType === 'Invoice';
+  const usesToddInvoice = ownerKey === 'todd' && documentType === 'Invoice';
+  const usesLaborColumn = usesLineItemInvoice || usesAzeInvoice || usesToddInvoice;
   const effectiveDocumentNumber = documentNumber.trim();
   const documentNumberExists = documents.some((document) => {
     const targetType = documentType === 'Invoice' ? 'INVOICE' : 'QUOTE';
@@ -6022,10 +6046,10 @@ export function InvoiceQuoteView({
   const selectedItems: PdfServiceItem[] = useMemo(
     () => {
       const items = selectedJobs.map((job) => {
-        const labor = usesLineItemInvoice
+        const labor = usesLaborColumn
           ? toAmount(itemLaborEdits[job.id] ?? String(job.laborCost))
           : 0;
-        const unitPrice = usesLineItemInvoice
+        const unitPrice = usesLaborColumn
           ? toAmount(itemUnitPriceEdits[job.id] ?? String(getSterlingUnitPriceFromLabor(job, labor)))
           : job.totalCost;
 
@@ -6042,7 +6066,7 @@ export function InvoiceQuoteView({
 
       return mergePdfServiceItems(items);
     },
-    [descriptionEdits, itemLaborEdits, itemUnitPriceEdits, selectedJobs, usesLineItemInvoice],
+    [descriptionEdits, itemLaborEdits, itemUnitPriceEdits, selectedJobs, usesLaborColumn],
   );
   const selectedPhotoAttachments = useMemo(
     () => buildPdfAttachmentsForJobs(selectedJobs, invoicePhotoAttachmentKinds),
@@ -6133,7 +6157,8 @@ export function InvoiceQuoteView({
     .filter(Boolean)
     .join(', ');
 
-  const usesManualAmounts = ownerKey !== 'todd' && !usesLineItemInvoice;
+  const usesManualAmounts = ownerKey !== 'todd' && !usesLaborColumn;
+  const usesAzeInvoiceDeductions = usesAzeInvoice;
   const servicesTotal = selectedItems.reduce((sum, item) => sum + item.unitPrice, 0);
   const sterlingLaborTotal = selectedItems.reduce((sum, item) => sum + Number(item.labor || 0), 0);
   const sterlingJobTotal = selectedItems.reduce((sum, item) => {
@@ -6145,9 +6170,9 @@ export function InvoiceQuoteView({
   const sterlingInvoicingServicesValue = usesLineItemInvoice ? toAmount(invoicingServicesInput) : 0;
   const ryanLaborValue = usesManualAmounts ? toAmount(ryanLabor) : 0;
   const juanLaborValue = usesManualAmounts ? toAmount(juanLabor) : 0;
-  const advancePaymentValue = usesManualAmounts ? toAmount(advancePayment) : 0;
-  const materialExpenseValue = usesManualAmounts ? toAmount(materialExpense) : 0;
-  const jobTotal = usesLineItemInvoice ? sterlingJobTotal : servicesTotal + ryanLaborValue + juanLaborValue;
+  const advancePaymentValue = usesManualAmounts || usesAzeInvoiceDeductions ? toAmount(advancePayment) : 0;
+  const materialExpenseValue = usesManualAmounts || usesAzeInvoiceDeductions ? toAmount(materialExpense) : 0;
+  const jobTotal = usesLaborColumn ? sterlingJobTotal : servicesTotal + ryanLaborValue + juanLaborValue;
   const expenses = usesLineItemInvoice ? sterlingExpensesValue : materialExpenseValue + advancePaymentValue;
   const invoicingServices = usesLineItemInvoice ? sterlingInvoicingServicesValue : 0;
   const totalDue = usesLineItemInvoice
@@ -6180,6 +6205,20 @@ export function InvoiceQuoteView({
         { label: 'Job Total', value: jobTotal },
         { label: 'Expenses', value: expenses },
         { label: 'Invoicing Services', value: invoicingServices },
+        { label: 'Total Due', value: totalDue, strong: true },
+      ]
+    : usesLaborColumn
+    ? [
+        { label: 'Labor Total', value: sterlingLaborTotal },
+        { label: 'Unit Price Total', value: servicesTotal },
+        { label: 'Job Total', value: jobTotal },
+        ...(usesAzeInvoiceDeductions
+          ? [
+              { label: 'Material Expense', value: materialExpenseValue },
+              { label: 'Advance Payment', value: advancePaymentValue },
+              { label: 'Expenses', value: expenses },
+            ]
+          : []),
         { label: 'Total Due', value: totalDue, strong: true },
       ]
     : usesManualAmounts
@@ -6422,8 +6461,7 @@ export function InvoiceQuoteView({
           startDate: firstJobDate,
           finishDate: lastJobDate,
           selectedItems,
-          ryanLabor: ryanLaborValue,
-          juanLabor: juanLaborValue,
+          laborTotal: sterlingLaborTotal,
           jobTotal,
           expenses,
           totalDue,
@@ -6442,8 +6480,7 @@ export function InvoiceQuoteView({
             startDate: firstJobDate,
             finishDate: lastJobDate,
             selectedItems,
-            ryanLabor: ryanLaborValue,
-            juanLabor: juanLaborValue,
+            laborTotal: sterlingLaborTotal,
             jobTotal,
             expenses,
             totalDue,
@@ -6960,12 +6997,12 @@ export function InvoiceQuoteView({
           {isServicesOpen ? (
             <div className="invoice-services-shell">
               <div className="invoice-services-table">
-                <div className={`invoice-services-row invoice-services-row--header${usesLineItemInvoice ? ' invoice-services-row--sterling' : ''}`}>
+                <div className={`invoice-services-row invoice-services-row--header${usesLaborColumn ? ' invoice-services-row--sterling' : ''}`}>
                   <span>Unit</span>
                   <span>Area</span>
                   <span>Service</span>
                   <span>Description</span>
-                  {usesLineItemInvoice ? <span>Labor</span> : null}
+                  {usesLaborColumn ? <span>Labor</span> : null}
                   <span>Unit Price (USD)</span>
                 </div>
 
@@ -6979,7 +7016,7 @@ export function InvoiceQuoteView({
                     return (
                       <div
                         key={group.key}
-                        className={`invoice-services-row${usesLineItemInvoice ? ' invoice-services-row--sterling' : ''}${groupedClassName}`}
+                        className={`invoice-services-row${usesLaborColumn ? ' invoice-services-row--sterling' : ''}${groupedClassName}`}
                       >
                         <span className="invoice-services-cell invoice-services-cell--unit">
                           <label className="invoice-service-select">
@@ -7018,7 +7055,7 @@ export function InvoiceQuoteView({
                             ))}
                           </span>
                         </span>
-                        {usesLineItemInvoice ? (
+                        {usesLaborColumn ? (
                           <span className="invoice-services-cell invoice-services-cell--labor">
                             <span className="invoice-service-value-stack">
                               {group.jobs.map((job) => (
@@ -7044,7 +7081,7 @@ export function InvoiceQuoteView({
                         <span className="invoice-services-cell invoice-services-cell--price">
                           <span className="invoice-service-value-stack">
                             {group.jobs.map((job) =>
-                              usesLineItemInvoice ? (() => {
+                              usesLaborColumn ? (() => {
                                 const labor = toAmount(itemLaborEdits[job.id] ?? String(job.laborCost));
 
                                 return (
@@ -7130,6 +7167,44 @@ export function InvoiceQuoteView({
                   value={observation}
                   onChange={(event) => setObservation(event.target.value)}
                   placeholder="Optional invoice observation"
+                />
+              </label>
+            </div>
+          </div>
+        ) : null}
+
+        {usesAzeInvoiceDeductions ? (
+          <div className="invoice-section-card">
+            <div className="invoice-section-head">
+              <div>
+                <p className="eyebrow">Invoice Adjustments</p>
+                <h3 className="title-with-icon title-with-icon--sm">
+                  <UiIcon name="dollar" />
+                  <span>AZE totals</span>
+                </h3>
+              </div>
+            </div>
+
+            <div className="form-grid">
+              <label>
+                Advance Payment (optional)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={advancePayment}
+                  onChange={(event) => setAdvancePayment(event.target.value)}
+                />
+              </label>
+
+              <label>
+                Material Expense (USD)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={materialExpense}
+                  onChange={(event) => setMaterialExpense(event.target.value)}
                 />
               </label>
             </div>
