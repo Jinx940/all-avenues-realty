@@ -1879,7 +1879,8 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                   <div class="brand-mark">
                     <svg viewBox="0 0 140 140" class="invoice-mark" xmlns="http://www.w3.org/2000/svg">
                       <path d="M20 110 L20 35 A75 75 0 0 1 95 110 Z" fill="#969490" stroke="#ff5b5b" stroke-width="4" stroke-linejoin="miter" />
-                      <rect x="96" y="18" width="22" height="22" fill="#969490" stroke="#ff5b5b" stroke-width="4" />
+                      <rect x="94" y="16" width="26" height="26" fill="#ff5b5b" />
+                      <rect x="99" y="21" width="16" height="16" fill="#969490" />
                     </svg>
                   </div>
                 </div>
