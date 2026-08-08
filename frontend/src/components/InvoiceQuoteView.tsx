@@ -1702,12 +1702,12 @@ const azeModernInvoiceLayoutStyles = `
   .label { font-size: 14px; margin-bottom: 4px; }
   .value { font-size: 16px; font-weight: 800; }
   .content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
-  .job-panel { background: #bfe6e8; min-height: 106px; padding: 10px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 14px; align-items: center; text-align: center; }
-  .job-title-block { margin: 0; min-height: 82px; display: flex; align-items: center; justify-content: center; }
-  .job-heading { min-width: 0; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 7px; }
+  .job-panel { background: #bfe6e8; min-height: 106px; padding: 10px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 14px; align-items: start; text-align: center; }
+  .job-title-block { margin: 0; min-height: 86px; display: flex; align-items: flex-start; justify-content: center; }
+  .job-heading { min-width: 0; height: 34px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 7px; }
   .job-title-block .job-heading { margin-bottom: 0; }
   .job-title { color: #2f49a7; font-size: 19px; line-height: 1.05; font-weight: 700; margin: 0; text-align: left; white-space: nowrap; }
-  .job-block { margin: 0; width: 100%; min-width: 0; min-height: 86px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .job-block { margin: 0; width: 100%; min-width: 0; min-height: 86px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; }
   .job-icon-frame { width: 30px; height: 30px; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .job-title-block .job-icon-frame { width: 34px; height: 34px; flex-basis: 34px; }
   .job-icon { width: 54px; height: 54px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; }
@@ -2357,12 +2357,12 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .label { font-size: 14px; margin-bottom: 4px; }
           .value { font-size: 16px; font-weight: 800; }
           .content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
-          .job-panel { background: #bfe6e8; min-height: 106px; padding: 10px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 14px; align-items: center; text-align: center; }
-          .job-title-block { margin: 0; min-height: 82px; display: flex; align-items: center; justify-content: center; }
-          .job-heading { min-width: 0; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 7px; }
+          .job-panel { background: #bfe6e8; min-height: 106px; padding: 10px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 14px; align-items: start; text-align: center; }
+          .job-title-block { margin: 0; min-height: 86px; display: flex; align-items: flex-start; justify-content: center; }
+          .job-heading { min-width: 0; height: 34px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 7px; }
           .job-title-block .job-heading { margin-bottom: 0; }
           .job-title { color: #2f49a7; font-size: 19px; line-height: 1.05; font-weight: 700; margin: 0; text-align: left; white-space: nowrap; }
-          .job-block { margin: 0; width: 100%; min-width: 0; min-height: 86px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+          .job-block { margin: 0; width: 100%; min-width: 0; min-height: 86px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; }
           .job-icon-frame { width: 30px; height: 30px; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
           .job-title-block .job-icon-frame { width: 34px; height: 34px; flex-basis: 34px; }
           .job-icon { width: 54px; height: 54px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; }
