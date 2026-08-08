@@ -24,6 +24,7 @@ const pdfFooterReserveCss = '30mm';
 const pdfContentBottomGuardCss = '4mm';
 const azePageVerticalMarginCss = '13mm';
 const azePageHorizontalMarginCss = '7mm';
+const azeFooterReserveCss = '18mm';
 const azeHeaderHorizontalInsetCss = '8mm';
 const ryanBillToMaxLength = 40;
 
@@ -1535,48 +1536,6 @@ const buildAzeInvoiceTableHeadHtml = (includeLabor = true) => `
   </thead>
 `;
 
-const buildAzeInvoiceGridHeadHtml = () => `
-  <div class="aze-invoice-grid-head">
-    <div>Unit</div>
-    <div>Area</div>
-    <div>Service</div>
-    <div>Description</div>
-    <div>Labor</div>
-    <div>Unit Price</div>
-  </div>
-`;
-
-const buildAzeInvoiceGridRowsHtml = (rows: AzeInvoiceRow[]) =>
-  rows
-    .map((row) => {
-      const bulletHtml = row.bullets.length
-        ? `<ul>${row.bullets.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
-        : '<ul><li></li></ul>';
-      const rowClass = [
-        'aze-invoice-grid-row',
-        row.continuation ? 'row-continuation' : '',
-        row.showDivider === false ? 'row-no-divider' : '',
-      ]
-        .filter(Boolean)
-        .join(' ');
-      const showUnit = row.showUnit !== false;
-      const showArea = row.showArea !== false;
-      const showService = row.showService !== false;
-      const showPrice = row.showPrice !== false;
-
-      return `
-        <div class="${rowClass}">
-          <div class="unit${showUnit ? '' : ' is-empty'}">${showUnit ? buildInvoiceCellHtml(row.unit) : '&nbsp;'}</div>
-          <div class="area${showArea ? '' : ' is-empty'}">${showArea ? buildInvoiceCellHtml(row.area) : '&nbsp;'}</div>
-          <div class="service${showService ? '' : ' is-empty'}">${showService ? buildInvoiceCellHtml(row.service) : '&nbsp;'}</div>
-          <div class="desc">${bulletHtml}</div>
-          <div class="cost labor-cost${showPrice ? '' : ' is-empty'}">${showPrice ? escapeHtml(formatPdfMoney(row.labor)) : '&nbsp;'}</div>
-          <div class="cost unit-price-cost${showPrice ? '' : ' is-empty'}">${showPrice ? escapeHtml(formatPdfMoney(row.totalPrice)) : '&nbsp;'}</div>
-        </div>
-      `;
-    })
-    .join('');
-
 const attachmentKindLabels: Record<PdfAttachmentFile['kind'], string> = {
   before: 'Before',
   after: 'After',
@@ -1678,7 +1637,7 @@ const azeModernInvoiceLayoutStyles = `
   .page-continue { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .page-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-  .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; margin-left: ${azeHeaderHorizontalInsetCss}; margin-right: ${azeHeaderHorizontalInsetCss}; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+  .page-footer { position: relative; z-index: 1; flex: 0 0 ${azeFooterReserveCss}; min-height: ${azeFooterReserveCss}; margin-top: auto; margin-left: ${azeHeaderHorizontalInsetCss}; margin-right: ${azeHeaderHorizontalInsetCss}; padding-top: 4px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
   .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
   .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
   .aze-body-width { width: 100%; margin-left: 0; margin-right: 0; align-self: stretch; }
@@ -1739,21 +1698,22 @@ const azeModernInvoiceLayoutStyles = `
   .aze-invoice-grid-row .desc li + li { margin-top: 2px; }
   .aze-invoice-grid-row .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
   .aze-invoice-grid-row .is-empty { color: transparent; }
-  .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
+  .aze-invoice-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .aze-unit-col { width: 64px; }
   .aze-area-col { width: 76px; }
   .aze-service-col { width: 98px; }
   .aze-labor-col { width: 86px; }
   .aze-price-col { width: 92px; }
   .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 12px; line-height: 1.2; text-align: center; height: 46px; padding: 0 8px; }
-  .aze-invoice-table td { min-height: 46px; padding: 8px 7px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
+  .aze-invoice-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .aze-invoice-table td { padding: 4px 7px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
   .aze-invoice-table .unit,
   .aze-invoice-table .area,
   .aze-invoice-table .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
   .aze-invoice-table .service.is-empty { color: transparent; }
   .aze-invoice-table .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; }
   .aze-invoice-table .desc ul { margin: 0; padding-left: 20px; }
-  .aze-invoice-table .desc li + li { margin-top: 4px; }
+  .aze-invoice-table .desc li + li { margin-top: 2px; }
   .aze-invoice-table .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
   .aze-invoice-table .cost.is-empty { color: transparent; }
   .aze-invoice-table .row-continuation .service,
@@ -1761,17 +1721,17 @@ const azeModernInvoiceLayoutStyles = `
   .aze-invoice-table .row-no-divider .service,
   .aze-invoice-table .row-no-divider .cost { padding-bottom: 0; }
   .aze-invoice-table .row-continuation .desc ul { margin-top: 0; }
-  .summary-section { width: 100%; margin-top: 12px; display: flex; justify-content: flex-end; break-inside: avoid; page-break-inside: avoid; }
-  .summary { width: 350px; margin: 0; align-self: flex-end; overflow: hidden; border: 2px solid #2f49a7; border-radius: 8px; background: rgba(255, 255, 255, 0.45); break-inside: avoid; page-break-inside: avoid; }
-  .summary-title { min-height: 34px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; background: #243b8f; color: #ffffff; font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
-  .summary-title span:last-child { opacity: 0.8; font-size: 10px; letter-spacing: 1.5px; }
-  .sum-row { display: grid; grid-template-columns: 1fr 145px; align-items: center; min-height: 46px; padding: 0 0 0 16px; border-bottom: 1px solid rgba(47, 73, 167, 0.35); font-size: 15px; }
+  .summary-section { width: 100%; margin-top: 8px; display: flex; justify-content: flex-end; break-inside: avoid; page-break-inside: avoid; }
+  .summary { width: 300px; margin: 0; align-self: flex-end; overflow: hidden; border: 2px solid #2f49a7; border-radius: 7px; background: rgba(255, 255, 255, 0.45); break-inside: avoid; page-break-inside: avoid; }
+  .summary-title { min-height: 20px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; background: #243b8f; color: #ffffff; font-size: 10px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+  .summary-title span:last-child { opacity: 0.8; font-size: 8px; letter-spacing: 1.2px; }
+  .sum-row { display: grid; grid-template-columns: 1fr 120px; align-items: center; min-height: 21px; padding: 0 0 0 12px; border-bottom: 1px solid rgba(47, 73, 167, 0.35); font-size: 11px; }
   .sum-row.teal { background: #bfe6e8; color: #2f49a7; }
   .sum-row.light { background: rgba(255, 255, 255, 0.48); color: #2f49a7; }
   .sum-row.expenses { background: rgba(255, 91, 91, 0.08); color: #ff5b5b; }
-  .sum-row.total { min-height: 56px; background: #2f49a7; color: #ffffff; border-bottom: none; font-size: 17px; font-weight: 800; }
-  .sum-row > .summary-label { padding-right: 12px; font-weight: 700; }
-  .summary-money { width: 145px; height: 100%; padding: 0 16px 0 6px; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .sum-row.total { min-height: 28px; background: #2f49a7; color: #ffffff; border-bottom: none; font-size: 13px; font-weight: 800; }
+  .sum-row > .summary-label { padding-right: 8px; font-weight: 700; }
+  .summary-money { width: 120px; height: 100%; padding: 0 12px 0 4px; display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; font-weight: 800; font-variant-numeric: tabular-nums; }
   .summary-currency { text-align: center; }
   .summary-value { text-align: right; white-space: nowrap; }
   .footer { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; align-items: center; padding: 12px 4px 0 4px; break-inside: avoid; page-break-inside: avoid; }
@@ -1874,7 +1834,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
     pageRows: AzeInvoiceRow[],
     options: { isFirstPage: boolean; isLastPage: boolean; tailBlocks?: string[]; includeFooter: boolean },
   ) => {
-    const rowsHtml = buildAzeInvoiceGridRowsHtml(pageRows);
+    const rowsHtml = buildAzeInvoiceRowsHtml(pageRows);
     const pageClassName = [
       'page',
       'aze-invoice-page',
@@ -2004,10 +1964,11 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
               <section class="main">
                 <div class="table-block">
-                  <div class="aze-invoice-grid">
-                    ${buildAzeInvoiceGridHeadHtml()}
-                    ${rowsHtml}
-                  </div>
+                  <table class="aze-invoice-table">
+                    ${buildAzeInvoiceTableColumnsHtml()}
+                    ${buildAzeInvoiceTableHeadHtml()}
+                    <tbody>${rowsHtml}</tbody>
+                  </table>
                   ${tailBlocksHtml}
                 </div>
               </section>
@@ -2024,9 +1985,10 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         <div class="page-main aze-body-width continue-wrap">
           <section class="main main-full continue-main">
             <div class="table-block table-block-continue">
-              <div class="aze-invoice-grid aze-invoice-grid--continue">
-                ${rowsHtml}
-              </div>
+              <table class="aze-invoice-table aze-invoice-table--continue">
+                ${buildAzeInvoiceTableColumnsHtml()}
+                <tbody>${rowsHtml}</tbody>
+              </table>
               ${tailBlocksHtml}
             </div>
           </section>
@@ -2098,6 +2060,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       return pixels;
     };
     const contentBottomGuardPixels = measureCssLengthInPixels(azeContentBottomGuardCss);
+    const summaryBottomGuardPixels = measureCssLengthInPixels('1mm');
 
     const pageFits = (
       pageRows: AzeInvoiceRow[],
@@ -2114,7 +2077,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       `;
 
       const pageMain = measurementRoot.querySelector<HTMLElement>('.page-main');
-      const table = measurementRoot.querySelector<HTMLElement>('.aze-invoice-grid');
+      const table = measurementRoot.querySelector<HTMLElement>('.aze-invoice-table');
 
       if (!pageMain || !table) {
         return true;
@@ -2124,7 +2087,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         table,
         ...Array.from(
           measurementRoot.querySelectorAll<HTMLElement>(
-            '.aze-invoice-grid-head, .aze-invoice-grid-row, .aze-invoice-grid-row > div, .summary-section, .attachment-section-start, .attachment-row',
+            '.aze-invoice-table thead, .aze-invoice-table tr, .aze-invoice-table th, .aze-invoice-table td, .summary-section, .attachment-section-start, .attachment-row',
           ),
         ),
       ];
@@ -2140,7 +2103,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         table,
         ...Array.from(
           measurementRoot.querySelectorAll<HTMLElement>(
-            '.table-block, .aze-invoice-grid-row, .aze-invoice-grid-row .desc',
+            '.table-block',
           ),
         ),
       ];
@@ -2150,7 +2113,11 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           element.scrollWidth > element.clientWidth + 1,
       );
 
-      return !hasClippedContent && contentBottom <= pageMainBottom - contentBottomGuardPixels + 0.5;
+      const bottomGuardPixels = measurementRoot.querySelector('.summary-section')
+        ? summaryBottomGuardPixels
+        : contentBottomGuardPixels;
+
+      return !hasClippedContent && contentBottom <= pageMainBottom - bottomGuardPixels + 0.5;
     };
 
     try {
@@ -2227,7 +2194,38 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         summaryLayout.tailBlocks = [summaryHtml];
         summaryLayout.includeFooter = true;
       } else {
-        pageLayouts.push({ rows: [], tailBlocks: [summaryHtml], includeFooter: true });
+        const summaryPageRows: AzeInvoiceRow[] = [];
+        let summaryPlacedWithTableRows = false;
+
+        while (summaryLayout.rows.length > 0) {
+          const trailingRow = summaryLayout.rows.pop();
+          if (!trailingRow) break;
+          summaryPageRows.unshift(trailingRow);
+
+          if (
+            pageFits(summaryPageRows, {
+              isFirstPage: false,
+              tailBlocks: [summaryHtml],
+              includeFooter: true,
+            })
+          ) {
+            if (summaryLayout.rows.length === 0 && summaryPageIndex > 0) {
+              pageLayouts.pop();
+            }
+            pageLayouts.push({
+              rows: summaryPageRows,
+              tailBlocks: [summaryHtml],
+              includeFooter: true,
+            });
+            summaryPlacedWithTableRows = true;
+            break;
+          }
+        }
+
+        if (!summaryPlacedWithTableRows) {
+          summaryLayout.rows.push(...summaryPageRows);
+          pageLayouts.push({ rows: [], tailBlocks: [summaryHtml], includeFooter: true });
+        }
       }
 
       if (attachmentTailBlocks.length) {
@@ -2302,7 +2300,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
             .page-continue { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
             .page:last-child { page-break-after: auto; break-after: auto; }
             .page-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-            .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; margin-left: ${azeHeaderHorizontalInsetCss}; margin-right: ${azeHeaderHorizontalInsetCss}; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+            .page-footer { position: relative; z-index: 1; flex: 0 0 ${azeFooterReserveCss}; min-height: ${azeFooterReserveCss}; margin-top: auto; margin-left: ${azeHeaderHorizontalInsetCss}; margin-right: ${azeHeaderHorizontalInsetCss}; padding-top: 4px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
             .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
             .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
             .aze-body-width { width: 100%; margin-left: 0; margin-right: 0; align-self: stretch; }
@@ -2363,21 +2361,22 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .aze-invoice-grid-row .desc li + li { margin-top: 2px; }
           .aze-invoice-grid-row .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
           .aze-invoice-grid-row .is-empty { color: transparent; }
-          .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
+          .aze-invoice-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
           .aze-unit-col { width: 64px; }
           .aze-area-col { width: 76px; }
           .aze-service-col { width: 98px; }
           .aze-labor-col { width: 86px; }
           .aze-price-col { width: 92px; }
           .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 12px; line-height: 1.2; text-align: center; height: 46px; padding: 0 8px; }
-          .aze-invoice-table td { min-height: 46px; padding: 8px 7px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
+          .aze-invoice-table tr { break-inside: avoid; page-break-inside: avoid; }
+          .aze-invoice-table td { padding: 4px 7px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
           .aze-invoice-table .unit,
           .aze-invoice-table .area,
           .aze-invoice-table .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
           .aze-invoice-table .service.is-empty { color: transparent; }
           .aze-invoice-table .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; }
           .aze-invoice-table .desc ul { margin: 0; padding-left: 20px; }
-          .aze-invoice-table .desc li + li { margin-top: 4px; }
+          .aze-invoice-table .desc li + li { margin-top: 2px; }
           .aze-invoice-table .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
           .aze-invoice-table .cost.is-empty { color: transparent; }
           .aze-invoice-table .row-continuation .service,
@@ -2385,17 +2384,17 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .aze-invoice-table .row-no-divider .service,
           .aze-invoice-table .row-no-divider .cost { padding-bottom: 0; }
           .aze-invoice-table .row-continuation .desc ul { margin-top: 0; }
-            .summary-section { width: 100%; margin-top: 12px; display: flex; justify-content: flex-end; break-inside: avoid; page-break-inside: avoid; }
-            .summary { width: 350px; margin: 0; align-self: flex-end; overflow: hidden; border: 2px solid #2f49a7; border-radius: 8px; background: rgba(255, 255, 255, 0.45); break-inside: avoid; page-break-inside: avoid; }
-            .summary-title { min-height: 34px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; background: #243b8f; color: #ffffff; font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
-            .summary-title span:last-child { opacity: 0.8; font-size: 10px; letter-spacing: 1.5px; }
-            .sum-row { display: grid; grid-template-columns: 1fr 145px; align-items: center; min-height: 46px; padding: 0 0 0 16px; border-bottom: 1px solid rgba(47, 73, 167, 0.35); font-size: 15px; }
+          .summary-section { width: 100%; margin-top: 8px; display: flex; justify-content: flex-end; break-inside: avoid; page-break-inside: avoid; }
+          .summary { width: 300px; margin: 0; align-self: flex-end; overflow: hidden; border: 2px solid #2f49a7; border-radius: 7px; background: rgba(255, 255, 255, 0.45); break-inside: avoid; page-break-inside: avoid; }
+          .summary-title { min-height: 20px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; background: #243b8f; color: #ffffff; font-size: 10px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+          .summary-title span:last-child { opacity: 0.8; font-size: 8px; letter-spacing: 1.2px; }
+          .sum-row { display: grid; grid-template-columns: 1fr 120px; align-items: center; min-height: 21px; padding: 0 0 0 12px; border-bottom: 1px solid rgba(47, 73, 167, 0.35); font-size: 11px; }
           .sum-row.teal { background: #bfe6e8; color: #2f49a7; }
           .sum-row.light { background: rgba(255, 255, 255, 0.48); color: #2f49a7; }
           .sum-row.expenses { background: rgba(255, 91, 91, 0.08); color: #ff5b5b; }
-          .sum-row.total { min-height: 56px; background: #2f49a7; color: #ffffff; border-bottom: none; font-size: 17px; font-weight: 800; }
-          .sum-row > .summary-label { padding-right: 12px; font-weight: 700; }
-          .summary-money { width: 145px; height: 100%; padding: 0 16px 0 6px; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+          .sum-row.total { min-height: 28px; background: #2f49a7; color: #ffffff; border-bottom: none; font-size: 13px; font-weight: 800; }
+          .sum-row > .summary-label { padding-right: 8px; font-weight: 700; }
+          .summary-money { width: 120px; height: 100%; padding: 0 12px 0 4px; display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; font-weight: 800; font-variant-numeric: tabular-nums; }
           .summary-currency { text-align: center; }
           .summary-value { text-align: right; white-space: nowrap; }
             .footer { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; align-items: center; padding: 12px 4px 0 4px; break-inside: avoid; page-break-inside: avoid; }
