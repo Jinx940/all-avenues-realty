@@ -2131,7 +2131,10 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       ];
       const pageMainBottom = pageMain.getBoundingClientRect().bottom;
       const contentBottom = Math.max(
-        ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
+        ...measuredElements.map((element) => {
+          const rect = element.getBoundingClientRect();
+          return Math.max(rect.bottom, rect.top + element.scrollHeight);
+        }),
       );
       const overflowContainers = [
         pageMain,
@@ -2151,42 +2154,6 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       return !hasClippedContent && contentBottom <= pageMainBottom - contentBottomGuardPixels + 0.5;
     };
 
-    const splitRowForRemainingPageSpace = (
-      row: AzeInvoiceRow,
-      currentPage: AzeInvoiceRow[],
-      isFirstPage: boolean,
-    ) => {
-      const splitRows = splitAzeInvoiceRowByBullet(row);
-      if (splitRows.length <= 1) {
-        return null;
-      }
-
-      let bestRowCount = 0;
-      let low = 1;
-      let high = splitRows.length - 1;
-
-      while (low <= high) {
-        const mid = Math.floor((low + high) / 2);
-        const fittingRows = splitRows.slice(0, mid);
-
-        if (pageFits([...currentPage, ...fittingRows], { isFirstPage, includeFooter: false })) {
-          bestRowCount = mid;
-          low = mid + 1;
-        } else {
-          high = mid - 1;
-        }
-      }
-
-      if (bestRowCount <= 0) {
-        return null;
-      }
-
-      return {
-        fittingRows: splitRows.slice(0, bestRowCount),
-        remainingRows: splitRows.slice(bestRowCount),
-      };
-    };
-
     try {
       const pages: AzeInvoiceRow[][] = [[]];
       let pageIndex = 0;
@@ -2202,39 +2169,41 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           continue;
         }
 
-        const splitRows = splitAzeInvoiceRowByBullet(row);
-
-        if (splitRows.length > 1) {
-          if (currentPage.length === 0) {
-            pendingRows.unshift(...splitRows);
-            continue;
-          }
-
-          const splitPage = splitRowForRemainingPageSpace(row, currentPage, pageIndex === 0);
-          if (splitPage) {
-            currentPage.push(...splitPage.fittingRows);
-            pages.push([]);
-            pageIndex += 1;
-            pendingRows.unshift(...splitPage.remainingRows);
-            continue;
-          }
-        }
-
-        if (currentPage.length === 0) {
-          if (pageIndex === 0) {
-            pages.push([]);
-            pageIndex += 1;
-            pendingRows.unshift(row);
-            continue;
-          }
-
-          currentPage.push(row);
+        // Keep each service row together whenever it can fit on a fresh page.
+        // Only split its bullet list when the complete row is taller than an
+        // otherwise empty continuation page.
+        if (currentPage.length > 0) {
+          pages.push([]);
+          pageIndex += 1;
+          pendingRows.unshift(row);
           continue;
         }
 
-        pages.push([]);
-        pageIndex += 1;
-        pendingRows.unshift(row);
+        if (
+          pageIndex === 0 &&
+          pageFits([row], { isFirstPage: false, includeFooter: false })
+        ) {
+          pages.push([]);
+          pageIndex += 1;
+          pendingRows.unshift(row);
+          continue;
+        }
+
+        const splitRows = splitAzeInvoiceRowByBullet(row);
+
+        if (splitRows.length > 1) {
+          pendingRows.unshift(...splitRows);
+          continue;
+        }
+
+        if (pageIndex === 0) {
+          pages.push([]);
+          pageIndex += 1;
+          pendingRows.unshift(row);
+          continue;
+        }
+
+        currentPage.push(row);
       }
 
       while (pages.length > 1 && pages[pages.length - 1].length === 0) {
