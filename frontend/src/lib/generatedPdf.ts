@@ -269,8 +269,9 @@ export async function buildGeneratedPdfBlob({
     const pdfPageRatio = pdfPageWidth / pdfPageHeight;
 
     for (const [index, page] of pages.entries()) {
+      const useLosslessAzeRender = page.classList.contains('aze-invoice-page');
       const canvas = await html2canvas(page, {
-        scale: 2,
+        scale: useLosslessAzeRender ? 3 : 2,
         useCORS: true,
         backgroundColor: '#d9d9d9',
         logging: false,
@@ -278,7 +279,10 @@ export async function buildGeneratedPdfBlob({
         scrollY: 0,
       });
 
-      const imageData = canvas.toDataURL('image/jpeg', 0.98);
+      const imageFormat = useLosslessAzeRender ? 'PNG' : 'JPEG';
+      const imageData = useLosslessAzeRender
+        ? canvas.toDataURL('image/png')
+        : canvas.toDataURL('image/jpeg', 0.98);
       const canvasRatio = canvas.width / canvas.height;
       const shouldFillA4 =
         Math.abs(canvasRatio - pdfPageRatio) <= 0.02 &&
@@ -304,7 +308,7 @@ export async function buildGeneratedPdfBlob({
         pdf.addPage('a4', 'portrait');
       }
 
-      pdf.addImage(imageData, 'JPEG', offsetX, offsetY, renderWidth, renderHeight, undefined, 'FAST');
+      pdf.addImage(imageData, imageFormat, offsetX, offsetY, renderWidth, renderHeight, undefined, 'FAST');
     }
 
     return await appendReceiptAppendices(pdf.output('blob'), receiptAppendices);

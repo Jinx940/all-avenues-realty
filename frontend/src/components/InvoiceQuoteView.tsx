@@ -1378,10 +1378,10 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
 };
 
 const buildAzeInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 9.8;
-  const firstPageLimit = 13.1;
-  const middlePageLimit = 24.2;
-  const lastContinuePageLimit = 17.5;
+  const firstOnlyPageLimit = 10.8;
+  const firstPageLimit = 14.4;
+  const middlePageLimit = 26.8;
+  const lastContinuePageLimit = 19.4;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1718,6 +1718,7 @@ const azeModernInvoiceLayoutStyles = `
 const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
+  const azeContentBottomGuardCss = '0px';
 
   const summaryHtml = `
     <div class="summary-section">
@@ -1789,6 +1790,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
     const rowsHtml = buildAzeInvoiceRowsHtml(pageRows);
     const pageClassName = [
       'page',
+      'aze-invoice-page',
       options.isFirstPage ? 'page-first' : 'page-continue',
       options.isLastPage ? 'page-last' : '',
     ]
@@ -1984,7 +1986,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       measure.remove();
       return pixels;
     };
-    const contentBottomGuardPixels = measureCssLengthInPixels(pdfContentBottomGuardCss);
+    const contentBottomGuardPixels = measureCssLengthInPixels(azeContentBottomGuardCss);
 
     const pageFits = (
       pageRows: AzeInvoiceRow[],
