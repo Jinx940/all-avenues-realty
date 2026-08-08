@@ -1688,7 +1688,7 @@ const azeModernInvoiceLayoutStyles = `
   .brand-text .line-2 { margin-left: 10px; }
   .brand-mark { position: relative; width: 74px; height: 74px; display: flex; margin-top: -14px; margin-left: 6px; }
   .invoice-mark { width: 100%; height: 100%; display: block; }
-  .brand-square { position: absolute; left: 50px; top: 8px; z-index: 2; width: 15px; height: 15px; padding: 3px; background: #ff5b5b; display: block; }
+  .brand-square { position: absolute; left: 50px; top: 13px; z-index: 2; width: 15px; height: 15px; padding: 3px; background: #ff5b5b; display: block; }
   .brand-square-inner { width: 100%; height: 100%; background: #969490; display: block; }
   .invoice-no { position: absolute; left: 96px; top: 59px; font-size: 30px; font-weight: 800; line-height: 1; display: flex; align-items: center; gap: 6px; }
   .logo-area { position: relative; width: 196px; height: 95px; display: flex; flex-direction: column; align-items: center; }
@@ -2295,7 +2295,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .brand-text .line-2 { margin-left: 10px; }
           .brand-mark { position: relative; width: 74px; height: 74px; display: flex; margin-top: -14px; margin-left: 6px; }
           .invoice-mark { width: 100%; height: 100%; display: block; }
-          .brand-square { position: absolute; left: 50px; top: 8px; z-index: 2; width: 15px; height: 15px; padding: 3px; background: #ff5b5b; display: block; }
+          .brand-square { position: absolute; left: 50px; top: 13px; z-index: 2; width: 15px; height: 15px; padding: 3px; background: #ff5b5b; display: block; }
           .brand-square-inner { width: 100%; height: 100%; background: #969490; display: block; }
           .invoice-no { position: absolute; left: 96px; top: 59px; font-size: 30px; font-weight: 800; line-height: 1; display: flex; align-items: center; gap: 6px; }
             .logo-area { position: relative; width: 196px; height: 95px; display: flex; flex-direction: column; align-items: center; }
