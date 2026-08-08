@@ -1702,10 +1702,14 @@ const azeModernInvoiceLayoutStyles = `
   .label { font-size: 14px; margin-bottom: 4px; }
   .value { font-size: 16px; font-weight: 800; }
   .content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
-  .job-panel { background: #bfe6e8; min-height: 86px; padding: 12px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 16px; align-items: center; text-align: center; }
-  .job-title { font-size: 24px; line-height: 1.05; font-weight: 400; margin: 0; text-align: center; }
-  .job-block { margin: 0; width: 100%; min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-  .job-label { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
+  .job-panel { background: #bfe6e8; min-height: 116px; padding: 10px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 14px; align-items: center; text-align: center; }
+  .job-title-block { margin: 0; min-height: 82px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .job-title { color: #2f49a7; font-size: 20px; line-height: 1.05; font-weight: 700; margin: 0; text-align: center; }
+  .job-block { margin: 0; width: 100%; min-width: 0; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .job-icon { width: 30px; height: 30px; flex: 0 0 30px; margin-bottom: 5px; padding: 4px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(47, 73, 167, 0.18); border-radius: 8px; background: rgba(255, 255, 255, 0.58); }
+  .job-title-block .job-icon { width: 34px; height: 34px; flex-basis: 34px; }
+  .job-icon svg { width: 100%; height: 100%; display: block; }
+  .job-label { color: #2f49a7; font-size: 13px; font-weight: 800; margin-bottom: 4px; }
   .job-value { font-size: 14px; font-weight: 400; line-height: 1.2; word-break: break-word; }
   .main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .table-block { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; width: 100%; overflow: hidden; }
@@ -1940,9 +1944,25 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
             <div class="content">
               <aside class="job-panel">
-                <div class="job-title">Job Info</div>
+                <div class="job-title-block">
+                  <span class="job-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="5" y="5" width="22" height="23" rx="3" stroke="#2f49a7" stroke-width="2"/>
+                      <path d="M11 5V3H21V5" stroke="#ff5b5b" stroke-width="2" stroke-linecap="round"/>
+                      <circle cx="11" cy="12" r="2.5" stroke="#2f49a7" stroke-width="1.8"/>
+                      <path d="M7.5 18C8.5 15.5 13.5 15.5 14.5 18M18 11H24M18 16H24M9 23H24" stroke="#2f49a7" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                  </span>
+                  <div class="job-title">Job Info</div>
+                </div>
 
                 <div class="job-block">
+                  <span class="job-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M16 28S25 19.6 25 12.5C25 7.25 21 4 16 4S7 7.25 7 12.5C7 19.6 16 28 16 28Z" stroke="#2f49a7" stroke-width="2" stroke-linejoin="round"/>
+                      <circle cx="16" cy="12.5" r="3.5" fill="#ff5b5b"/>
+                    </svg>
+                  </span>
                   <div class="job-label">Address</div>
                   <div class="job-value">
                     ${escapeHtml(data.propertyAddress)}
@@ -1951,16 +1971,38 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 </div>
 
                 <div class="job-block">
+                  <span class="job-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="11" cy="10" r="4" stroke="#2f49a7" stroke-width="2"/>
+                      <path d="M4.5 24C5.5 18.5 8 16 11 16C13.2 16 15 17.2 16.2 19" stroke="#2f49a7" stroke-width="2" stroke-linecap="round"/>
+                      <rect x="17" y="12" width="11" height="15" rx="2" stroke="#ff5b5b" stroke-width="2"/>
+                      <path d="M22.5 16V23M20.5 18H24.5M20.5 21H24.5" stroke="#2f49a7" stroke-width="1.6" stroke-linecap="round"/>
+                    </svg>
+                  </span>
                   <div class="job-label">Bill To:</div>
                   <div class="job-value">${billToHtml || '-'}</div>
                 </div>
 
                 <div class="job-block">
+                  <span class="job-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="4" y="6" width="24" height="22" rx="3" stroke="#2f49a7" stroke-width="2"/>
+                      <path d="M4 12H28M10 3V8M22 3V8" stroke="#2f49a7" stroke-width="2" stroke-linecap="round"/>
+                      <path d="M13 17L21 21L13 25V17Z" fill="#ff5b5b"/>
+                    </svg>
+                  </span>
                   <div class="job-label">Start date</div>
                   <div class="job-value">${escapeHtml(formatPdfDate(data.startDate))}</div>
                 </div>
 
                 <div class="job-block">
+                  <span class="job-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="4" y="6" width="24" height="22" rx="3" stroke="#2f49a7" stroke-width="2"/>
+                      <path d="M4 12H28M10 3V8M22 3V8" stroke="#2f49a7" stroke-width="2" stroke-linecap="round"/>
+                      <path d="M11 21L15 25L23 16" stroke="#ff5b5b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </span>
                   <div class="job-label">Finish date</div>
                   <div class="job-value">${escapeHtml(formatPdfDate(data.finishDate))}</div>
                 </div>
@@ -2323,10 +2365,14 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .label { font-size: 14px; margin-bottom: 4px; }
           .value { font-size: 16px; font-weight: 800; }
           .content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
-          .job-panel { background: #bfe6e8; min-height: 86px; padding: 12px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 16px; align-items: center; text-align: center; }
-          .job-title { font-size: 24px; line-height: 1.05; font-weight: 400; margin: 0; text-align: center; }
-          .job-block { margin: 0; width: 100%; min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-          .job-label { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
+          .job-panel { background: #bfe6e8; min-height: 116px; padding: 10px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 14px; align-items: center; text-align: center; }
+          .job-title-block { margin: 0; min-height: 82px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+          .job-title { color: #2f49a7; font-size: 20px; line-height: 1.05; font-weight: 700; margin: 0; text-align: center; }
+          .job-block { margin: 0; width: 100%; min-width: 0; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+          .job-icon { width: 30px; height: 30px; flex: 0 0 30px; margin-bottom: 5px; padding: 4px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(47, 73, 167, 0.18); border-radius: 8px; background: rgba(255, 255, 255, 0.58); }
+          .job-title-block .job-icon { width: 34px; height: 34px; flex-basis: 34px; }
+          .job-icon svg { width: 100%; height: 100%; display: block; }
+          .job-label { color: #2f49a7; font-size: 13px; font-weight: 800; margin-bottom: 4px; }
           .job-value { font-size: 14px; font-weight: 400; line-height: 1.2; word-break: break-word; }
           .main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
           .table-block { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; width: 100%; overflow: hidden; }
