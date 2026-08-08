@@ -1951,6 +1951,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 </div>
 
                 <div class="job-block">
+                  <div class="job-label">Bill To:</div>
                   <div class="job-value">${billToHtml || '-'}</div>
                 </div>
 
