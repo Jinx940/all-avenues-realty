@@ -2,6 +2,31 @@ const PDF_EXPORT_ROOT_CLASS = 'generated-pdf-export-root';
 const A4_PAGE_WIDTH_POINTS = 595.28;
 const A4_PAGE_HEIGHT_POINTS = 841.89;
 const RECEIPT_PAGE_MARGIN_POINTS = 36;
+const MAX_RECEIPT_IMAGE_WIDTH = 2000;
+const MAX_RECEIPT_IMAGE_HEIGHT = 2600;
+
+export const generatedPdfPageRasterSettings = (
+  isAzePage: boolean,
+  hasAttachmentImages: boolean,
+) => {
+  if (isAzePage && !hasAttachmentImages) {
+    return { scale: 4, imageFormat: 'PNG' as const, mimeType: 'image/png', quality: undefined };
+  }
+
+  if (hasAttachmentImages) {
+    return { scale: 2, imageFormat: 'JPEG' as const, mimeType: 'image/jpeg', quality: 0.86 };
+  }
+
+  return { scale: 2, imageFormat: 'JPEG' as const, mimeType: 'image/jpeg', quality: 0.94 };
+};
+
+export const fitReceiptImageDimensions = (width: number, height: number) => {
+  const scale = Math.min(1, MAX_RECEIPT_IMAGE_WIDTH / width, MAX_RECEIPT_IMAGE_HEIGHT / height);
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+};
 
 export type GeneratedPdfReceiptAppendix = {
   fileName: string;
@@ -147,8 +172,9 @@ const imageBlobToJpegBytes = async (blob: Blob) => {
   }
 
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
+  const fittedDimensions = fitReceiptImageDimensions(width, height);
+  canvas.width = fittedDimensions.width;
+  canvas.height = fittedDimensions.height;
   const context = canvas.getContext('2d');
 
   if (!context) {
@@ -156,8 +182,8 @@ const imageBlobToJpegBytes = async (blob: Blob) => {
   }
 
   context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, width, height);
-  context.drawImage(image, 0, 0, width, height);
+  context.fillRect(0, 0, fittedDimensions.width, fittedDimensions.height);
+  context.drawImage(image, 0, 0, fittedDimensions.width, fittedDimensions.height);
 
   const jpegBlob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((convertedBlob) => {
@@ -167,7 +193,7 @@ const imageBlobToJpegBytes = async (blob: Blob) => {
       }
 
       reject(new Error('Could not convert receipt image.'));
-    }, 'image/jpeg', 0.95);
+    }, 'image/jpeg', 0.86);
   });
 
   return new Uint8Array(await jpegBlob.arrayBuffer());
@@ -269,9 +295,12 @@ export async function buildGeneratedPdfBlob({
     const pdfPageRatio = pdfPageWidth / pdfPageHeight;
 
     for (const [index, page] of pages.entries()) {
-      const useLosslessAzeRender = page.classList.contains('aze-invoice-page');
+      const rasterSettings = generatedPdfPageRasterSettings(
+        page.classList.contains('aze-invoice-page'),
+        Boolean(page.querySelector('.attachment-card img')),
+      );
       const canvas = await html2canvas(page, {
-        scale: useLosslessAzeRender ? 4 : 2,
+        scale: rasterSettings.scale,
         useCORS: true,
         backgroundColor: '#d9d9d9',
         logging: false,
@@ -279,10 +308,7 @@ export async function buildGeneratedPdfBlob({
         scrollY: 0,
       });
 
-      const imageFormat = useLosslessAzeRender ? 'PNG' : 'JPEG';
-      const imageData = useLosslessAzeRender
-        ? canvas.toDataURL('image/png')
-        : canvas.toDataURL('image/jpeg', 0.98);
+      const imageData = canvas.toDataURL(rasterSettings.mimeType, rasterSettings.quality);
       const canvasRatio = canvas.width / canvas.height;
       const shouldFillA4 =
         Math.abs(canvasRatio - pdfPageRatio) <= 0.02 &&
@@ -308,7 +334,16 @@ export async function buildGeneratedPdfBlob({
         pdf.addPage('a4', 'portrait');
       }
 
-      pdf.addImage(imageData, imageFormat, offsetX, offsetY, renderWidth, renderHeight, undefined, 'FAST');
+      pdf.addImage(
+        imageData,
+        rasterSettings.imageFormat,
+        offsetX,
+        offsetY,
+        renderWidth,
+        renderHeight,
+        undefined,
+        'FAST',
+      );
     }
 
     return await appendReceiptAppendices(pdf.output('blob'), receiptAppendices);
