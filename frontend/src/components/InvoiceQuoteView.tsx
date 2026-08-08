@@ -1686,8 +1686,10 @@ const azeModernInvoiceLayoutStyles = `
   .brand { position: relative; display: flex; align-items: flex-start; gap: 18px; }
   .brand-text { display: flex; flex-direction: column; font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: 6px; }
   .brand-text .line-2 { margin-left: 10px; }
-  .brand-mark { width: 74px; height: 74px; display: flex; margin-top: -14px; margin-left: 6px; }
+  .brand-mark { position: relative; width: 74px; height: 74px; display: flex; margin-top: -14px; margin-left: 6px; }
   .invoice-mark { width: 100%; height: 100%; display: block; }
+  .brand-square { position: absolute; left: 50px; top: 8px; z-index: 2; width: 15px; height: 15px; padding: 3px; background: #ff5b5b; display: block; }
+  .brand-square-inner { width: 100%; height: 100%; background: #969490; display: block; }
   .invoice-no { position: absolute; left: 96px; top: 59px; font-size: 30px; font-weight: 800; line-height: 1; display: flex; align-items: center; gap: 6px; }
   .logo-area { position: relative; width: 196px; height: 95px; display: flex; flex-direction: column; align-items: center; }
   .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
@@ -1879,11 +1881,8 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                   <div class="brand-mark">
                     <svg viewBox="0 0 140 140" class="invoice-mark" xmlns="http://www.w3.org/2000/svg">
                       <path d="M20 110 L20 35 A75 75 0 0 1 95 110 Z" fill="#969490" stroke="#ff5b5b" stroke-width="4" stroke-linejoin="miter" />
-                      <rect x="94" y="16" width="5" height="26" fill="#ff5b5b" />
-                      <rect x="115" y="16" width="5" height="26" fill="#ff5b5b" />
-                      <rect x="94" y="37" width="26" height="5" fill="#ff5b5b" />
-                      <rect x="94" y="16" width="26" height="5" fill="#ff5b5b" />
                     </svg>
+                    <span class="brand-square"><span class="brand-square-inner"></span></span>
                   </div>
                 </div>
 
@@ -2294,8 +2293,10 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .brand { position: relative; display: flex; align-items: flex-start; gap: 18px; }
           .brand-text { display: flex; flex-direction: column; font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: 6px; }
           .brand-text .line-2 { margin-left: 10px; }
-          .brand-mark { width: 74px; height: 74px; display: flex; margin-top: -14px; margin-left: 6px; }
+          .brand-mark { position: relative; width: 74px; height: 74px; display: flex; margin-top: -14px; margin-left: 6px; }
           .invoice-mark { width: 100%; height: 100%; display: block; }
+          .brand-square { position: absolute; left: 50px; top: 8px; z-index: 2; width: 15px; height: 15px; padding: 3px; background: #ff5b5b; display: block; }
+          .brand-square-inner { width: 100%; height: 100%; background: #969490; display: block; }
           .invoice-no { position: absolute; left: 96px; top: 59px; font-size: 30px; font-weight: 800; line-height: 1; display: flex; align-items: center; gap: 6px; }
             .logo-area { position: relative; width: 196px; height: 95px; display: flex; flex-direction: column; align-items: center; }
             .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
