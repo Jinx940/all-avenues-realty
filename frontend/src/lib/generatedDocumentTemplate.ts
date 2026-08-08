@@ -18,3 +18,6 @@ export const generatedDocumentTemplateFor = (
   if (owner === 'morales' && documentType === 'Invoice') return 'morales-invoice';
   return 'legacy-quote';
 };
+
+export const azeDocumentBrandLinesFor = (documentType: GeneratedDocumentKind) =>
+  documentType === 'Quote' ? ['QU', 'OTE'] : ['IN', 'VOI', 'CE'];

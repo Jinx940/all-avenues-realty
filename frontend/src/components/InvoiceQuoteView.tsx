@@ -1,7 +1,7 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, buildAssetUrl, fetchAssetBlob, requestJson } from '../lib/api';
 import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendix } from '../lib/generatedPdf';
-import { generatedDocumentTemplateFor } from '../lib/generatedDocumentTemplate';
+import { azeDocumentBrandLinesFor, generatedDocumentTemplateFor } from '../lib/generatedDocumentTemplate';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import homeEnvyLogoUrl from '../assets/Home_envy_logo.png';
@@ -1797,8 +1797,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const azeContentBottomGuardCss = '0px';
-  const documentBrandLines =
-    data.documentType === 'Quote' ? ['QU', 'OT', 'E'] : ['IN', 'VOI', 'CE'];
+  const documentBrandLines = azeDocumentBrandLinesFor(data.documentType);
   const summaryMoneyHtml = (value: number) => `
     <span class="summary-money">
       <span class="summary-currency">$</span>
@@ -1899,9 +1898,9 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
               <div class="brand-area">
                 <div class="brand">
                   <div class="brand-text">
-                    <span class="line-1">${documentBrandLines[0]}</span>
-                    <span class="line-2">${documentBrandLines[1]}</span>
-                    <span class="line-3">${documentBrandLines[2]}</span>
+                    ${documentBrandLines
+                      .map((line, index) => `<span class="line-${index + 1}">${line}</span>`)
+                      .join('')}
                   </div>
 
                   <div class="brand-mark">
