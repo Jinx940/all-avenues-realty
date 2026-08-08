@@ -1,6 +1,7 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, buildAssetUrl, fetchAssetBlob, requestJson } from '../lib/api';
 import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendix } from '../lib/generatedPdf';
+import { generatedDocumentTemplateFor } from '../lib/generatedDocumentTemplate';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import homeEnvyLogoUrl from '../assets/Home_envy_logo.png';
@@ -117,6 +118,7 @@ type AzeInvoiceDisplayRow = AzeInvoiceRow & {
 };
 
 type AzeInvoiceData = {
+  documentType: DocumentType;
   invoiceNumber: string;
   docDate: string;
   clientName: string;
@@ -1795,6 +1797,8 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const azeContentBottomGuardCss = '0px';
+  const documentBrandLines =
+    data.documentType === 'Quote' ? ['QU', 'OT', 'E'] : ['IN', 'VOI', 'CE'];
   const summaryMoneyHtml = (value: number) => `
     <span class="summary-money">
       <span class="summary-currency">$</span>
@@ -1805,7 +1809,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   const summaryHtml = `
     <div class="summary-section">
       <div class="summary">
-        <div class="summary-title"><span>Payment Summary</span><span>USD</span></div>
+        <div class="summary-title"><span>${data.documentType === 'Quote' ? 'Quote Summary' : 'Payment Summary'}</span><span>USD</span></div>
         <div class="sum-row teal">
           <span class="summary-label">Labor Total</span>
           ${summaryMoneyHtml(data.laborTotal)}
@@ -1895,9 +1899,9 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
               <div class="brand-area">
                 <div class="brand">
                   <div class="brand-text">
-                    <span class="line-1">IN</span>
-                    <span class="line-2">VOI</span>
-                    <span class="line-3">CE</span>
+                    <span class="line-1">${documentBrandLines[0]}</span>
+                    <span class="line-2">${documentBrandLines[1]}</span>
+                    <span class="line-3">${documentBrandLines[2]}</span>
                   </div>
 
                   <div class="brand-mark">
@@ -2320,7 +2324,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
     <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <title>Invoice ${escapeHtml(data.invoiceNumber)}</title>
+        <title>${escapeHtml(data.documentType)} ${escapeHtml(data.invoiceNumber)}</title>
         <style>
           @page { size: A4; margin: 0; }
           * { box-sizing: border-box; }
@@ -6572,10 +6576,11 @@ export function InvoiceQuoteView({
       return null;
     }
 
-    const useSterlingMechanicalInvoice = ownerKey === 'ryan' && documentType === 'Invoice';
-    const useAzeModernInvoice = ownerKey === 'aze' && documentType === 'Invoice';
-    const useToddModernInvoice = ownerKey === 'todd';
-    const useMoralesInvoice = ownerKey === 'morales' && documentType === 'Invoice';
+    const generatedDocumentTemplate = generatedDocumentTemplateFor(ownerKey, documentType);
+    const useSterlingMechanicalInvoice = generatedDocumentTemplate === 'ryan-invoice';
+    const useAzeModernDocument = generatedDocumentTemplate === 'aze-modern';
+    const useToddModernInvoice = generatedDocumentTemplate === 'todd-modern';
+    const useMoralesInvoice = generatedDocumentTemplate === 'morales-invoice';
     const safeDocumentNumber =
       String(documentNumberOverride ?? effectiveDocumentNumber).trim() || '00000000';
     const safeBaseName = `${documentType}_${(activeProperty?.name || 'property')
@@ -6615,8 +6620,9 @@ export function InvoiceQuoteView({
             observation,
             attachments: includeInlineInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
           })
-      : useAzeModernInvoice
+      : useAzeModernDocument
         ? buildAzeModernInvoiceHtml({
+          documentType,
           invoiceNumber: safeDocumentNumber,
           docDate: issueDate,
           clientName,
