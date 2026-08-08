@@ -22,6 +22,8 @@ const pdfPageHorizontalMarginCss = '15mm';
 const pdfFooterReserveCss = '30mm';
 const pdfContentBottomGuardCss = '4mm';
 const azePageVerticalMarginCss = '13mm';
+const azePageHorizontalMarginCss = '7mm';
+const azeHeaderHorizontalInsetCss = '8mm';
 const ryanBillToMaxLength = 40;
 
 type PdfServiceItem = {
@@ -1669,19 +1671,19 @@ const azeModernInvoiceLayoutStyles = `
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #d9d9d9 !important; overflow: auto; }
-  .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
-  .page-first { padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
-  .page-continue { padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+  .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+  .page-first { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
+  .page-continue { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .page-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-  .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+  .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; margin-left: ${azeHeaderHorizontalInsetCss}; margin-right: ${azeHeaderHorizontalInsetCss}; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
   .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
   .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
   .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
   .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
   .continue-main { justify-content: flex-start; }
   .continue-table { flex: 0 0 auto; margin-top: 0; }
-  .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; margin: 0 ${azeHeaderHorizontalInsetCss} 28px; }
   .brand-area { position: relative; width: 280px; height: 120px; }
   .brand { position: relative; display: flex; align-items: flex-start; gap: 18px; }
   .brand-text { display: flex; flex-direction: column; font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: 6px; }
@@ -1694,7 +1696,7 @@ const azeModernInvoiceLayoutStyles = `
   .logo-area { position: relative; width: 196px; height: 95px; display: flex; flex-direction: column; align-items: center; }
   .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
   .az-logo { width: 128px; height: 56px; display: block; margin: 0; }
-  .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin-bottom: 22px; padding: 0 6px 0 84px; }
+  .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin: 0 ${azeHeaderHorizontalInsetCss} 22px; padding: 0 6px 0 84px; }
   .client-col { position: relative; padding-left: 10px; }
   .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
   .label { font-size: 14px; margin-bottom: 4px; }
@@ -2276,19 +2278,19 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { background: #d9d9d9 !important; overflow: auto; }
-            .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
-            .page-first { padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
-            .page-continue { padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+            .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+            .page-first { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
+            .page-continue { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
             .page:last-child { page-break-after: auto; break-after: auto; }
             .page-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-            .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+            .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; margin-left: ${azeHeaderHorizontalInsetCss}; margin-right: ${azeHeaderHorizontalInsetCss}; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
             .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
             .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
             .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
             .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
             .continue-main { justify-content: flex-start; }
             .continue-table { flex: 0 0 auto; margin-top: 0; }
-          .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+          .top { display: flex; justify-content: space-between; align-items: flex-start; margin: 0 ${azeHeaderHorizontalInsetCss} 28px; }
           .brand-area { position: relative; width: 280px; height: 120px; }
           .brand { position: relative; display: flex; align-items: flex-start; gap: 18px; }
           .brand-text { display: flex; flex-direction: column; font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: 6px; }
@@ -2301,7 +2303,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
             .logo-area { position: relative; width: 196px; height: 95px; display: flex; flex-direction: column; align-items: center; }
             .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
             .az-logo { width: 128px; height: 56px; display: block; margin: 0; }
-          .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin-bottom: 22px; padding: 0 6px 0 84px; }
+          .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin: 0 ${azeHeaderHorizontalInsetCss} 22px; padding: 0 6px 0 84px; }
           .client-col { position: relative; padding-left: 10px; }
           .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
           .label { font-size: 14px; margin-bottom: 4px; }
@@ -2372,7 +2374,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .attachment-section-start { break-inside: avoid; page-break-inside: avoid; }
           .attachment-heading { margin-top: 12px; padding: 0 0 7px 0; border-bottom: 2px solid #ff5b5b; color: #111111; font-size: 16px; line-height: 1.2; font-weight: 800; break-inside: avoid; page-break-inside: avoid; }
           .attachment-row { flex: 0 0 74mm; height: 74mm; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
-          .attachment-page { padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+          .attachment-page { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
           .attachment-section { height: 100%; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
           .attachment-head { flex: 0 0 auto; display: flex; align-items: end; justify-content: space-between; border-bottom: 3px solid #ff5b5b; padding-bottom: 9px; }
           .attachment-head span { color: #ff5b5b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
