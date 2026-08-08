@@ -1530,6 +1530,48 @@ const buildAzeInvoiceTableHeadHtml = (includeLabor = true) => `
   </thead>
 `;
 
+const buildAzeInvoiceGridHeadHtml = () => `
+  <div class="aze-invoice-grid-head">
+    <div>Unit</div>
+    <div>Area</div>
+    <div>Service</div>
+    <div>Description</div>
+    <div>Labor</div>
+    <div>Unit Price</div>
+  </div>
+`;
+
+const buildAzeInvoiceGridRowsHtml = (rows: AzeInvoiceRow[]) =>
+  rows
+    .map((row) => {
+      const bulletHtml = row.bullets.length
+        ? `<ul>${row.bullets.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
+        : '<ul><li></li></ul>';
+      const rowClass = [
+        'aze-invoice-grid-row',
+        row.continuation ? 'row-continuation' : '',
+        row.showDivider === false ? 'row-no-divider' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      const showUnit = row.showUnit !== false;
+      const showArea = row.showArea !== false;
+      const showService = row.showService !== false;
+      const showPrice = row.showPrice !== false;
+
+      return `
+        <div class="${rowClass}">
+          <div class="unit${showUnit ? '' : ' is-empty'}">${showUnit ? buildInvoiceCellHtml(row.unit) : '&nbsp;'}</div>
+          <div class="area${showArea ? '' : ' is-empty'}">${showArea ? buildInvoiceCellHtml(row.area) : '&nbsp;'}</div>
+          <div class="service${showService ? '' : ' is-empty'}">${showService ? buildInvoiceCellHtml(row.service) : '&nbsp;'}</div>
+          <div class="desc">${bulletHtml}</div>
+          <div class="cost labor-cost${showPrice ? '' : ' is-empty'}">${showPrice ? escapeHtml(formatPdfMoney(row.labor)) : '&nbsp;'}</div>
+          <div class="cost unit-price-cost${showPrice ? '' : ' is-empty'}">${showPrice ? escapeHtml(formatPdfMoney(row.totalPrice)) : '&nbsp;'}</div>
+        </div>
+      `;
+    })
+    .join('');
+
 const attachmentKindLabels: Record<PdfAttachmentFile['kind'], string> = {
   before: 'Before',
   after: 'After',
@@ -1664,6 +1706,22 @@ const azeModernInvoiceLayoutStyles = `
   .table-block { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; width: 100%; overflow: hidden; }
   .table-block-continue { flex: 0 0 auto; }
   .table { width: 100%; }
+  .aze-invoice-grid { width: 100%; display: flex; flex-direction: column; flex: 0 0 auto; }
+  .aze-invoice-grid-head,
+  .aze-invoice-grid-row { display: grid; grid-template-columns: 64px 76px 98px minmax(0, 1fr) 86px 92px; width: 100%; }
+  .aze-invoice-grid-head { min-height: 46px; background: #ff5b5b; color: #ffffff; font-size: 12px; line-height: 1.2; font-weight: 700; }
+  .aze-invoice-grid-head > div { min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0 8px; text-align: center; }
+  .aze-invoice-grid-row { min-height: 46px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); break-inside: avoid; page-break-inside: avoid; }
+  .aze-invoice-grid-row.row-no-divider { border-bottom-color: transparent; }
+  .aze-invoice-grid-row > div { min-width: 0; padding: 8px 7px; display: flex; align-items: center; justify-content: center; }
+  .aze-invoice-grid-row .unit,
+  .aze-invoice-grid-row .area,
+  .aze-invoice-grid-row .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
+  .aze-invoice-grid-row .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; align-items: flex-start; justify-content: flex-start; text-align: left; }
+  .aze-invoice-grid-row .desc ul { width: 100%; margin: 0; padding-left: 20px; }
+  .aze-invoice-grid-row .desc li + li { margin-top: 4px; }
+  .aze-invoice-grid-row .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+  .aze-invoice-grid-row .is-empty { color: transparent; }
   .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
   .aze-unit-col { width: 64px; }
   .aze-area-col { width: 76px; }
@@ -1787,7 +1845,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
     pageRows: AzeInvoiceRow[],
     options: { isFirstPage: boolean; isLastPage: boolean; tailBlocks?: string[]; includeFooter: boolean },
   ) => {
-    const rowsHtml = buildAzeInvoiceRowsHtml(pageRows);
+    const rowsHtml = buildAzeInvoiceGridRowsHtml(pageRows);
     const pageClassName = [
       'page',
       'aze-invoice-page',
@@ -1891,11 +1949,10 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
               <section class="main">
                 <div class="table-block">
-                  <table class="table aze-invoice-table">
-                    ${buildAzeInvoiceTableColumnsHtml()}
-                    ${buildAzeInvoiceTableHeadHtml()}
-                    <tbody>${rowsHtml}</tbody>
-                  </table>
+                  <div class="aze-invoice-grid">
+                    ${buildAzeInvoiceGridHeadHtml()}
+                    ${rowsHtml}
+                  </div>
                   ${tailBlocksHtml}
                 </div>
               </section>
@@ -1912,10 +1969,9 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         <div class="page-main continue-wrap">
           <section class="main main-full continue-main">
             <div class="table-block table-block-continue">
-              <table class="table aze-invoice-table continue-table">
-                ${buildAzeInvoiceTableColumnsHtml()}
-                <tbody>${rowsHtml}</tbody>
-              </table>
+              <div class="aze-invoice-grid aze-invoice-grid--continue">
+                ${rowsHtml}
+              </div>
               ${tailBlocksHtml}
             </div>
           </section>
@@ -2003,7 +2059,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       `;
 
       const pageMain = measurementRoot.querySelector<HTMLElement>('.page-main');
-      const table = measurementRoot.querySelector<HTMLElement>('.aze-invoice-table');
+      const table = measurementRoot.querySelector<HTMLElement>('.aze-invoice-grid');
 
       if (!pageMain || !table) {
         return true;
@@ -2013,7 +2069,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         table,
         ...Array.from(
           measurementRoot.querySelectorAll<HTMLElement>(
-            '.aze-invoice-table tr, .aze-invoice-table td, .summary-section, .attachment-section-start, .attachment-row',
+            '.aze-invoice-grid-head, .aze-invoice-grid-row, .aze-invoice-grid-row > div, .summary-section, .attachment-section-start, .attachment-row',
           ),
         ),
       ];
@@ -2241,6 +2297,22 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .table-block { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; width: 100%; overflow: hidden; }
           .table-block-continue { flex: 0 0 auto; }
           .table { width: 100%; }
+          .aze-invoice-grid { width: 100%; display: flex; flex-direction: column; flex: 0 0 auto; }
+          .aze-invoice-grid-head,
+          .aze-invoice-grid-row { display: grid; grid-template-columns: 64px 76px 98px minmax(0, 1fr) 86px 92px; width: 100%; }
+          .aze-invoice-grid-head { min-height: 46px; background: #ff5b5b; color: #ffffff; font-size: 12px; line-height: 1.2; font-weight: 700; }
+          .aze-invoice-grid-head > div { min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0 8px; text-align: center; }
+          .aze-invoice-grid-row { min-height: 46px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); break-inside: avoid; page-break-inside: avoid; }
+          .aze-invoice-grid-row.row-no-divider { border-bottom-color: transparent; }
+          .aze-invoice-grid-row > div { min-width: 0; padding: 8px 7px; display: flex; align-items: center; justify-content: center; }
+          .aze-invoice-grid-row .unit,
+          .aze-invoice-grid-row .area,
+          .aze-invoice-grid-row .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
+          .aze-invoice-grid-row .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; align-items: flex-start; justify-content: flex-start; text-align: left; }
+          .aze-invoice-grid-row .desc ul { width: 100%; margin: 0; padding-left: 20px; }
+          .aze-invoice-grid-row .desc li + li { margin-top: 4px; }
+          .aze-invoice-grid-row .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+          .aze-invoice-grid-row .is-empty { color: transparent; }
           .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
           .aze-unit-col { width: 64px; }
           .aze-area-col { width: 76px; }
