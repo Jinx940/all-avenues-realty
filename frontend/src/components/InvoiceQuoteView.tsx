@@ -1710,7 +1710,7 @@ const azeModernInvoiceLayoutStyles = `
   .job-block { margin: 0; width: 100%; min-width: 0; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; }
   .job-icon-frame { width: 36px; height: 36px; flex: 0 0 36px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .job-title-block .job-icon-frame { width: 42px; height: 42px; flex-basis: 42px; }
-  .job-icon { width: 62px; height: 62px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; filter: brightness(0) saturate(100%) invert(31%) sepia(83%) saturate(820%) hue-rotate(143deg) brightness(87%) contrast(95%); }
+  .job-icon { width: 62px; height: 62px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; }
   .job-title-block .job-icon { width: 70px; height: 70px; }
   .job-label { color: #2f49a7; font-size: 14px; line-height: 1.1; font-weight: 800; margin: 0; text-align: left; white-space: nowrap; }
   .job-value { font-size: 15px; font-weight: 400; line-height: 1.2; word-break: break-word; }
@@ -1950,7 +1950,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 <div class="job-title-block">
                   <div class="job-heading">
                     <span class="job-icon-frame" aria-hidden="true">
-                      <img class="job-icon" src="/job_info_icon.png" alt="">
+                      <img class="job-icon" src="/job_info_icon_dark.png" alt="">
                     </span>
                     <div class="job-title">Job Info</div>
                   </div>
@@ -1959,7 +1959,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 <div class="job-block">
                   <div class="job-heading">
                     <span class="job-icon-frame" aria-hidden="true">
-                      <img class="job-icon" src="/address_icon.png" alt="">
+                      <img class="job-icon" src="/address_icon_dark.png" alt="">
                     </span>
                     <div class="job-label">Address</div>
                   </div>
@@ -1972,7 +1972,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 <div class="job-block">
                   <div class="job-heading">
                     <span class="job-icon-frame" aria-hidden="true">
-                      <img class="job-icon" src="/bill_to_icon.png" alt="">
+                      <img class="job-icon" src="/bill_to_icon_dark.png" alt="">
                     </span>
                     <div class="job-label">Bill To:</div>
                   </div>
@@ -1982,7 +1982,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 <div class="job-block">
                   <div class="job-heading">
                     <span class="job-icon-frame" aria-hidden="true">
-                      <img class="job-icon" src="/start_date_icon.png" alt="">
+                      <img class="job-icon" src="/start_date_icon_dark.png" alt="">
                     </span>
                     <div class="job-label">Start date</div>
                   </div>
@@ -1992,7 +1992,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
                 <div class="job-block">
                   <div class="job-heading">
                     <span class="job-icon-frame" aria-hidden="true">
-                      <img class="job-icon" src="/finish_date_icon.png" alt="">
+                      <img class="job-icon" src="/finish_date_icon_dark.png" alt="">
                     </span>
                     <div class="job-label">Finish date</div>
                   </div>
@@ -2365,7 +2365,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .job-block { margin: 0; width: 100%; min-width: 0; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; }
           .job-icon-frame { width: 36px; height: 36px; flex: 0 0 36px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
           .job-title-block .job-icon-frame { width: 42px; height: 42px; flex-basis: 42px; }
-          .job-icon { width: 62px; height: 62px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; filter: brightness(0) saturate(100%) invert(31%) sepia(83%) saturate(820%) hue-rotate(143deg) brightness(87%) contrast(95%); }
+          .job-icon { width: 62px; height: 62px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; }
           .job-title-block .job-icon { width: 70px; height: 70px; }
           .job-label { color: #2f49a7; font-size: 14px; line-height: 1.1; font-weight: 800; margin: 0; text-align: left; white-space: nowrap; }
           .job-value { font-size: 15px; font-weight: 400; line-height: 1.2; word-break: break-word; }
