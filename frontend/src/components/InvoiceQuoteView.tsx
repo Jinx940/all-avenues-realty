@@ -24,8 +24,8 @@ const pdfFooterReserveCss = '30mm';
 const pdfContentBottomGuardCss = '4mm';
 const azePageVerticalMarginCss = '13mm';
 const azePageHorizontalMarginCss = '7mm';
-const azeContentHorizontalInsetCss = '7mm';
-const azeContentHorizontalTotalInsetCss = '14mm';
+const azeContentHorizontalInsetCss = '0mm';
+const azeContentHorizontalTotalInsetCss = '0mm';
 const azeHeaderHorizontalInsetCss = '8mm';
 const ryanBillToMaxLength = 40;
 
