@@ -21,6 +21,7 @@ const pdfPageVerticalMarginCss = '23mm';
 const pdfPageHorizontalMarginCss = '15mm';
 const pdfFooterReserveCss = '30mm';
 const pdfContentBottomGuardCss = '4mm';
+const azePageVerticalMarginCss = '13mm';
 const ryanBillToMaxLength = 40;
 
 type PdfServiceItem = {
@@ -1668,14 +1669,14 @@ const azeModernInvoiceLayoutStyles = `
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #d9d9d9 !important; overflow: auto; }
-  .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
-  .page-first { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
-  .page-continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+  .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+  .page-first { padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+  .page-continue { padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .page-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
   .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
-  .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${pdfPageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
+  .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
   .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
   .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
   .continue-main { justify-content: flex-start; }
@@ -2077,8 +2078,22 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
       const contentBottom = Math.max(
         ...measuredElements.map((element) => element.getBoundingClientRect().bottom),
       );
+      const overflowContainers = [
+        pageMain,
+        table,
+        ...Array.from(
+          measurementRoot.querySelectorAll<HTMLElement>(
+            '.table-block, .aze-invoice-grid-row, .aze-invoice-grid-row .desc',
+          ),
+        ),
+      ];
+      const hasClippedContent = overflowContainers.some(
+        (element) =>
+          element.scrollHeight > element.clientHeight + 1 ||
+          element.scrollWidth > element.clientWidth + 1,
+      );
 
-      return contentBottom <= pageMainBottom - contentBottomGuardPixels + 0.5;
+      return !hasClippedContent && contentBottom <= pageMainBottom - contentBottomGuardPixels + 0.5;
     };
 
     const splitRowForRemainingPageSpace = (
@@ -2259,14 +2274,14 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { background: #d9d9d9 !important; overflow: auto; }
-            .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
-            .page-first { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
-            .page-continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+            .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+            .page-first { padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+            .page-continue { padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
             .page:last-child { page-break-after: auto; break-after: auto; }
             .page-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
             .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
             .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
-            .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${pdfPageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
+            .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
             .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
             .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
             .continue-main { justify-content: flex-start; }
@@ -2353,7 +2368,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .attachment-section-start { break-inside: avoid; page-break-inside: avoid; }
           .attachment-heading { margin-top: 12px; padding: 0 0 7px 0; border-bottom: 2px solid #ff5b5b; color: #111111; font-size: 16px; line-height: 1.2; font-weight: 800; break-inside: avoid; page-break-inside: avoid; }
           .attachment-row { flex: 0 0 74mm; height: 74mm; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
-          .attachment-page { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
+          .attachment-page { padding: ${azePageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
           .attachment-section { height: 100%; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
           .attachment-head { flex: 0 0 auto; display: flex; align-items: end; justify-content: space-between; border-bottom: 3px solid #ff5b5b; padding-bottom: 9px; }
           .attachment-head span { color: #ff5b5b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
