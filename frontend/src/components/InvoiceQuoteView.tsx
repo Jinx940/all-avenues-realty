@@ -24,8 +24,6 @@ const pdfFooterReserveCss = '30mm';
 const pdfContentBottomGuardCss = '4mm';
 const azePageVerticalMarginCss = '13mm';
 const azePageHorizontalMarginCss = '7mm';
-const azeContentHorizontalInsetCss = '0mm';
-const azeContentHorizontalTotalInsetCss = '0mm';
 const azeHeaderHorizontalInsetCss = '8mm';
 const ryanBillToMaxLength = 40;
 
@@ -1683,7 +1681,8 @@ const azeModernInvoiceLayoutStyles = `
   .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; margin-left: ${azeHeaderHorizontalInsetCss}; margin-right: ${azeHeaderHorizontalInsetCss}; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
   .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
   .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
-  .continue-wrap { width: calc(100% - ${azeContentHorizontalTotalInsetCss}); margin-left: ${azeContentHorizontalInsetCss}; margin-right: ${azeContentHorizontalInsetCss}; flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
+  .aze-body-width { width: 100%; margin-left: 0; margin-right: 0; align-self: stretch; }
+  .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
   .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
   .continue-main { justify-content: flex-start; }
   .continue-table { flex: 0 0 auto; margin-top: 0; }
@@ -1705,7 +1704,7 @@ const azeModernInvoiceLayoutStyles = `
   .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
   .label { font-size: 14px; margin-bottom: 4px; }
   .value { font-size: 16px; font-weight: 800; }
-  .content { width: calc(100% - ${azeContentHorizontalTotalInsetCss}); margin-left: ${azeContentHorizontalInsetCss}; margin-right: ${azeContentHorizontalInsetCss}; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
+  .aze-document-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
   .job-panel { background: #bfe6e8; min-height: 120px; padding: 12px 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; text-align: center; }
   .job-title-block { margin: 0; min-height: 96px; display: flex; align-items: center; justify-content: center; }
   .job-heading { min-width: 0; height: 40px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -1798,7 +1797,7 @@ const azeModernInvoiceLayoutStyles = `
 const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
-  const azeContentBottomGuardCss = '3mm';
+  const azeContentBottomGuardCss = '8mm';
   const documentBrandLines = azeDocumentBrandLinesFor(data.documentType);
   const summaryMoneyHtml = (value: number) => `
     <span class="summary-money">
@@ -1948,7 +1947,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
               </div>
             </div>
 
-            <div class="content">
+            <div class="aze-body-width aze-document-content">
               <aside class="job-panel">
                 <div class="job-title-block">
                   <div class="job-heading">
@@ -2022,7 +2021,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
     return `
       <div class="${pageClassName}">
-        <div class="page-main continue-wrap">
+        <div class="page-main aze-body-width continue-wrap">
           <section class="main main-full continue-main">
             <div class="table-block table-block-continue">
               <div class="aze-invoice-grid aze-invoice-grid--continue">
@@ -2306,7 +2305,8 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
             .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; margin-left: ${azeHeaderHorizontalInsetCss}; margin-right: ${azeHeaderHorizontalInsetCss}; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
             .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
             .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
-            .continue-wrap { width: calc(100% - ${azeContentHorizontalTotalInsetCss}); margin-left: ${azeContentHorizontalInsetCss}; margin-right: ${azeContentHorizontalInsetCss}; flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
+            .aze-body-width { width: 100%; margin-left: 0; margin-right: 0; align-self: stretch; }
+            .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
             .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
             .continue-main { justify-content: flex-start; }
             .continue-table { flex: 0 0 auto; margin-top: 0; }
@@ -2328,7 +2328,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
           .label { font-size: 14px; margin-bottom: 4px; }
           .value { font-size: 16px; font-weight: 800; }
-          .content { width: calc(100% - ${azeContentHorizontalTotalInsetCss}); margin-left: ${azeContentHorizontalInsetCss}; margin-right: ${azeContentHorizontalInsetCss}; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
+          .aze-document-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
           .job-panel { background: #bfe6e8; min-height: 120px; padding: 12px 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; text-align: center; }
           .job-title-block { margin: 0; min-height: 96px; display: flex; align-items: center; justify-content: center; }
           .job-heading { min-width: 0; height: 40px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
