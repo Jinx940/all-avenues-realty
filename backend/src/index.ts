@@ -2347,6 +2347,9 @@ app.post(
         });
 
         return document;
+      }, {
+        maxWait: 10_000,
+        timeout: 30_000,
       });
     } catch (error) {
       if (isDocumentNumberConflictError(error)) {
@@ -3197,6 +3200,14 @@ app.use((_request, response) => {
 
 app.use((error: unknown, _request: Request, response: Response, next: NextFunction) => {
   void next;
+  const requestError = error as { status?: number; type?: string } | null;
+  if (requestError?.status === 413 || requestError?.type === 'entity.too.large') {
+    response.status(413).json({
+      message: 'The generated PDF is too large to save. Reduce the attachment file sizes and try again.',
+    });
+    return;
+  }
+
   if (error instanceof z.ZodError) {
     response.status(400).json({
       message: 'Invalid request payload',
