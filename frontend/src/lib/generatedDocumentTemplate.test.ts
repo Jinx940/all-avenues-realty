@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generatedDocumentTemplateFor } from './generatedDocumentTemplate';
+import { azeDocumentBrandLinesFor, generatedDocumentTemplateFor } from './generatedDocumentTemplate';
 
 describe('generated document template selection', () => {
   it('uses the Juan AZE design for both invoices and quotes', () => {
@@ -13,5 +13,10 @@ describe('generated document template selection', () => {
     expect(generatedDocumentTemplateFor('morales', 'Invoice')).toBe('morales-invoice');
     expect(generatedDocumentTemplateFor('ryan', 'Quote')).toBe('legacy-quote');
     expect(generatedDocumentTemplateFor('morales', 'Quote')).toBe('legacy-quote');
+  });
+
+  it('keeps the E beside the T in the Juan quote heading', () => {
+    expect(azeDocumentBrandLinesFor('Quote')).toEqual(['QU', 'OTE']);
+    expect(azeDocumentBrandLinesFor('Invoice')).toEqual(['IN', 'VOI', 'CE']);
   });
 });
