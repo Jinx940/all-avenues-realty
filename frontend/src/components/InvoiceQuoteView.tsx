@@ -1138,7 +1138,7 @@ const estimateAzeInvoiceRowUnits = (row: AzeInvoiceRow) => {
 };
 
 const splitLongAzeInvoiceBullet = (value: string) => {
-  const maxLength = 220;
+  const maxLength = 120;
 
   if (value.length <= maxLength) {
     return [value];
@@ -1626,7 +1626,7 @@ const azeModernInvoiceLayoutStyles = `
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #d9d9d9 !important; overflow: auto; }
-  .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+  .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
   .page-first { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
   .page-continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
   .page:last-child { page-break-after: auto; break-after: auto; }
@@ -1670,16 +1670,16 @@ const azeModernInvoiceLayoutStyles = `
   .aze-service-col { width: 98px; }
   .aze-labor-col { width: 86px; }
   .aze-price-col { width: 92px; }
-  .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 13px; line-height: 1.2; text-align: center; height: 58px; padding: 0 10px; }
-  .aze-invoice-table td { min-height: 58px; padding: 12px 8px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
+  .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 12px; line-height: 1.2; text-align: center; height: 46px; padding: 0 8px; }
+  .aze-invoice-table td { min-height: 46px; padding: 8px 7px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
   .aze-invoice-table .unit,
   .aze-invoice-table .area,
-  .aze-invoice-table .service { color: #ff5b5b; font-size: 12px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
+  .aze-invoice-table .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
   .aze-invoice-table .service.is-empty { color: transparent; }
-  .aze-invoice-table .desc { color: #2f49a7; font-size: 14px; line-height: 1.45; padding-right: 14px; }
+  .aze-invoice-table .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; }
   .aze-invoice-table .desc ul { margin: 0; padding-left: 20px; }
   .aze-invoice-table .desc li + li { margin-top: 4px; }
-  .aze-invoice-table .cost { color: #2f49a7; font-size: 14px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+  .aze-invoice-table .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
   .aze-invoice-table .cost.is-empty { color: transparent; }
   .aze-invoice-table .row-continuation .service,
   .aze-invoice-table .row-continuation .cost { padding-top: 0; }
@@ -2203,7 +2203,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { background: #d9d9d9 !important; overflow: auto; }
-            .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+            .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
             .page-first { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
             .page-continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
             .page:last-child { page-break-after: auto; break-after: auto; }
@@ -2247,16 +2247,16 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .aze-service-col { width: 98px; }
           .aze-labor-col { width: 86px; }
           .aze-price-col { width: 92px; }
-          .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 13px; line-height: 1.2; text-align: center; height: 58px; padding: 0 10px; }
-          .aze-invoice-table td { min-height: 58px; padding: 12px 8px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
+          .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 12px; line-height: 1.2; text-align: center; height: 46px; padding: 0 8px; }
+          .aze-invoice-table td { min-height: 46px; padding: 8px 7px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
           .aze-invoice-table .unit,
           .aze-invoice-table .area,
-          .aze-invoice-table .service { color: #ff5b5b; font-size: 12px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
+          .aze-invoice-table .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
           .aze-invoice-table .service.is-empty { color: transparent; }
-          .aze-invoice-table .desc { color: #2f49a7; font-size: 14px; line-height: 1.45; padding-right: 14px; }
+          .aze-invoice-table .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; }
           .aze-invoice-table .desc ul { margin: 0; padding-left: 20px; }
           .aze-invoice-table .desc li + li { margin-top: 4px; }
-          .aze-invoice-table .cost { color: #2f49a7; font-size: 14px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+          .aze-invoice-table .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
           .aze-invoice-table .cost.is-empty { color: transparent; }
           .aze-invoice-table .row-continuation .service,
           .aze-invoice-table .row-continuation .cost { padding-top: 0; }

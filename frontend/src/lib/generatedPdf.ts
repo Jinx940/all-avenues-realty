@@ -271,7 +271,7 @@ export async function buildGeneratedPdfBlob({
     for (const [index, page] of pages.entries()) {
       const useLosslessAzeRender = page.classList.contains('aze-invoice-page');
       const canvas = await html2canvas(page, {
-        scale: useLosslessAzeRender ? 3 : 2,
+        scale: useLosslessAzeRender ? 4 : 2,
         useCORS: true,
         backgroundColor: '#d9d9d9',
         logging: false,
