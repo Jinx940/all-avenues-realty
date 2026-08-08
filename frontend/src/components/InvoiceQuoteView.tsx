@@ -1716,15 +1716,17 @@ const azeModernInvoiceLayoutStyles = `
   .aze-invoice-grid-row { display: grid; grid-template-columns: 64px 76px 98px minmax(0, 1fr) 86px 92px; width: 100%; }
   .aze-invoice-grid-head { min-height: 46px; background: #ff5b5b; color: #ffffff; font-size: 12px; line-height: 1.2; font-weight: 700; }
   .aze-invoice-grid-head > div { min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0 8px; text-align: center; }
-  .aze-invoice-grid-row { min-height: 46px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); break-inside: avoid; page-break-inside: avoid; }
+  .aze-invoice-grid-row { min-height: 0; border-bottom: 2px solid rgba(58, 58, 58, 0.75); break-inside: avoid; page-break-inside: avoid; }
   .aze-invoice-grid-row.row-no-divider { border-bottom-color: transparent; }
-  .aze-invoice-grid-row > div { min-width: 0; padding: 8px 7px; display: flex; align-items: center; justify-content: center; }
+  .aze-invoice-grid-row > div { min-width: 0; padding: 4px 7px; display: flex; align-items: center; justify-content: center; }
+  .aze-invoice-grid-row.row-continuation > div { padding-top: 2px; padding-bottom: 2px; }
   .aze-invoice-grid-row .unit,
   .aze-invoice-grid-row .area,
   .aze-invoice-grid-row .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
   .aze-invoice-grid-row .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; align-items: flex-start; justify-content: flex-start; text-align: left; }
   .aze-invoice-grid-row .desc ul { width: 100%; margin: 0; padding-left: 20px; }
-  .aze-invoice-grid-row .desc li + li { margin-top: 4px; }
+  .aze-invoice-grid-row .desc li { margin: 0; }
+  .aze-invoice-grid-row .desc li + li { margin-top: 2px; }
   .aze-invoice-grid-row .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
   .aze-invoice-grid-row .is-empty { color: transparent; }
   .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
@@ -1749,15 +1751,19 @@ const azeModernInvoiceLayoutStyles = `
   .aze-invoice-table .row-no-divider .service,
   .aze-invoice-table .row-no-divider .cost { padding-bottom: 0; }
   .aze-invoice-table .row-continuation .desc ul { margin-top: 0; }
-  .summary-section { width: 100%; margin-top: 2px; display: flex; justify-content: flex-end; break-inside: avoid; page-break-inside: avoid; }
-  .summary { width: 320px; margin: 0; align-self: flex-end; break-inside: avoid; page-break-inside: avoid; }
-  .sum-row { display: grid; grid-template-columns: 1fr 130px; align-items: center; min-height: 54px; padding: 0 0 0 16px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); font-size: 16px; }
+  .summary-section { width: 100%; margin-top: 12px; display: flex; justify-content: flex-end; break-inside: avoid; page-break-inside: avoid; }
+  .summary { width: 350px; margin: 0; align-self: flex-end; overflow: hidden; border: 2px solid #2f49a7; border-radius: 8px; background: rgba(255, 255, 255, 0.45); break-inside: avoid; page-break-inside: avoid; }
+  .summary-title { min-height: 34px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; background: #243b8f; color: #ffffff; font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+  .summary-title span:last-child { opacity: 0.8; font-size: 10px; letter-spacing: 1.5px; }
+  .sum-row { display: grid; grid-template-columns: 1fr 145px; align-items: center; min-height: 46px; padding: 0 0 0 16px; border-bottom: 1px solid rgba(47, 73, 167, 0.35); font-size: 15px; }
   .sum-row.teal { background: #bfe6e8; color: #2f49a7; }
-  .sum-row.light { color: #2f49a7; }
-  .sum-row.expenses { color: #ff5b5b; }
-  .sum-row.total { background: #2f49a7; color: #ffffff; border-bottom: none; font-weight: 800; }
-  .sum-row span:first-child { padding-right: 12px; }
-  .sum-row span:last-child { width: 130px; display: flex; align-items: center; justify-content: flex-end; padding-right: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .sum-row.light { background: rgba(255, 255, 255, 0.48); color: #2f49a7; }
+  .sum-row.expenses { background: rgba(255, 91, 91, 0.08); color: #ff5b5b; }
+  .sum-row.total { min-height: 56px; background: #2f49a7; color: #ffffff; border-bottom: none; font-size: 17px; font-weight: 800; }
+  .sum-row > .summary-label { padding-right: 12px; font-weight: 700; }
+  .summary-money { width: 145px; height: 100%; padding: 0 16px 0 6px; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .summary-currency { text-align: center; }
+  .summary-value { text-align: right; white-space: nowrap; }
   .footer { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; align-items: center; padding: 12px 4px 0 4px; break-inside: avoid; page-break-inside: avoid; }
   .footer-item { display: flex; align-items: center; gap: 14px; }
   .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
@@ -1782,25 +1788,32 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
   const tableRows = buildAzeInvoiceTableRows(data.selectedItems);
   const billToHtml = escapeHtml(data.billTo).replace(/\r?\n/g, '<br>');
   const azeContentBottomGuardCss = '0px';
+  const summaryMoneyHtml = (value: number) => `
+    <span class="summary-money">
+      <span class="summary-currency">$</span>
+      <span class="summary-value">${escapeHtml(formatPdfNumber(value))}</span>
+    </span>
+  `;
 
   const summaryHtml = `
     <div class="summary-section">
       <div class="summary">
+        <div class="summary-title"><span>Payment Summary</span><span>USD</span></div>
         <div class="sum-row teal">
-          <span>Labor Total</span>
-          <span>${formatPdfMoney(data.laborTotal)}</span>
+          <span class="summary-label">Labor Total</span>
+          ${summaryMoneyHtml(data.laborTotal)}
         </div>
         <div class="sum-row light">
-          <span>Job Total</span>
-          <span>${formatPdfMoney(data.jobTotal)}</span>
+          <span class="summary-label">Job Total</span>
+          ${summaryMoneyHtml(data.jobTotal)}
         </div>
         <div class="sum-row expenses">
-          <span>Expenses</span>
-          <span>${formatPdfMoney(data.expenses)}</span>
+          <span class="summary-label">Expenses</span>
+          ${summaryMoneyHtml(data.expenses)}
         </div>
         <div class="sum-row total">
-          <span>Total Due</span>
-          <span>${formatPdfMoney(data.totalDue)}</span>
+          <span class="summary-label">Total Due</span>
+          ${summaryMoneyHtml(data.totalDue)}
         </div>
       </div>
     </div>
@@ -2323,15 +2336,17 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .aze-invoice-grid-row { display: grid; grid-template-columns: 64px 76px 98px minmax(0, 1fr) 86px 92px; width: 100%; }
           .aze-invoice-grid-head { min-height: 46px; background: #ff5b5b; color: #ffffff; font-size: 12px; line-height: 1.2; font-weight: 700; }
           .aze-invoice-grid-head > div { min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0 8px; text-align: center; }
-          .aze-invoice-grid-row { min-height: 46px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); break-inside: avoid; page-break-inside: avoid; }
+          .aze-invoice-grid-row { min-height: 0; border-bottom: 2px solid rgba(58, 58, 58, 0.75); break-inside: avoid; page-break-inside: avoid; }
           .aze-invoice-grid-row.row-no-divider { border-bottom-color: transparent; }
-          .aze-invoice-grid-row > div { min-width: 0; padding: 8px 7px; display: flex; align-items: center; justify-content: center; }
+          .aze-invoice-grid-row > div { min-width: 0; padding: 4px 7px; display: flex; align-items: center; justify-content: center; }
+          .aze-invoice-grid-row.row-continuation > div { padding-top: 2px; padding-bottom: 2px; }
           .aze-invoice-grid-row .unit,
           .aze-invoice-grid-row .area,
           .aze-invoice-grid-row .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
           .aze-invoice-grid-row .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; align-items: flex-start; justify-content: flex-start; text-align: left; }
           .aze-invoice-grid-row .desc ul { width: 100%; margin: 0; padding-left: 20px; }
-          .aze-invoice-grid-row .desc li + li { margin-top: 4px; }
+          .aze-invoice-grid-row .desc li { margin: 0; }
+          .aze-invoice-grid-row .desc li + li { margin-top: 2px; }
           .aze-invoice-grid-row .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
           .aze-invoice-grid-row .is-empty { color: transparent; }
           .aze-invoice-table { border-collapse: collapse; table-layout: fixed; }
@@ -2356,15 +2371,19 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .aze-invoice-table .row-no-divider .service,
           .aze-invoice-table .row-no-divider .cost { padding-bottom: 0; }
           .aze-invoice-table .row-continuation .desc ul { margin-top: 0; }
-            .summary-section { width: 100%; margin-top: 2px; display: flex; justify-content: flex-end; break-inside: avoid; page-break-inside: avoid; }
-            .summary { width: 320px; margin: 0; align-self: flex-end; break-inside: avoid; page-break-inside: avoid; }
-            .sum-row { display: grid; grid-template-columns: 1fr 130px; align-items: center; min-height: 54px; padding: 0 0 0 16px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); font-size: 16px; }
+            .summary-section { width: 100%; margin-top: 12px; display: flex; justify-content: flex-end; break-inside: avoid; page-break-inside: avoid; }
+            .summary { width: 350px; margin: 0; align-self: flex-end; overflow: hidden; border: 2px solid #2f49a7; border-radius: 8px; background: rgba(255, 255, 255, 0.45); break-inside: avoid; page-break-inside: avoid; }
+            .summary-title { min-height: 34px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; background: #243b8f; color: #ffffff; font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+            .summary-title span:last-child { opacity: 0.8; font-size: 10px; letter-spacing: 1.5px; }
+            .sum-row { display: grid; grid-template-columns: 1fr 145px; align-items: center; min-height: 46px; padding: 0 0 0 16px; border-bottom: 1px solid rgba(47, 73, 167, 0.35); font-size: 15px; }
           .sum-row.teal { background: #bfe6e8; color: #2f49a7; }
-          .sum-row.light { color: #2f49a7; }
-          .sum-row.expenses { color: #ff5b5b; }
-          .sum-row.total { background: #2f49a7; color: #ffffff; border-bottom: none; font-weight: 800; }
-          .sum-row span:first-child { padding-right: 12px; }
-          .sum-row span:last-child { width: 130px; display: flex; align-items: center; justify-content: flex-end; padding-right: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+          .sum-row.light { background: rgba(255, 255, 255, 0.48); color: #2f49a7; }
+          .sum-row.expenses { background: rgba(255, 91, 91, 0.08); color: #ff5b5b; }
+          .sum-row.total { min-height: 56px; background: #2f49a7; color: #ffffff; border-bottom: none; font-size: 17px; font-weight: 800; }
+          .sum-row > .summary-label { padding-right: 12px; font-weight: 700; }
+          .summary-money { width: 145px; height: 100%; padding: 0 16px 0 6px; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+          .summary-currency { text-align: center; }
+          .summary-value { text-align: right; white-space: nowrap; }
             .footer { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; align-items: center; padding: 12px 4px 0 4px; break-inside: avoid; page-break-inside: avoid; }
           .footer-item { display: flex; align-items: center; gap: 14px; }
           .footer-icon { width: 44px; height: 44px; flex: 0 0 44px; }
