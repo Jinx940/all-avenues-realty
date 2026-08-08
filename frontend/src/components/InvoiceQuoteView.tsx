@@ -1378,10 +1378,10 @@ const buildAzeInvoiceDisplayRows = (rows: AzeInvoiceRow[]): AzeInvoiceDisplayRow
 };
 
 const buildAzeInvoicePageCapacities = (pageCount: number) => {
-  const firstOnlyPageLimit = 10.8;
-  const firstPageLimit = 14.4;
-  const middlePageLimit = 26.8;
-  const lastContinuePageLimit = 19.4;
+  const firstOnlyPageLimit = 9.8;
+  const firstPageLimit = 13.1;
+  const middlePageLimit = 24.2;
+  const lastContinuePageLimit = 17.5;
 
   if (pageCount <= 1) {
     return [firstOnlyPageLimit];
@@ -1626,13 +1626,14 @@ const azeModernInvoiceLayoutStyles = `
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #d9d9d9 !important; overflow: auto; }
-  .page { width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+  .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
   .page-first { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
   .page-continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
   .page:last-child { page-break-after: auto; break-after: auto; }
-  .page-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-  .page-footer { flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+  .page-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
   .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
+  .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${pdfPageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
   .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
   .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
   .continue-main { justify-content: flex-start; }
@@ -1799,6 +1800,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
         ${options.includeFooter ? footerHtml : ''}
       </div>
     `;
+    const bottomMarginSlot = '<div class="page-bottom-margin" aria-hidden="true"></div>';
 
     if (options.isFirstPage) {
       return `
@@ -1898,6 +1900,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
             </div>
           </div>
           ${footerSlot}
+          ${bottomMarginSlot}
         </div>
       `;
     }
@@ -1916,6 +1919,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           </section>
         </div>
         ${footerSlot}
+        ${bottomMarginSlot}
       </div>
     `;
   };
@@ -2197,13 +2201,14 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { background: #d9d9d9 !important; overflow: auto; }
-            .page { width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+            .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; background: #d9d9d9 !important; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
             .page-first { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
             .page-continue { padding: ${pdfPageVerticalMarginCss} ${pdfPageHorizontalMarginCss}; }
             .page:last-child { page-break-after: auto; break-after: auto; }
-            .page-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-            .page-footer { flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+            .page-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+            .page-footer { position: relative; z-index: 1; flex: 0 0 ${pdfFooterReserveCss}; min-height: ${pdfFooterReserveCss}; margin-top: auto; padding-top: 6px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
             .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
+            .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${pdfPageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
             .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
             .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
             .continue-main { justify-content: flex-start; }
