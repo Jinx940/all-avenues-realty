@@ -1703,14 +1703,14 @@ const azeModernInvoiceLayoutStyles = `
   .value { font-size: 16px; font-weight: 800; }
   .content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
   .job-panel { background: #bfe6e8; min-height: 106px; padding: 10px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 14px; align-items: start; text-align: center; }
-  .job-title-block { margin: 0; min-height: 86px; display: flex; align-items: flex-start; justify-content: center; }
+  .job-title-block { margin: 0; min-height: 86px; display: flex; align-items: center; justify-content: center; }
   .job-heading { min-width: 0; height: 34px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 7px; }
   .job-title-block .job-heading { margin-bottom: 0; }
   .job-title { color: #2f49a7; font-size: 19px; line-height: 1.05; font-weight: 700; margin: 0; text-align: left; white-space: nowrap; }
   .job-block { margin: 0; width: 100%; min-width: 0; min-height: 86px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; }
   .job-icon-frame { width: 30px; height: 30px; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .job-title-block .job-icon-frame { width: 34px; height: 34px; flex-basis: 34px; }
-  .job-icon { width: 54px; height: 54px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; }
+  .job-icon { width: 54px; height: 54px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; filter: brightness(0) saturate(100%) invert(29%) sepia(38%) saturate(1848%) hue-rotate(195deg) brightness(88%) contrast(92%); }
   .job-title-block .job-icon { width: 60px; height: 60px; }
   .job-label { color: #2f49a7; font-size: 13px; line-height: 1.1; font-weight: 800; margin: 0; text-align: left; white-space: nowrap; }
   .job-value { font-size: 14px; font-weight: 400; line-height: 1.2; word-break: break-word; }
@@ -2358,14 +2358,14 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .value { font-size: 16px; font-weight: 800; }
           .content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
           .job-panel { background: #bfe6e8; min-height: 106px; padding: 10px 16px; display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1fr) 112px 112px; gap: 14px; align-items: start; text-align: center; }
-          .job-title-block { margin: 0; min-height: 86px; display: flex; align-items: flex-start; justify-content: center; }
+          .job-title-block { margin: 0; min-height: 86px; display: flex; align-items: center; justify-content: center; }
           .job-heading { min-width: 0; height: 34px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 7px; }
           .job-title-block .job-heading { margin-bottom: 0; }
           .job-title { color: #2f49a7; font-size: 19px; line-height: 1.05; font-weight: 700; margin: 0; text-align: left; white-space: nowrap; }
           .job-block { margin: 0; width: 100%; min-width: 0; min-height: 86px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; }
           .job-icon-frame { width: 30px; height: 30px; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
           .job-title-block .job-icon-frame { width: 34px; height: 34px; flex-basis: 34px; }
-          .job-icon { width: 54px; height: 54px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; }
+          .job-icon { width: 54px; height: 54px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; filter: brightness(0) saturate(100%) invert(29%) sepia(38%) saturate(1848%) hue-rotate(195deg) brightness(88%) contrast(92%); }
           .job-title-block .job-icon { width: 60px; height: 60px; }
           .job-label { color: #2f49a7; font-size: 13px; line-height: 1.1; font-weight: 800; margin: 0; text-align: left; white-space: nowrap; }
           .job-value { font-size: 14px; font-weight: 400; line-height: 1.2; word-break: break-word; }
