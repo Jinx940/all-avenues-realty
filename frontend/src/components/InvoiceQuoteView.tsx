@@ -1691,7 +1691,9 @@ const azeModernInvoiceLayoutStyles = `
   .client-col + .client-col::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 1.5px; background: #ff5b5b; }
   .client-icon-frame { width: 48px; height: 48px; flex: 0 0 48px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .client-icon { width: 48px; height: 48px; max-width: none; object-fit: contain; display: block; }
-  .client-icon--person, .client-icon--date { width: 72px; height: 48px; transform: scale(1.9); }
+  .client-icon--person, .client-icon--date { width: 72px; height: 48px; }
+  .client-icon--person { position: relative; top: 1px; transform: scale(1.8); }
+  .client-icon--date { transform: scale(1.9); }
   .client-icon--company { transform: scale(1.5); }
   .client-copy { min-width: 0; min-height: 48px; display: flex; flex-direction: column; justify-content: center; }
   .label { font-size: 13px; line-height: 1.15; margin-bottom: 4px; white-space: nowrap; }
@@ -2381,7 +2383,9 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .client-col + .client-col::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 1.5px; background: #ff5b5b; }
           .client-icon-frame { width: 48px; height: 48px; flex: 0 0 48px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
           .client-icon { width: 48px; height: 48px; max-width: none; object-fit: contain; display: block; }
-          .client-icon--person, .client-icon--date { width: 72px; height: 48px; transform: scale(1.9); }
+          .client-icon--person, .client-icon--date { width: 72px; height: 48px; }
+          .client-icon--person { position: relative; top: 1px; transform: scale(1.8); }
+          .client-icon--date { transform: scale(1.9); }
           .client-icon--company { transform: scale(1.5); }
           .client-copy { min-width: 0; min-height: 48px; display: flex; flex-direction: column; justify-content: center; }
           .label { font-size: 13px; line-height: 1.15; margin-bottom: 4px; white-space: nowrap; }
