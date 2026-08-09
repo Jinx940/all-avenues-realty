@@ -22,7 +22,8 @@ const pdfPageVerticalMarginCss = '23mm';
 const pdfPageHorizontalMarginCss = '15mm';
 const pdfFooterReserveCss = '30mm';
 const pdfContentBottomGuardCss = '4mm';
-const azePageVerticalMarginCss = '13mm';
+const azePageTopMarginCss = '7mm';
+const azePageBottomMarginCss = '13mm';
 const azePageHorizontalMarginCss = '7mm';
 const azeFooterReserveCss = '18mm';
 const azeHeaderHorizontalInsetCss = '8mm';
@@ -1657,14 +1658,14 @@ const azeModernInvoiceLayoutStyles = `
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #d9d9d9 !important; overflow: auto; }
-  .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
-  .page-first { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
-  .page-continue { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
+  .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${azePageTopMarginCss} ${azePageHorizontalMarginCss} ${azePageBottomMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+  .page-first { padding: ${azePageTopMarginCss} ${azePageHorizontalMarginCss} ${azePageBottomMarginCss}; }
+  .page-continue { padding: ${azePageTopMarginCss} ${azePageHorizontalMarginCss} ${azePageBottomMarginCss}; }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .page-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .page-footer { position: relative; z-index: 1; flex: 0 0 ${azeFooterReserveCss}; min-height: ${azeFooterReserveCss}; margin-top: auto; margin-left: ${azeHeaderHorizontalInsetCss}; margin-right: ${azeHeaderHorizontalInsetCss}; padding-top: 4px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
   .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
-  .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
+  .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageBottomMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
   .aze-body-width { width: 100%; margin-left: 0; margin-right: 0; align-self: stretch; }
   .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
   .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
@@ -1708,7 +1709,7 @@ const azeModernInvoiceLayoutStyles = `
   .aze-invoice-grid { width: 100%; display: flex; flex-direction: column; flex: 0 0 auto; }
   .aze-invoice-grid-head,
   .aze-invoice-grid-row { display: grid; grid-template-columns: 64px 76px 98px minmax(0, 1fr) 86px 92px; width: 100%; }
-  .aze-invoice-grid-head { min-height: 46px; background: #ff5b5b; color: #ffffff; font-size: 12px; line-height: 1.2; font-weight: 700; }
+  .aze-invoice-grid-head { min-height: 42px; background: #ff5b5b; color: #ffffff; font-size: 11.5px; line-height: 1.2; font-weight: 700; }
   .aze-invoice-grid-head > div { min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0 8px; text-align: center; }
   .aze-invoice-grid-row { min-height: 0; border-bottom: 2px solid rgba(58, 58, 58, 0.75); break-inside: avoid; page-break-inside: avoid; }
   .aze-invoice-grid-row.row-no-divider { border-bottom-color: transparent; }
@@ -1716,12 +1717,12 @@ const azeModernInvoiceLayoutStyles = `
   .aze-invoice-grid-row.row-continuation > div { padding-top: 2px; padding-bottom: 2px; }
   .aze-invoice-grid-row .unit,
   .aze-invoice-grid-row .area,
-  .aze-invoice-grid-row .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
-  .aze-invoice-grid-row .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; align-items: flex-start; justify-content: flex-start; text-align: left; }
+  .aze-invoice-grid-row .service { color: #ff5b5b; font-size: 10.5px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
+  .aze-invoice-grid-row .desc { color: #2f49a7; font-size: 11.5px; line-height: 1.3; padding-right: 10px; align-items: flex-start; justify-content: flex-start; text-align: left; }
   .aze-invoice-grid-row .desc ul { width: 100%; margin: 0; padding-left: 20px; }
   .aze-invoice-grid-row .desc li { margin: 0; }
   .aze-invoice-grid-row .desc li + li { margin-top: 2px; }
-  .aze-invoice-grid-row .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+  .aze-invoice-grid-row .cost { color: #2f49a7; font-size: 11.5px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
   .aze-invoice-grid-row .is-empty { color: transparent; }
   .aze-invoice-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .aze-unit-col { width: 64px; }
@@ -1729,17 +1730,17 @@ const azeModernInvoiceLayoutStyles = `
   .aze-service-col { width: 98px; }
   .aze-labor-col { width: 86px; }
   .aze-price-col { width: 92px; }
-  .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 12px; line-height: 1.2; text-align: center; height: 46px; padding: 0 8px; }
+  .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 11.5px; line-height: 1.2; text-align: center; height: 42px; padding: 0 8px; }
   .aze-invoice-table tr { break-inside: avoid; page-break-inside: avoid; }
-  .aze-invoice-table td { padding: 4px 7px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
+  .aze-invoice-table td { padding: 3px 7px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
   .aze-invoice-table .unit,
   .aze-invoice-table .area,
-  .aze-invoice-table .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
+  .aze-invoice-table .service { color: #ff5b5b; font-size: 10.5px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
   .aze-invoice-table .service.is-empty { color: transparent; }
-  .aze-invoice-table .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; }
+  .aze-invoice-table .desc { color: #2f49a7; font-size: 11.5px; line-height: 1.3; padding-right: 10px; }
   .aze-invoice-table .desc ul { margin: 0; padding-left: 20px; }
   .aze-invoice-table .desc li + li { margin-top: 2px; }
-  .aze-invoice-table .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+  .aze-invoice-table .cost { color: #2f49a7; font-size: 11.5px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
   .aze-invoice-table .cost.is-empty { color: transparent; }
   .aze-invoice-table .row-continuation .service,
   .aze-invoice-table .row-continuation .cost { padding-top: 0; }
@@ -2325,14 +2326,14 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; width: 210mm; min-height: 297mm; background: #d9d9d9 !important; font-family: ${azeInvoiceFontFamily}; color: #111111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body { background: #d9d9d9 !important; overflow: auto; }
-            .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
-            .page-first { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
-            .page-continue { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
+            .page { position: relative; width: 210mm; height: 297mm; margin: 0; padding: ${azePageTopMarginCss} ${azePageHorizontalMarginCss} ${azePageBottomMarginCss}; background: #d9d9d9 !important; color: #111111; font-family: ${azeInvoiceFontFamily}; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; break-after: page; }
+            .page-first { padding: ${azePageTopMarginCss} ${azePageHorizontalMarginCss} ${azePageBottomMarginCss}; }
+            .page-continue { padding: ${azePageTopMarginCss} ${azePageHorizontalMarginCss} ${azePageBottomMarginCss}; }
             .page:last-child { page-break-after: auto; break-after: auto; }
             .page-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
             .page-footer { position: relative; z-index: 1; flex: 0 0 ${azeFooterReserveCss}; min-height: ${azeFooterReserveCss}; margin-top: auto; margin-left: ${azeHeaderHorizontalInsetCss}; margin-right: ${azeHeaderHorizontalInsetCss}; padding-top: 4px; display: flex; align-items: flex-end; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
             .page-footer--empty { flex: 0 0 0; min-height: 0; padding-top: 0; visibility: hidden; }
-            .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageVerticalMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
+            .page-bottom-margin { position: absolute; left: 0; right: 0; bottom: 0; height: ${azePageBottomMarginCss}; background: #d9d9d9; z-index: 1000; pointer-events: none; }
             .aze-body-width { width: 100%; margin-left: 0; margin-right: 0; align-self: stretch; }
             .continue-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
             .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
@@ -2376,7 +2377,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .aze-invoice-grid { width: 100%; display: flex; flex-direction: column; flex: 0 0 auto; }
           .aze-invoice-grid-head,
           .aze-invoice-grid-row { display: grid; grid-template-columns: 64px 76px 98px minmax(0, 1fr) 86px 92px; width: 100%; }
-          .aze-invoice-grid-head { min-height: 46px; background: #ff5b5b; color: #ffffff; font-size: 12px; line-height: 1.2; font-weight: 700; }
+          .aze-invoice-grid-head { min-height: 42px; background: #ff5b5b; color: #ffffff; font-size: 11.5px; line-height: 1.2; font-weight: 700; }
           .aze-invoice-grid-head > div { min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0 8px; text-align: center; }
           .aze-invoice-grid-row { min-height: 0; border-bottom: 2px solid rgba(58, 58, 58, 0.75); break-inside: avoid; page-break-inside: avoid; }
           .aze-invoice-grid-row.row-no-divider { border-bottom-color: transparent; }
@@ -2384,12 +2385,12 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .aze-invoice-grid-row.row-continuation > div { padding-top: 2px; padding-bottom: 2px; }
           .aze-invoice-grid-row .unit,
           .aze-invoice-grid-row .area,
-          .aze-invoice-grid-row .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
-          .aze-invoice-grid-row .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; align-items: flex-start; justify-content: flex-start; text-align: left; }
+          .aze-invoice-grid-row .service { color: #ff5b5b; font-size: 10.5px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
+          .aze-invoice-grid-row .desc { color: #2f49a7; font-size: 11.5px; line-height: 1.3; padding-right: 10px; align-items: flex-start; justify-content: flex-start; text-align: left; }
           .aze-invoice-grid-row .desc ul { width: 100%; margin: 0; padding-left: 20px; }
           .aze-invoice-grid-row .desc li { margin: 0; }
           .aze-invoice-grid-row .desc li + li { margin-top: 2px; }
-          .aze-invoice-grid-row .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+          .aze-invoice-grid-row .cost { color: #2f49a7; font-size: 11.5px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
           .aze-invoice-grid-row .is-empty { color: transparent; }
           .aze-invoice-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
           .aze-unit-col { width: 64px; }
@@ -2397,17 +2398,17 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .aze-service-col { width: 98px; }
           .aze-labor-col { width: 86px; }
           .aze-price-col { width: 92px; }
-          .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 12px; line-height: 1.2; text-align: center; height: 46px; padding: 0 8px; }
+          .aze-invoice-table th { background: #ff5b5b; color: #ffffff; font-weight: 700; font-size: 11.5px; line-height: 1.2; text-align: center; height: 42px; padding: 0 8px; }
           .aze-invoice-table tr { break-inside: avoid; page-break-inside: avoid; }
-          .aze-invoice-table td { padding: 4px 7px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
+          .aze-invoice-table td { padding: 3px 7px; border-bottom: 2px solid rgba(58, 58, 58, 0.75); vertical-align: middle; }
           .aze-invoice-table .unit,
           .aze-invoice-table .area,
-          .aze-invoice-table .service { color: #ff5b5b; font-size: 11px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
+          .aze-invoice-table .service { color: #ff5b5b; font-size: 10.5px; font-weight: 700; line-height: 1.15; word-break: break-word; text-align: center; }
           .aze-invoice-table .service.is-empty { color: transparent; }
-          .aze-invoice-table .desc { color: #2f49a7; font-size: 12px; line-height: 1.35; padding-right: 10px; }
+          .aze-invoice-table .desc { color: #2f49a7; font-size: 11.5px; line-height: 1.3; padding-right: 10px; }
           .aze-invoice-table .desc ul { margin: 0; padding-left: 20px; }
           .aze-invoice-table .desc li + li { margin-top: 2px; }
-          .aze-invoice-table .cost { color: #2f49a7; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+          .aze-invoice-table .cost { color: #2f49a7; font-size: 11.5px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
           .aze-invoice-table .cost.is-empty { color: transparent; }
           .aze-invoice-table .row-continuation .service,
           .aze-invoice-table .row-continuation .cost { padding-top: 0; }
@@ -2438,7 +2439,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .attachment-row { flex: 0 0 74mm; height: 74mm; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
           .attachment-row--shared-label { grid-template-rows: auto minmax(0, 1fr); }
           .attachment-pair-label { grid-column: 1 / -1; padding: 0 2px 2px; color: #2f49a7; font-size: 13px; line-height: 1.25; font-weight: 800; text-align: center; }
-          .attachment-page { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
+          .attachment-page { padding: ${azePageTopMarginCss} ${azePageHorizontalMarginCss} ${azePageBottomMarginCss}; }
           .attachment-section { height: 100%; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
           .attachment-head { flex: 0 0 auto; display: flex; align-items: end; justify-content: space-between; border-bottom: 3px solid #ff5b5b; padding-bottom: 9px; }
           .attachment-head span { color: #ff5b5b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
