@@ -1684,11 +1684,18 @@ const azeModernInvoiceLayoutStyles = `
   .logo-area { position: relative; width: 196px; height: 82px; display: flex; flex-direction: column; align-items: center; }
   .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
   .az-logo { width: 128px; height: 56px; display: block; margin: 0; }
-  .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin: 0 ${azeHeaderHorizontalInsetCss} 12px; padding: 0 6px 0 84px; }
-  .client-col { position: relative; padding-left: 10px; }
-  .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
-  .label { font-size: 14px; margin-bottom: 4px; }
-  .value { font-size: 16px; font-weight: 800; }
+  .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; align-items: stretch; margin: 0 ${azeHeaderHorizontalInsetCss} 12px; padding: 9px 12px; background: rgba(255, 255, 255, 0.62); border: 1px solid rgba(58, 58, 58, 0.12); border-radius: 6px; box-shadow: 0 2px 8px rgba(58, 58, 58, 0.08); }
+  .client-col { position: relative; min-width: 0; padding: 0 18px; display: flex; align-items: center; gap: 11px; }
+  .client-col:first-child { padding-left: 0; }
+  .client-col:last-child { padding-right: 0; }
+  .client-col + .client-col::before { content: ""; position: absolute; left: 0; top: 5px; bottom: 5px; width: 1.5px; background: #ff5b5b; }
+  .client-icon-frame { width: 48px; height: 48px; flex: 0 0 48px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .client-icon { width: 48px; height: 48px; max-width: none; object-fit: contain; display: block; }
+  .client-icon--person, .client-icon--date { transform: scale(1.9); }
+  .client-icon--company { transform: scale(1.5); }
+  .client-copy { min-width: 0; }
+  .label { font-size: 13px; line-height: 1.15; margin-bottom: 4px; white-space: nowrap; }
+  .value { font-size: 16px; line-height: 1.15; font-weight: 800; overflow-wrap: anywhere; }
   .aze-document-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
   .job-panel { background: #bfe6e8; min-height: 74px; padding: 8px 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; text-align: center; }
   .job-title-block { margin: 0; min-height: 58px; display: flex; align-items: center; justify-content: center; }
@@ -1923,16 +1930,31 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
 
             <div class="client-strip">
               <div class="client-col">
-                <div class="label">Client's Name</div>
-                <div class="value">${escapeHtml(data.clientName)}</div>
+                <span class="client-icon-frame" aria-hidden="true">
+                  <img class="client-icon client-icon--person" src="/2.png" alt="">
+                </span>
+                <div class="client-copy">
+                  <div class="label">Client's Name</div>
+                  <div class="value">${escapeHtml(data.clientName)}</div>
+                </div>
               </div>
               <div class="client-col">
-                <div class="label">Client's Company</div>
-                <div class="value">${escapeHtml(data.clientCompany)}</div>
+                <span class="client-icon-frame" aria-hidden="true">
+                  <img class="client-icon client-icon--company" src="/1.png" alt="">
+                </span>
+                <div class="client-copy">
+                  <div class="label">Client's Company</div>
+                  <div class="value">${escapeHtml(data.clientCompany)}</div>
+                </div>
               </div>
               <div class="client-col">
-                <div class="label">Date</div>
-                <div class="value">${escapeHtml(formatPdfDate(data.docDate))}</div>
+                <span class="client-icon-frame" aria-hidden="true">
+                  <img class="client-icon client-icon--date" src="/3.png" alt="">
+                </span>
+                <div class="client-copy">
+                  <div class="label">Date</div>
+                  <div class="value">${escapeHtml(formatPdfDate(data.docDate))}</div>
+                </div>
               </div>
             </div>
 
@@ -2352,11 +2374,18 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
             .logo-area { position: relative; width: 196px; height: 82px; display: flex; flex-direction: column; align-items: center; }
             .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
             .az-logo { width: 128px; height: 56px; display: block; margin: 0; }
-          .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin: 0 ${azeHeaderHorizontalInsetCss} 12px; padding: 0 6px 0 84px; }
-          .client-col { position: relative; padding-left: 10px; }
-          .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
-          .label { font-size: 14px; margin-bottom: 4px; }
-          .value { font-size: 16px; font-weight: 800; }
+          .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; align-items: stretch; margin: 0 ${azeHeaderHorizontalInsetCss} 12px; padding: 9px 12px; background: rgba(255, 255, 255, 0.62); border: 1px solid rgba(58, 58, 58, 0.12); border-radius: 6px; box-shadow: 0 2px 8px rgba(58, 58, 58, 0.08); }
+          .client-col { position: relative; min-width: 0; padding: 0 18px; display: flex; align-items: center; gap: 11px; }
+          .client-col:first-child { padding-left: 0; }
+          .client-col:last-child { padding-right: 0; }
+          .client-col + .client-col::before { content: ""; position: absolute; left: 0; top: 5px; bottom: 5px; width: 1.5px; background: #ff5b5b; }
+          .client-icon-frame { width: 48px; height: 48px; flex: 0 0 48px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          .client-icon { width: 48px; height: 48px; max-width: none; object-fit: contain; display: block; }
+          .client-icon--person, .client-icon--date { transform: scale(1.9); }
+          .client-icon--company { transform: scale(1.5); }
+          .client-copy { min-width: 0; }
+          .label { font-size: 13px; line-height: 1.15; margin-bottom: 4px; white-space: nowrap; }
+          .value { font-size: 16px; line-height: 1.15; font-weight: 800; overflow-wrap: anywhere; }
           .aze-document-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
           .job-panel { background: #bfe6e8; min-height: 74px; padding: 8px 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; text-align: center; }
           .job-title-block { margin: 0; min-height: 58px; display: flex; align-items: center; justify-content: center; }
