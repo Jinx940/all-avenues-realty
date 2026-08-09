@@ -2,6 +2,8 @@ const PDF_EXPORT_ROOT_CLASS = 'generated-pdf-export-root';
 const A4_PAGE_WIDTH_POINTS = 595.28;
 const A4_PAGE_HEIGHT_POINTS = 841.89;
 const RECEIPT_PAGE_MARGIN_POINTS = 36;
+const RECEIPT_IMAGE_GAP_POINTS = 18;
+const RECEIPT_IMAGES_PER_PAGE = 2;
 const MAX_RECEIPT_IMAGE_WIDTH = 2000;
 const MAX_RECEIPT_IMAGE_HEIGHT = 2600;
 
@@ -26,6 +28,45 @@ export const fitReceiptImageDimensions = (width: number, height: number) => {
     width: Math.max(1, Math.round(width * scale)),
     height: Math.max(1, Math.round(height * scale)),
   };
+};
+
+type ReceiptImageSize = {
+  width: number;
+  height: number;
+};
+
+export type ReceiptImagePlacement = ReceiptImageSize & {
+  x: number;
+  y: number;
+};
+
+export const receiptImagePlacementsForPage = (
+  imageSizes: ReceiptImageSize[],
+): ReceiptImagePlacement[] => {
+  const pageImageSizes = imageSizes.slice(0, RECEIPT_IMAGES_PER_PAGE);
+  if (!pageImageSizes.length) return [];
+
+  const usableWidth = A4_PAGE_WIDTH_POINTS - RECEIPT_PAGE_MARGIN_POINTS * 2;
+  const usableHeight = A4_PAGE_HEIGHT_POINTS - RECEIPT_PAGE_MARGIN_POINTS * 2;
+  const slotWidth = (usableWidth - RECEIPT_IMAGE_GAP_POINTS) / RECEIPT_IMAGES_PER_PAGE;
+  const occupiedWidth =
+    slotWidth * pageImageSizes.length +
+    RECEIPT_IMAGE_GAP_POINTS * Math.max(0, pageImageSizes.length - 1);
+  const firstSlotX = (A4_PAGE_WIDTH_POINTS - occupiedWidth) / 2;
+
+  return pageImageSizes.map((imageSize, index) => {
+    const scale = Math.min(slotWidth / imageSize.width, usableHeight / imageSize.height);
+    const width = imageSize.width * scale;
+    const height = imageSize.height * scale;
+    const slotX = firstSlotX + index * (slotWidth + RECEIPT_IMAGE_GAP_POINTS);
+
+    return {
+      x: slotX + (slotWidth - width) / 2,
+      y: (A4_PAGE_HEIGHT_POINTS - height) / 2,
+      width,
+      height,
+    };
+  });
 };
 
 export type GeneratedPdfReceiptAppendix = {
@@ -217,11 +258,34 @@ const appendReceiptAppendices = async (
   const { PDFDocument } = await import('pdf-lib');
   const pdfDocument = await PDFDocument.load(await invoicePdfBlob.arrayBuffer());
   let hasAddedReceiptAppendix = false;
+  let receiptImageBatch: Array<{
+    image: Awaited<ReturnType<typeof pdfDocument.embedJpg>>;
+  }> = [];
+
+  const flushReceiptImageBatch = () => {
+    if (!receiptImageBatch.length) return;
+
+    const page = pdfDocument.addPage([A4_PAGE_WIDTH_POINTS, A4_PAGE_HEIGHT_POINTS]);
+    const placements = receiptImagePlacementsForPage(
+      receiptImageBatch.map(({ image }) => ({ width: image.width, height: image.height })),
+    );
+
+    receiptImageBatch.forEach(({ image }, index) => {
+      const placement = placements[index];
+      if (!placement) return;
+
+      page.drawImage(image, placement);
+    });
+
+    receiptImageBatch = [];
+    hasAddedReceiptAppendix = true;
+  };
 
   for (const appendix of receiptAppendices) {
     try {
       const appendixBytes = new Uint8Array(await appendix.blob.arrayBuffer());
       if (isPdfReceiptAppendix(appendix) || hasPdfSignature(appendixBytes)) {
+        flushReceiptImageBatch();
         const receiptDocument = await PDFDocument.load(appendixBytes, {
           ignoreEncryption: true,
         });
@@ -240,24 +304,17 @@ const appendReceiptAppendices = async (
       }
 
       const receiptImage = await pdfDocument.embedJpg(await imageBlobToJpegBytes(appendix.blob));
-      const page = pdfDocument.addPage([A4_PAGE_WIDTH_POINTS, A4_PAGE_HEIGHT_POINTS]);
-      const maxWidth = page.getWidth() - RECEIPT_PAGE_MARGIN_POINTS * 2;
-      const maxHeight = page.getHeight() - RECEIPT_PAGE_MARGIN_POINTS * 2;
-      const scale = Math.min(maxWidth / receiptImage.width, maxHeight / receiptImage.height);
-      const renderWidth = receiptImage.width * scale;
-      const renderHeight = receiptImage.height * scale;
+      receiptImageBatch.push({ image: receiptImage });
 
-      page.drawImage(receiptImage, {
-        x: (page.getWidth() - renderWidth) / 2,
-        y: (page.getHeight() - renderHeight) / 2,
-        width: renderWidth,
-        height: renderHeight,
-      });
-      hasAddedReceiptAppendix = true;
+      if (receiptImageBatch.length === RECEIPT_IMAGES_PER_PAGE) {
+        flushReceiptImageBatch();
+      }
     } catch {
       throw new Error(`Could not append receipt "${appendix.fileName}" to the PDF.`);
     }
   }
+
+  flushReceiptImageBatch();
 
   if (!hasAddedReceiptAppendix) {
     return invoicePdfBlob;
