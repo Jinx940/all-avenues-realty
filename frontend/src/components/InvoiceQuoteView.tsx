@@ -1769,7 +1769,7 @@ const azeModernInvoiceLayoutStyles = `
   .attachment-heading { margin-top: 12px; padding: 0 0 7px 0; border-bottom: 2px solid #ff5b5b; color: #111111; font-size: 16px; line-height: 1.2; font-weight: 800; break-inside: avoid; page-break-inside: avoid; }
   .attachment-row { flex: 0 0 74mm; height: 74mm; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
   .attachment-row--shared-label { grid-template-rows: auto minmax(0, 1fr); }
-  .attachment-pair-label { grid-column: 1 / -1; padding: 0 2px 2px; color: #2f49a7; font-size: 13px; line-height: 1.25; font-weight: 800; }
+  .attachment-pair-label { grid-column: 1 / -1; padding: 0 2px 2px; color: #2f49a7; font-size: 13px; line-height: 1.25; font-weight: 800; text-align: center; }
   .attachment-card { height: 100%; background: rgba(255, 255, 255, 0.35); border: 1px solid rgba(58, 58, 58, 0.28); display: flex; flex-direction: column; min-height: 0; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
   .attachment-card--empty { background: transparent; border-color: transparent; }
   .attachment-frame { flex: 1 1 auto; min-height: 0; background: #efefef; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -1777,7 +1777,7 @@ const azeModernInvoiceLayoutStyles = `
   .attachment-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .attachment-caption { flex: 0 0 auto; display: grid; gap: 3px; padding: 10px 12px 12px; color: #111111; }
   .attachment-caption--empty { min-height: 48px; padding: 10px 12px 12px; }
-  .attachment-caption--kind-only { min-height: 34px; padding: 9px 12px 10px; }
+  .attachment-caption--kind-only { min-height: 34px; padding: 9px 12px 10px; place-items: center; text-align: center; }
   .attachment-caption span { color: #ff5b5b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
   .attachment-caption strong { color: #2f49a7; font-size: 13px; line-height: 1.25; }
 `;
@@ -2437,7 +2437,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .attachment-heading { margin-top: 12px; padding: 0 0 7px 0; border-bottom: 2px solid #ff5b5b; color: #111111; font-size: 16px; line-height: 1.2; font-weight: 800; break-inside: avoid; page-break-inside: avoid; }
           .attachment-row { flex: 0 0 74mm; height: 74mm; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
           .attachment-row--shared-label { grid-template-rows: auto minmax(0, 1fr); }
-          .attachment-pair-label { grid-column: 1 / -1; padding: 0 2px 2px; color: #2f49a7; font-size: 13px; line-height: 1.25; font-weight: 800; }
+          .attachment-pair-label { grid-column: 1 / -1; padding: 0 2px 2px; color: #2f49a7; font-size: 13px; line-height: 1.25; font-weight: 800; text-align: center; }
           .attachment-page { padding: ${azePageVerticalMarginCss} ${azePageHorizontalMarginCss}; }
           .attachment-section { height: 100%; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
           .attachment-head { flex: 0 0 auto; display: flex; align-items: end; justify-content: space-between; border-bottom: 3px solid #ff5b5b; padding-bottom: 9px; }
@@ -2454,7 +2454,7 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .attachment-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
           .attachment-caption { flex: 0 0 auto; display: grid; gap: 3px; padding: 10px 12px 12px; color: #111111; }
           .attachment-caption--empty { min-height: 48px; padding: 10px 12px 12px; }
-          .attachment-caption--kind-only { min-height: 34px; padding: 9px 12px 10px; }
+          .attachment-caption--kind-only { min-height: 34px; padding: 9px 12px 10px; place-items: center; text-align: center; }
           .attachment-caption span { color: #ff5b5b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
           .attachment-caption strong { color: #2f49a7; font-size: 13px; line-height: 1.25; }
         </style>
