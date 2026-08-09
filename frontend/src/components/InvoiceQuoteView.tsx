@@ -1684,16 +1684,16 @@ const azeModernInvoiceLayoutStyles = `
   .logo-area { position: relative; width: 196px; height: 82px; display: flex; flex-direction: column; align-items: center; }
   .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
   .az-logo { width: 128px; height: 56px; display: block; margin: 0; }
-  .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; align-items: stretch; margin: 0 ${azeHeaderHorizontalInsetCss} 12px; padding: 9px 12px; background: rgba(255, 255, 255, 0.62); border: 1px solid rgba(58, 58, 58, 0.12); border-radius: 6px; box-shadow: 0 2px 8px rgba(58, 58, 58, 0.08); }
-  .client-col { position: relative; min-width: 0; padding: 0 18px; display: flex; align-items: center; gap: 11px; }
+  .client-strip { display: grid; grid-template-columns: 1fr 1.15fr 0.85fr; align-items: center; margin: 0 ${azeHeaderHorizontalInsetCss} 12px; padding: 5px 0 7px; }
+  .client-col { position: relative; min-width: 0; min-height: 52px; padding: 0 18px; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; column-gap: 11px; }
   .client-col:first-child { padding-left: 0; }
   .client-col:last-child { padding-right: 0; }
-  .client-col + .client-col::before { content: ""; position: absolute; left: 0; top: 5px; bottom: 5px; width: 1.5px; background: #ff5b5b; }
+  .client-col + .client-col::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 1.5px; background: #ff5b5b; }
   .client-icon-frame { width: 48px; height: 48px; flex: 0 0 48px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .client-icon { width: 48px; height: 48px; max-width: none; object-fit: contain; display: block; }
   .client-icon--person, .client-icon--date { transform: scale(1.9); }
   .client-icon--company { transform: scale(1.5); }
-  .client-copy { min-width: 0; }
+  .client-copy { min-width: 0; min-height: 48px; display: flex; flex-direction: column; justify-content: center; }
   .label { font-size: 13px; line-height: 1.15; margin-bottom: 4px; white-space: nowrap; }
   .value { font-size: 16px; line-height: 1.15; font-weight: 800; overflow-wrap: anywhere; }
   .aze-document-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
@@ -2374,16 +2374,16 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
             .logo-area { position: relative; width: 196px; height: 82px; display: flex; flex-direction: column; align-items: center; }
             .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
             .az-logo { width: 128px; height: 56px; display: block; margin: 0; }
-          .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; align-items: stretch; margin: 0 ${azeHeaderHorizontalInsetCss} 12px; padding: 9px 12px; background: rgba(255, 255, 255, 0.62); border: 1px solid rgba(58, 58, 58, 0.12); border-radius: 6px; box-shadow: 0 2px 8px rgba(58, 58, 58, 0.08); }
-          .client-col { position: relative; min-width: 0; padding: 0 18px; display: flex; align-items: center; gap: 11px; }
+          .client-strip { display: grid; grid-template-columns: 1fr 1.15fr 0.85fr; align-items: center; margin: 0 ${azeHeaderHorizontalInsetCss} 12px; padding: 5px 0 7px; }
+          .client-col { position: relative; min-width: 0; min-height: 52px; padding: 0 18px; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; column-gap: 11px; }
           .client-col:first-child { padding-left: 0; }
           .client-col:last-child { padding-right: 0; }
-          .client-col + .client-col::before { content: ""; position: absolute; left: 0; top: 5px; bottom: 5px; width: 1.5px; background: #ff5b5b; }
+          .client-col + .client-col::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 1.5px; background: #ff5b5b; }
           .client-icon-frame { width: 48px; height: 48px; flex: 0 0 48px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
           .client-icon { width: 48px; height: 48px; max-width: none; object-fit: contain; display: block; }
           .client-icon--person, .client-icon--date { transform: scale(1.9); }
           .client-icon--company { transform: scale(1.5); }
-          .client-copy { min-width: 0; }
+          .client-copy { min-width: 0; min-height: 48px; display: flex; flex-direction: column; justify-content: center; }
           .label { font-size: 13px; line-height: 1.15; margin-bottom: 4px; white-space: nowrap; }
           .value { font-size: 16px; line-height: 1.15; font-weight: 800; overflow-wrap: anywhere; }
           .aze-document-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
