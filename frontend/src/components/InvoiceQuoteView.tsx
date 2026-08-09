@@ -1671,8 +1671,8 @@ const azeModernInvoiceLayoutStyles = `
   .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
   .continue-main { justify-content: flex-start; }
   .continue-table { flex: 0 0 auto; margin-top: 0; }
-  .top { display: flex; justify-content: space-between; align-items: flex-start; margin: 0 ${azeHeaderHorizontalInsetCss} 28px; }
-  .brand-area { position: relative; width: 280px; height: 120px; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; margin: 0 ${azeHeaderHorizontalInsetCss} 8px; }
+  .brand-area { position: relative; width: 280px; height: 90px; }
   .brand { position: relative; display: flex; align-items: flex-start; gap: 18px; }
   .brand-text { display: flex; flex-direction: column; font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: 6px; }
   .brand-text .line-2 { margin-left: 10px; }
@@ -1681,21 +1681,21 @@ const azeModernInvoiceLayoutStyles = `
   .brand-square { position: absolute; left: 50px; top: 13px; z-index: 2; width: 15px; height: 15px; padding: 3px; background: #ff5b5b; display: block; }
   .brand-square-inner { width: 100%; height: 100%; background: #969490; display: block; }
   .invoice-no { position: absolute; left: 96px; top: 59px; font-size: 30px; font-weight: 800; line-height: 1; display: flex; align-items: center; gap: 6px; }
-  .logo-area { position: relative; width: 196px; height: 95px; display: flex; flex-direction: column; align-items: center; }
+  .logo-area { position: relative; width: 196px; height: 82px; display: flex; flex-direction: column; align-items: center; }
   .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
   .az-logo { width: 128px; height: 56px; display: block; margin: 0; }
-  .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin: 0 ${azeHeaderHorizontalInsetCss} 22px; padding: 0 6px 0 84px; }
+  .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin: 0 ${azeHeaderHorizontalInsetCss} 12px; padding: 0 6px 0 84px; }
   .client-col { position: relative; padding-left: 10px; }
   .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
   .label { font-size: 14px; margin-bottom: 4px; }
   .value { font-size: 16px; font-weight: 800; }
   .aze-document-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
-  .job-panel { background: #bfe6e8; min-height: 120px; padding: 12px 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; text-align: center; }
-  .job-title-block { margin: 0; min-height: 96px; display: flex; align-items: center; justify-content: center; }
-  .job-heading { min-width: 0; height: 40px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .job-panel { background: #bfe6e8; min-height: 74px; padding: 8px 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; text-align: center; }
+  .job-title-block { margin: 0; min-height: 58px; display: flex; align-items: center; justify-content: center; }
+  .job-heading { min-width: 0; height: 36px; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .job-title-block .job-heading { margin-bottom: 0; }
   .job-title { color: #2f49a7; font-size: 20px; line-height: 1.05; font-weight: 700; margin: 0; text-align: left; white-space: nowrap; }
-  .job-block { margin: 0; width: 100%; min-width: 0; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; }
+  .job-block { margin: 0; width: 100%; min-width: 0; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; }
   .job-icon-frame { width: 36px; height: 36px; flex: 0 0 36px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .job-title-block .job-icon-frame { width: 42px; height: 42px; flex-basis: 42px; }
   .job-icon { width: 62px; height: 62px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; }
@@ -2339,8 +2339,8 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
             .main-full { width: 100%; display: flex; flex-direction: column; flex: 1 1 auto; }
             .continue-main { justify-content: flex-start; }
             .continue-table { flex: 0 0 auto; margin-top: 0; }
-          .top { display: flex; justify-content: space-between; align-items: flex-start; margin: 0 ${azeHeaderHorizontalInsetCss} 28px; }
-          .brand-area { position: relative; width: 280px; height: 120px; }
+          .top { display: flex; justify-content: space-between; align-items: flex-start; margin: 0 ${azeHeaderHorizontalInsetCss} 8px; }
+          .brand-area { position: relative; width: 280px; height: 90px; }
           .brand { position: relative; display: flex; align-items: flex-start; gap: 18px; }
           .brand-text { display: flex; flex-direction: column; font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: 6px; }
           .brand-text .line-2 { margin-left: 10px; }
@@ -2349,21 +2349,21 @@ const buildAzeModernInvoiceHtml = (data: AzeInvoiceData) => {
           .brand-square { position: absolute; left: 50px; top: 13px; z-index: 2; width: 15px; height: 15px; padding: 3px; background: #ff5b5b; display: block; }
           .brand-square-inner { width: 100%; height: 100%; background: #969490; display: block; }
           .invoice-no { position: absolute; left: 96px; top: 59px; font-size: 30px; font-weight: 800; line-height: 1; display: flex; align-items: center; gap: 6px; }
-            .logo-area { position: relative; width: 196px; height: 95px; display: flex; flex-direction: column; align-items: center; }
+            .logo-area { position: relative; width: 196px; height: 82px; display: flex; flex-direction: column; align-items: center; }
             .logo-bar { width: 145px; height: 18px; background: #ff5b5b; margin: 0 0 8px; }
             .az-logo { width: 128px; height: 56px; display: block; margin: 0; }
-          .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin: 0 ${azeHeaderHorizontalInsetCss} 22px; padding: 0 6px 0 84px; }
+          .client-strip { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 22px; align-items: start; margin: 0 ${azeHeaderHorizontalInsetCss} 12px; padding: 0 6px 0 84px; }
           .client-col { position: relative; padding-left: 10px; }
           .client-col::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 48px; background: #ff5b5b; }
           .label { font-size: 14px; margin-bottom: 4px; }
           .value { font-size: 16px; font-weight: 800; }
           .aze-document-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
-          .job-panel { background: #bfe6e8; min-height: 120px; padding: 12px 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; text-align: center; }
-          .job-title-block { margin: 0; min-height: 96px; display: flex; align-items: center; justify-content: center; }
-          .job-heading { min-width: 0; height: 40px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+          .job-panel { background: #bfe6e8; min-height: 74px; padding: 8px 16px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; text-align: center; }
+          .job-title-block { margin: 0; min-height: 58px; display: flex; align-items: center; justify-content: center; }
+          .job-heading { min-width: 0; height: 36px; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; }
           .job-title-block .job-heading { margin-bottom: 0; }
           .job-title { color: #2f49a7; font-size: 20px; line-height: 1.05; font-weight: 700; margin: 0; text-align: left; white-space: nowrap; }
-          .job-block { margin: 0; width: 100%; min-width: 0; min-height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; }
+          .job-block { margin: 0; width: 100%; min-width: 0; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; }
           .job-icon-frame { width: 36px; height: 36px; flex: 0 0 36px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
           .job-title-block .job-icon-frame { width: 42px; height: 42px; flex-basis: 42px; }
           .job-icon { width: 62px; height: 62px; max-width: none; flex: 0 0 auto; object-fit: contain; display: block; }
