@@ -146,36 +146,12 @@ const buildTrackerSelectOptions = (
       label: labelFormatter ? labelFormatter(value) : value,
     }));
 
-type TrackerUnitGroup = {
-  key: string;
-  unit: string;
-  areas: TrackerAreaGroup[];
-};
-
-type TrackerAreaGroup = {
-  key: string;
-  area: string;
-  jobs: JobRow[];
-};
-
-type TrackerStoryGroup = {
-  key: string;
-  story: string;
-  units: TrackerUnitGroup[];
-};
-
 type TrackerPropertyGroup = {
   key: string;
   propertyId: string;
   propertyName: string;
-  stories: TrackerStoryGroup[];
+  jobs: JobRow[];
 };
-
-const sumTrackerJobAmount = (jobs: JobRow[], getAmount: (job: JobRow) => number) =>
-  jobs.reduce((sum, job) => sum + getAmount(job), 0);
-
-const isGlynnTrackerProperty = (propertyName: string) =>
-  propertyName.trim().toLocaleLowerCase() === 'glynn';
 
 const groupTrackerJobs = (jobs: JobRow[]): TrackerPropertyGroup[] => {
   const propertyGroups: TrackerPropertyGroup[] = [];
@@ -189,43 +165,13 @@ const groupTrackerJobs = (jobs: JobRow[]): TrackerPropertyGroup[] => {
         key: propertyKey,
         propertyId: job.propertyId,
         propertyName: job.propertyName,
-        stories: [],
+        jobs: [],
       };
       propertyIndex.set(propertyKey, propertyGroup);
       propertyGroups.push(propertyGroup);
     }
 
-    let storyGroup = propertyGroup.stories.find((story) => story.story === job.story);
-    if (!storyGroup) {
-      storyGroup = {
-        key: `${propertyKey}:${job.story || 'no-story'}`,
-        story: job.story,
-        units: [],
-      };
-      propertyGroup.stories.push(storyGroup);
-    }
-
-    let unitGroup = storyGroup.units.find((unit) => unit.unit === job.unit);
-    if (!unitGroup) {
-      unitGroup = {
-        key: `${storyGroup.key}:${job.unit || 'no-unit'}`,
-        unit: job.unit,
-        areas: [],
-      };
-      storyGroup.units.push(unitGroup);
-    }
-
-    let areaGroup = unitGroup.areas.find((area) => area.area === job.area);
-    if (!areaGroup) {
-      areaGroup = {
-        key: `${unitGroup.key}:${job.area || 'no-area'}`,
-        area: job.area,
-        jobs: [],
-      };
-      unitGroup.areas.push(areaGroup);
-    }
-
-    areaGroup.jobs.push(job);
+    propertyGroup.jobs.push(job);
   }
 
   return propertyGroups;
@@ -315,7 +261,6 @@ export function JobTrackerView({
 }) {
   const [mediaDialog, setMediaDialog] = useState<TrackerMediaDialogState>(null);
   const [receiptPreview, setReceiptPreview] = useState<TrackerReceiptPreviewState>(null);
-  const [descriptionJob, setDescriptionJob] = useState<JobRow | null>(null);
   const [compactJob, setCompactJob] = useState<JobRow | null>(null);
   const propertyScopedJobs = filters.propertyId
     ? allJobs.filter((job) => job.propertyId === filters.propertyId)
@@ -337,164 +282,6 @@ export function JobTrackerView({
   const areaOptions = buildTrackerSelectOptions(unitScopedJobs.map((job) => job.area));
   const serviceOptions = buildTrackerSelectOptions(areaScopedJobs.map((job) => job.service));
   const groupedJobs = useMemo(() => groupTrackerJobs(jobs), [jobs]);
-  const renderTrackerJobCells = (
-    job: JobRow,
-    timelineVisual: ReturnType<typeof timelineVisualFor>,
-  ) => (
-      <>
-        <div className="tracker-service-details">
-          <div className="tracker-service-summary">
-            <span className="tracker-service-summary-copy">
-              <strong className="tracker-service-name">{job.service}</strong>
-              <button
-                type="button"
-                className="tracker-service-summary-note tracker-service-trigger"
-                onClick={() => setDescriptionJob(job)}
-              >
-                View description
-              </button>
-            </span>
-          </div>
-        </div>
-        <div className="tracker-cell-stack tracker-cell-stack--worker">
-          {job.workers.length ? (
-            job.workers.map((worker) => (
-              <span key={worker.id} className={`tracker-worker-pill ${getWorkerAccentClass(worker)}`}>
-                {worker.name}
-              </span>
-            ))
-          ) : (
-            <span className="tracker-empty-mark">-</span>
-          )}
-        </div>
-        <span>{formatMoney(job.materialCost)}</span>
-        <span>
-          {job.files.receipt[0] ? (
-            <button
-              type="button"
-              className="tracker-receipt-trigger"
-              onClick={() => setReceiptPreview({ job, file: job.files.receipt[0] })}
-            >
-              {job.files.receipt[0].name}
-            </button>
-          ) : (
-            <span className="tracker-empty-mark">-</span>
-          )}
-        </span>
-        <span>{formatMoney(job.laborCost)}</span>
-        <div className="tracker-timeline-cell">
-          <div className="tracker-timeline-top">
-            <span className="tracker-date-range">{dateRangeFor(job)}</span>
-            {canManage && job.status !== 'DONE' ? (
-              <button
-                type="button"
-                className={`pill tone-${timelineVisual.tone} tracker-pill-button`}
-                onClick={() => onWorkStatusAction(job)}
-              >
-                {timelineVisual.badge}
-              </button>
-            ) : (
-              <span className={`pill tone-${timelineVisual.tone}`}>{timelineVisual.badge}</span>
-            )}
-          </div>
-          <div className="tracker-timeline-bar">
-            <div
-              className={`tracker-timeline-fill tracker-timeline-fill--${timelineVisual.tone}`}
-              style={{ width: `${timelineVisual.progress}%` }}
-            />
-          </div>
-          <small>{timelineVisual.caption}</small>
-        </div>
-        <div className="tracker-media-actions">
-          {job.files.before[0] || job.files.after[0] ? (
-            <button
-              type="button"
-              className="tracker-media-button"
-              onClick={() => setMediaDialog({ mode: 'compare', job })}
-            >
-              <UiIcon name="image" size={14} />
-              Before / After
-            </button>
-          ) : null}
-
-          {job.files.progress.length ? (
-            <button
-              type="button"
-              className="tracker-media-button tracker-media-button--progress"
-              onClick={() => setMediaDialog({ mode: 'progress', job })}
-            >
-              <UiIcon name="camera" size={14} />
-              Progress {job.files.progress.length > 1 ? `(${job.files.progress.length})` : ''}
-            </button>
-          ) : null}
-
-          {!job.files.before[0] && !job.files.after[0] && !job.files.progress.length ? (
-            <span className="tracker-empty-mark">-</span>
-          ) : null}
-        </div>
-        <div className="tracker-status-cell">
-          {canManage && job.status !== 'DONE' ? (
-            <button
-              type="button"
-              className={`pill tone-${statusToneFor(job)} tracker-pill-button`}
-              onClick={() => onWorkStatusAction(job)}
-            >
-              {job.statusLabel}
-            </button>
-          ) : (
-            <span className={`pill tone-${statusToneFor(job)}`}>{job.statusLabel}</span>
-          )}
-        </div>
-        <span>
-          <span className={`pill tone-${invoiceToneFor(job)}`}>{job.invoiceStatusLabel}</span>
-        </span>
-        <div className="tracker-payment-cell">
-          {canManage && job.paymentStatus !== 'PAID' ? (
-            <button
-              type="button"
-              className={`pill tone-${paymentToneFor(job)} tracker-pill-button`}
-              onClick={() => onPaymentStatusAction(job)}
-            >
-              {job.paymentStatusLabel}
-            </button>
-          ) : (
-            <span className={`pill tone-${paymentToneFor(job)}`}>{job.paymentStatusLabel}</span>
-          )}
-          {job.advanceCashApp > 0 ? (
-            <small className="tracker-payment-advance">Advance Cash App: {formatMoney(job.advanceCashApp)}</small>
-          ) : null}
-        </div>
-        <div className="tracker-actions-cell">
-          {canManage ? (
-            <div className="tracker-row-tools tracker-row-tools--actions">
-              <button type="button" className="ghost-button tracker-mini-button" onClick={() => onEdit(job)}>
-                <UiIcon name="file" size={13} />
-                Edit
-              </button>
-              <button
-                type="button"
-                className="records-danger-button records-action-button tracker-mini-button"
-                onClick={() => onDelete(job.id)}
-              >
-                <UiIcon name="trash" size={13} />
-                Delete
-              </button>
-            </div>
-          ) : (
-            <span className="tracker-empty-mark">-</span>
-          )}
-        </div>
-      </>
-  );
-  const renderTrackerUnitJobRow = (job: JobRow) => {
-    const timelineVisual = timelineVisualFor(job);
-
-    return (
-      <div key={job.id} className={`tracker-unit-job-row tracker-unit-job-row--tone-${timelineVisual.tone}`}>
-        {renderTrackerJobCells(job, timelineVisual)}
-      </div>
-    );
-  };
   const renderTrackerFlatJobRow = (job: JobRow) => {
     const timelineVisual = timelineVisualFor(job);
     const primaryWorker = job.workers[0];
@@ -589,37 +376,6 @@ export function JobTrackerView({
       </div>
     );
   };
-  const renderTrackerAreaTotalRow = (areaGroup: TrackerAreaGroup) => {
-    const materialTotal = sumTrackerJobAmount(areaGroup.jobs, (job) => job.materialCost);
-    const laborTotal = sumTrackerJobAmount(areaGroup.jobs, (job) => job.laborCost);
-    const areaLabel = areaGroup.area || 'No area';
-
-    return (
-      <div key={`${areaGroup.key}:total`} className="tracker-unit-job-row tracker-area-total-row">
-        <div className="tracker-area-total-title">
-          <span>Total</span>
-          <strong>{areaLabel}</strong>
-        </div>
-        <span className="tracker-area-total-empty" aria-hidden="true" />
-        <div className="tracker-area-total-money">
-          <span>Material Total</span>
-          <strong>{formatMoney(materialTotal)}</strong>
-        </div>
-        <span className="tracker-area-total-empty" aria-hidden="true" />
-        <div className="tracker-area-total-money">
-          <span>Labor Total</span>
-          <strong>{formatMoney(laborTotal)}</strong>
-        </div>
-        <span className="tracker-area-total-empty" aria-hidden="true" />
-        <span className="tracker-area-total-empty" aria-hidden="true" />
-        <span className="tracker-area-total-empty" aria-hidden="true" />
-        <span className="tracker-area-total-empty" aria-hidden="true" />
-        <span className="tracker-area-total-empty" aria-hidden="true" />
-        <span className="tracker-area-total-empty" aria-hidden="true" />
-      </div>
-    );
-  };
-
   return (
     <section className="tab-panel">
       <div className="panel records-filter-panel tracker-panel-compact">
@@ -747,183 +503,50 @@ export function JobTrackerView({
           {jobs.length ? (
             <div className="tracker-group-list">
               {groupedJobs.map((propertyGroup) => {
-                const propertyOpen = groupedJobs.length === 1 || filters.propertyId === propertyGroup.propertyId;
-                const propertyUnitCount = propertyGroup.stories.reduce(
-                  (sum, storyGroup) => sum + storyGroup.units.length,
-                  0,
-                );
-                const propertyJobs = propertyGroup.stories.flatMap((storyGroup) =>
-                  storyGroup.units.flatMap((unitGroup) =>
-                    unitGroup.areas.flatMap((areaGroup) => areaGroup.jobs),
-                  ),
-                );
+                const propertyOpen =
+                  groupedJobs.length === 1 || filters.propertyId === propertyGroup.propertyId;
+                const propertyJobs = propertyGroup.jobs;
+                const propertyFloorCount = new Set(propertyJobs.map((job) => job.story)).size;
+                const propertyUnitCount = new Set(
+                  propertyJobs.map((job) => `${job.story}:${job.unit}`),
+                ).size;
                 const propertyJobCount = propertyJobs.length;
-
-                if (isGlynnTrackerProperty(propertyGroup.propertyName)) {
-                  return (
-                    <section key={propertyGroup.key} className="tracker-flat-property-card">
-                      <header className="tracker-flat-property-head">
-                        <div className="tracker-flat-property-title">
-                          <span className="tracker-flat-property-accent" aria-hidden="true" />
-                          <div className="tracker-group-copy">
-                            <strong>{propertyGroup.propertyName}</strong>
-                            <small>
-                              {propertyGroup.stories.length} floor(s) · {propertyUnitCount} unit(s) · {propertyJobCount}{' '}
-                              row(s)
-                            </small>
-                          </div>
-                        </div>
-                        <span className="tracker-group-badge">Monday-style · {propertyJobCount} items</span>
-                      </header>
-
-                      <div className="tracker-flat-property-scroll">
-                        <div className="tracker-flat-property-table">
-                          <div className="tracker-compact-row tracker-compact-header">
-                            <span>Job / Service</span>
-                            <span>Location</span>
-                            <span>Worker</span>
-                            <span>Material</span>
-                            <span>Labor</span>
-                            <span>Timeline</span>
-                            <span>Work Status</span>
-                            <span>Payment</span>
-                            <span>Actions</span>
-                          </div>
-                          {propertyJobs.map(renderTrackerFlatJobRow)}
-                        </div>
-                      </div>
-                    </section>
-                  );
-                }
 
                 return (
                   <details
                     key={propertyGroup.key}
-                    className="tracker-group-card tracker-group-card--property"
+                    className="tracker-flat-property-card"
                     {...(propertyOpen ? { open: true } : {})}
                   >
-                    <summary className="tracker-group-summary tracker-group-summary--property">
-                      <div className="tracker-group-summary-main">
-                        <span className="tracker-group-caret" />
+                    <summary className="tracker-flat-property-head">
+                      <div className="tracker-flat-property-title">
+                        <span className="tracker-flat-property-accent" aria-hidden="true" />
+                        <span className="tracker-group-caret" aria-hidden="true" />
                         <div className="tracker-group-copy">
                           <strong>{propertyGroup.propertyName}</strong>
                           <small>
-                            {propertyGroup.stories.length} floor(s) · {propertyUnitCount} unit(s) · {propertyJobCount}{' '}
-                            row(s)
+                            {propertyFloorCount} floor(s) · {propertyUnitCount} unit(s) · {propertyJobCount} row(s)
                           </small>
                         </div>
                       </div>
-                      <div className="tracker-group-meta">
-                        <span className="tracker-group-badge">Property</span>
-                      </div>
+                      <span className="tracker-group-badge">{propertyJobCount} items</span>
                     </summary>
 
-                    <div className="tracker-group-body">
-                      {propertyGroup.stories.map((storyGroup) => {
-                        const storyOpen =
-                          (propertyOpen && propertyGroup.stories.length === 1) || filters.story === storyGroup.story;
-
-                        return (
-                          <details
-                            key={storyGroup.key}
-                            className="tracker-group-card tracker-group-card--story"
-                            {...(storyOpen ? { open: true } : {})}
-                          >
-                            <summary className="tracker-group-summary tracker-group-summary--story">
-                              <div className="tracker-group-summary-main">
-                                <span className="tracker-group-caret" />
-                                <div className="tracker-group-copy">
-                                  <strong>{formatStoryDisplayLabel(storyGroup.story) || '-'}</strong>
-                                  <small>{storyGroup.units.length} unit(s)</small>
-                                </div>
-                              </div>
-                              <div className="tracker-group-meta">
-                                <span className="tracker-group-badge tracker-group-badge--soft">Floor</span>
-                              </div>
-                            </summary>
-
-                            <div className="tracker-group-body">
-                              {storyGroup.units.map((unitGroup) => {
-                                const unitOpen =
-                                  (storyOpen && storyGroup.units.length === 1) || filters.unit === unitGroup.unit;
-                                const unitServiceRowCount = unitGroup.areas.reduce(
-                                  (sum, areaGroup) => sum + areaGroup.jobs.length,
-                                  0,
-                                );
-                                const unitJobs = unitGroup.areas.flatMap((areaGroup) => areaGroup.jobs);
-                                const unitMaterialTotal = sumTrackerJobAmount(unitJobs, (job) => job.materialCost);
-                                const unitLaborTotal = sumTrackerJobAmount(unitJobs, (job) => job.laborCost);
-
-                                return (
-                                  <details
-                                    key={unitGroup.key}
-                                    className="tracker-group-card tracker-group-card--unit"
-                                    {...(unitOpen ? { open: true } : {})}
-                                  >
-                                    <summary className="tracker-group-summary tracker-group-summary--unit">
-                                      <div className="tracker-group-summary-main">
-                                        <span className="tracker-group-caret" />
-                                        <div className="tracker-group-copy">
-                                          <strong>{unitGroup.unit || '-'}</strong>
-                                          <small>
-                                            {unitGroup.areas.length} area(s) · {unitServiceRowCount} service row(s)
-                                          </small>
-                                        </div>
-                                      </div>
-                                      <div className="tracker-group-preview">
-                                        <span className="tracker-group-preview-chip tracker-group-preview-chip--unit-total">
-                                          <span>Material cost per Unit Total</span>
-                                          <strong>{formatMoney(unitMaterialTotal)}</strong>
-                                        </span>
-                                        <span className="tracker-group-preview-chip tracker-group-preview-chip--unit-total tracker-group-preview-chip--unit-labor-total">
-                                          <span>Labor Total</span>
-                                          <strong>{formatMoney(unitLaborTotal)}</strong>
-                                        </span>
-                                      </div>
-                                    </summary>
-
-                                    <div className="tracker-group-body">
-                                      <div className="tracker-unit-job-table-shell">
-                                        <div className="tracker-unit-job-table">
-                                          <div className="tracker-unit-job-row tracker-unit-job-row--header">
-                                            <span>Services</span>
-                                            <span>Worker</span>
-                                            <span>Material cost per Unit</span>
-                                            <span>Receipt</span>
-                                            <span>Labor</span>
-                                            <span>Timeline</span>
-                                            <span>Pictures</span>
-                                            <span>Work Status</span>
-                                            <span>Invoice</span>
-                                            <span>Payment</span>
-                                            <span>Actions</span>
-                                          </div>
-                                          <div className="tracker-area-group-list">
-                                            {unitGroup.areas.map((areaGroup) => (
-                                              <section key={areaGroup.key} className="tracker-area-group">
-                                                <header className="tracker-area-group-head">
-                                                  <div className="tracker-area-group-copy">
-                                                    <strong>{areaGroup.area || '-'}</strong>
-                                                    <small>{areaGroup.jobs.length} service row(s)</small>
-                                                  </div>
-                                                </header>
-                                                <div className="tracker-area-group-body">
-                                                  {areaGroup.jobs.map(renderTrackerUnitJobRow)}
-                                                  {renderTrackerAreaTotalRow(areaGroup)}
-                                                </div>
-                                              </section>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </details>
-                                );
-                              })}
-                            </div>
-                          </details>
-                        );
-                      })}
+                    <div className="tracker-flat-property-scroll">
+                      <div className="tracker-flat-property-table">
+                        <div className="tracker-compact-row tracker-compact-header">
+                          <span>Job / Service</span>
+                          <span>Location</span>
+                          <span>Worker</span>
+                          <span>Material</span>
+                          <span>Labor</span>
+                          <span>Timeline</span>
+                          <span>Work Status</span>
+                          <span>Payment</span>
+                          <span>Actions</span>
+                        </div>
+                        {propertyJobs.map(renderTrackerFlatJobRow)}
+                      </div>
                     </div>
                   </details>
                 );
@@ -974,11 +597,6 @@ export function JobTrackerView({
           setCompactJob(null);
           setMediaDialog({ job, mode });
         }}
-      />
-      <TrackerDescriptionDialog
-        key={descriptionJob ? `tracker-description-${descriptionJob.id}` : 'tracker-description-closed'}
-        job={descriptionJob}
-        onClose={() => setDescriptionJob(null)}
       />
     </section>
   );
@@ -1323,77 +941,6 @@ function TrackerCompactJobDialog({
               </button>
             </div>
           ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TrackerDescriptionDialog({
-  job,
-  onClose,
-}: {
-  job: JobRow | null;
-  onClose: () => void;
-}) {
-  if (!job) return null;
-
-  const locationLabel = [job.propertyName, formatStoryDisplayLabel(job.story), job.unit, job.area]
-    .filter(Boolean)
-    .join(' | ');
-  const descriptionLines = splitDescriptionLines(job.description);
-
-  return (
-    <div className="tracker-media-dialog-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="tracker-media-dialog-card tracker-media-dialog-card--description"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tracker-description-dialog-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="tracker-media-dialog-head">
-          <div>
-            <p className="eyebrow">Service description</p>
-            <h2 id="tracker-description-dialog-title">{formatAreaServiceLabel(job.area, job.service)}</h2>
-            <p className="tracker-media-dialog-copy">{locationLabel}</p>
-          </div>
-
-          <button type="button" className="ghost-button" onClick={onClose}>
-            Close
-          </button>
-        </div>
-
-        <div className="tracker-media-dialog-body tracker-description-dialog-body">
-          <div className="tracker-description-meta-grid">
-            <article className="tracker-description-meta-card">
-              <span>Property</span>
-              <strong>{job.propertyName}</strong>
-            </article>
-            <article className="tracker-description-meta-card">
-              <span>Floor / Unit</span>
-              <strong>
-                {[formatStoryDisplayLabel(job.story), job.unit].filter(Boolean).join(' / ') || 'Whole property'}
-              </strong>
-            </article>
-            <article className="tracker-description-meta-card">
-              <span>Area</span>
-              <strong>{job.area || '-'}</strong>
-            </article>
-          </div>
-
-          <div className="tracker-description-sheet">
-            {descriptionLines.length ? (
-              descriptionLines.map((line, index) => (
-                <p key={`${job.id}-description-line-${index}`}>{line}</p>
-              ))
-            ) : (
-              <div className="tracker-description-empty">
-                <strong>No description yet</strong>
-                <span>This service does not have a description saved yet.</span>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>
