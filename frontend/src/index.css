@@ -5780,6 +5780,84 @@ textarea {
   gap: 14px;
 }
 
+.tracker-flat-property-card {
+  overflow: hidden;
+  border: 1px solid rgba(176, 207, 233, 0.98);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 14px 30px rgba(112, 157, 198, 0.12);
+}
+
+.tracker-flat-property-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 64px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(194, 218, 238, 0.96);
+  background: linear-gradient(90deg, rgba(238, 248, 255, 0.99), rgba(250, 253, 255, 0.98));
+}
+
+.tracker-flat-property-title {
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.tracker-flat-property-accent {
+  width: 5px;
+  min-height: 38px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #53a9ef 0%, #7dd7b4 100%);
+  box-shadow: 0 5px 14px rgba(83, 169, 239, 0.24);
+}
+
+.tracker-flat-property-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-gutter: stable;
+}
+
+.tracker-flat-property-table {
+  min-width: 1880px;
+}
+
+.tracker-flat-property-table .tracker-row--central {
+  min-height: 82px;
+  border-bottom: 1px solid rgba(215, 230, 242, 0.96);
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.tracker-flat-property-table .tracker-row--central:nth-child(odd):not(.tracker-header) {
+  background: rgba(247, 251, 255, 0.92);
+}
+
+.tracker-flat-property-table .tracker-row--central:not(.tracker-header):hover {
+  background: rgba(235, 246, 255, 0.98);
+}
+
+.tracker-flat-property-table .tracker-header {
+  min-height: 48px;
+  background: linear-gradient(180deg, rgba(231, 244, 254, 0.99), rgba(218, 237, 252, 0.96));
+  color: #55728d;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tracker-flat-property-table .tracker-header::before {
+  display: none;
+}
+
+.tracker-flat-property-table .tracker-property-cell {
+  color: #2f6f9f;
+}
+
 .tracker-group-card {
   border: 1px solid rgba(190, 214, 236, 0.96);
   border-radius: 24px;

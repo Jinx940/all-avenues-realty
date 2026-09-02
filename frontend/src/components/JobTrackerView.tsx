@@ -174,6 +174,9 @@ type TrackerPropertyGroup = {
 const sumTrackerJobAmount = (jobs: JobRow[], getAmount: (job: JobRow) => number) =>
   jobs.reduce((sum, job) => sum + getAmount(job), 0);
 
+const isGlynnTrackerProperty = (propertyName: string) =>
+  propertyName.trim().toLocaleLowerCase() === 'glynn';
+
 const groupTrackerJobs = (jobs: JobRow[]): TrackerPropertyGroup[] => {
   const propertyGroups: TrackerPropertyGroup[] = [];
   const propertyIndex = new Map<string, TrackerPropertyGroup>();
@@ -333,11 +336,11 @@ export function JobTrackerView({
   const areaOptions = buildTrackerSelectOptions(unitScopedJobs.map((job) => job.area));
   const serviceOptions = buildTrackerSelectOptions(areaScopedJobs.map((job) => job.service));
   const groupedJobs = useMemo(() => groupTrackerJobs(jobs), [jobs]);
-  const renderTrackerUnitJobRow = (job: JobRow) => {
-    const timelineVisual = timelineVisualFor(job);
-
-    return (
-      <div key={job.id} className={`tracker-unit-job-row tracker-unit-job-row--tone-${timelineVisual.tone}`}>
+  const renderTrackerJobCells = (
+    job: JobRow,
+    timelineVisual: ReturnType<typeof timelineVisualFor>,
+  ) => (
+      <>
         <div className="tracker-service-details">
           <div className="tracker-service-summary">
             <span className="tracker-service-summary-copy">
@@ -480,6 +483,30 @@ export function JobTrackerView({
             <span className="tracker-empty-mark">-</span>
           )}
         </div>
+      </>
+  );
+  const renderTrackerUnitJobRow = (job: JobRow) => {
+    const timelineVisual = timelineVisualFor(job);
+
+    return (
+      <div key={job.id} className={`tracker-unit-job-row tracker-unit-job-row--tone-${timelineVisual.tone}`}>
+        {renderTrackerJobCells(job, timelineVisual)}
+      </div>
+    );
+  };
+  const renderTrackerFlatJobRow = (job: JobRow) => {
+    const timelineVisual = timelineVisualFor(job);
+
+    return (
+      <div
+        key={job.id}
+        className={`tracker-row tracker-row--central tracker-row--tone-${timelineVisual.tone}`}
+      >
+        <span className="tracker-property-cell">{job.propertyName}</span>
+        <span className="tracker-story-cell">{formatStoryDisplayLabel(job.story) || '-'}</span>
+        <span className="tracker-unit-cell">{job.unit || '-'}</span>
+        <span className="tracker-area-cell">{job.area || '-'}</span>
+        {renderTrackerJobCells(job, timelineVisual)}
       </div>
     );
   };
@@ -646,16 +673,55 @@ export function JobTrackerView({
                   (sum, storyGroup) => sum + storyGroup.units.length,
                   0,
                 );
-                const propertyJobCount = propertyGroup.stories.reduce(
-                  (sum, storyGroup) =>
-                    sum +
-                    storyGroup.units.reduce(
-                      (inner, unitGroup) =>
-                        inner + unitGroup.areas.reduce((areaTotal, areaGroup) => areaTotal + areaGroup.jobs.length, 0),
-                      0,
-                    ),
-                  0,
+                const propertyJobs = propertyGroup.stories.flatMap((storyGroup) =>
+                  storyGroup.units.flatMap((unitGroup) =>
+                    unitGroup.areas.flatMap((areaGroup) => areaGroup.jobs),
+                  ),
                 );
+                const propertyJobCount = propertyJobs.length;
+
+                if (isGlynnTrackerProperty(propertyGroup.propertyName)) {
+                  return (
+                    <section key={propertyGroup.key} className="tracker-flat-property-card">
+                      <header className="tracker-flat-property-head">
+                        <div className="tracker-flat-property-title">
+                          <span className="tracker-flat-property-accent" aria-hidden="true" />
+                          <div className="tracker-group-copy">
+                            <strong>{propertyGroup.propertyName}</strong>
+                            <small>
+                              {propertyGroup.stories.length} floor(s) · {propertyUnitCount} unit(s) · {propertyJobCount}{' '}
+                              row(s)
+                            </small>
+                          </div>
+                        </div>
+                        <span className="tracker-group-badge">Property · Flat view</span>
+                      </header>
+
+                      <div className="tracker-flat-property-scroll">
+                        <div className="tracker-table tracker-table--central tracker-flat-property-table">
+                          <div className="tracker-row tracker-header tracker-row--central">
+                            <span>Property</span>
+                            <span>Floor</span>
+                            <span>Unit</span>
+                            <span>Area</span>
+                            <span>Services</span>
+                            <span>Worker</span>
+                            <span>Material</span>
+                            <span>Receipt</span>
+                            <span>Labor</span>
+                            <span>Timeline</span>
+                            <span>Pictures</span>
+                            <span>Work Status</span>
+                            <span>Invoice</span>
+                            <span>Payment</span>
+                            <span>Actions</span>
+                          </div>
+                          {propertyJobs.map(renderTrackerFlatJobRow)}
+                        </div>
+                      </div>
+                    </section>
+                  );
+                }
 
                 return (
                   <details
