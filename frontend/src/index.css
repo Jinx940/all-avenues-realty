@@ -5824,38 +5824,162 @@ textarea {
 }
 
 .tracker-flat-property-table {
-  min-width: 1880px;
+  min-width: 1260px;
 }
 
-.tracker-flat-property-table .tracker-row--central {
-  min-height: 82px;
+.tracker-compact-row {
+  display: grid;
+  grid-template-columns:
+    minmax(210px, 1.65fr)
+    minmax(135px, 0.9fr)
+    minmax(125px, 0.82fr)
+    minmax(78px, 0.5fr)
+    minmax(78px, 0.5fr)
+    minmax(185px, 1.2fr)
+    minmax(100px, 0.66fr)
+    minmax(100px, 0.66fr)
+    minmax(205px, 1.3fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 50px;
+  position: relative;
+  padding: 6px 8px 6px 12px;
   border-bottom: 1px solid rgba(215, 230, 242, 0.96);
   background: rgba(255, 255, 255, 0.98);
 }
 
-.tracker-flat-property-table .tracker-row--central:nth-child(odd):not(.tracker-header) {
+.tracker-compact-row:not(.tracker-compact-header)::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: #9fd3f0;
+}
+
+.tracker-compact-row:nth-child(odd):not(.tracker-compact-header) {
   background: rgba(247, 251, 255, 0.92);
 }
 
-.tracker-flat-property-table .tracker-row--central:not(.tracker-header):hover {
+.tracker-compact-row:not(.tracker-compact-header):hover {
   background: rgba(235, 246, 255, 0.98);
 }
 
-.tracker-flat-property-table .tracker-header {
-  min-height: 48px;
+.tracker-compact-header {
+  min-height: 40px;
   background: linear-gradient(180deg, rgba(231, 244, 254, 0.99), rgba(218, 237, 252, 0.96));
   color: #55728d;
   font-size: 0.7rem;
+  font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.tracker-flat-property-table .tracker-header::before {
-  display: none;
+.tracker-compact-header > span {
+  min-width: 0;
+  text-align: center;
 }
 
-.tracker-flat-property-table .tracker-property-cell {
-  color: #2f6f9f;
+.tracker-compact-service {
+  min-width: 0;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-strong);
+  box-shadow: none;
+  text-align: left;
+}
+
+.tracker-compact-service:hover {
+  border-color: rgba(165, 205, 235, 0.96);
+  background: rgba(230, 243, 253, 0.96);
+  transform: none;
+}
+
+.tracker-compact-service-name,
+.tracker-compact-location,
+.tracker-compact-timeline > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tracker-compact-service-name {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.tracker-compact-service > span:last-child {
+  flex-shrink: 0;
+  color: #4f82ae;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.tracker-compact-location,
+.tracker-compact-money {
+  min-width: 0;
+  color: var(--muted-strong);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.tracker-compact-money {
+  color: #486987;
+  font-variant-numeric: tabular-nums;
+}
+
+.tracker-compact-worker,
+.tracker-compact-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.tracker-compact-worker small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.tracker-compact-timeline {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.tracker-compact-timeline > span {
+  color: var(--ink-strong);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.tracker-compact-timeline .tracker-timeline-bar {
+  height: 6px;
+}
+
+.tracker-compact-actions {
+  flex-wrap: nowrap;
+}
+
+.tracker-compact-actions .tracker-mini-button {
+  min-height: 28px;
+  padding: 5px 7px;
+  font-size: 0.7rem;
+}
+
+.tracker-compact-details-button {
+  color: #3977a8;
 }
 
 .tracker-group-card {
@@ -6731,6 +6855,91 @@ textarea {
   color: var(--ink-strong);
   font-family: 'Outfit', sans-serif;
   font-size: 1.04rem;
+}
+
+.tracker-compact-job-dialog {
+  width: min(920px, 100%);
+}
+
+.tracker-compact-job-body {
+  display: grid;
+  gap: 16px;
+}
+
+.tracker-compact-job-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tracker-compact-job-meta-grid .tracker-description-meta-card {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.tracker-compact-job-meta-grid .tracker-description-meta-card strong {
+  min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.tracker-compact-job-meta-grid .tracker-description-meta-card small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.tracker-compact-detail-section {
+  display: grid;
+  gap: 8px;
+}
+
+.tracker-compact-detail-section h3 {
+  margin: 0;
+  color: var(--ink-strong);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.92rem;
+}
+
+.tracker-compact-detail-section .tracker-description-sheet {
+  padding: 14px 16px;
+  border-radius: 16px;
+}
+
+.tracker-compact-file-actions,
+.tracker-compact-dialog-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tracker-compact-file-actions {
+  min-height: 46px;
+  padding: 8px;
+  border: 1px solid rgba(191, 216, 237, 0.92);
+  border-radius: 16px;
+  background: rgba(247, 251, 255, 0.92);
+}
+
+.tracker-compact-file-actions .ghost-button,
+.tracker-compact-dialog-actions button {
+  min-height: 34px;
+  padding: 7px 11px;
+  box-shadow: none;
+}
+
+.tracker-compact-no-files {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.tracker-compact-dialog-actions {
+  justify-content: flex-end;
+  padding-top: 14px;
+  border-top: 1px solid rgba(201, 221, 239, 0.94);
 }
 
 .tracker-compare-showcase {
@@ -8177,6 +8386,10 @@ input.invoice-service-check:focus-visible {
 }
 
 @media (max-width: 1180px) {
+  .tracker-compact-job-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .split-layout,
   .job-form-primary-grid,
   .job-form-secondary-grid,
@@ -8342,6 +8555,15 @@ input.invoice-service-check:focus-visible {
 }
 
 @media (max-width: 720px) {
+  .tracker-flat-property-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tracker-compact-job-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
   .content {
     padding: 16px;
   }

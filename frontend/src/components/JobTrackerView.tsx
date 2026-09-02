@@ -316,6 +316,7 @@ export function JobTrackerView({
   const [mediaDialog, setMediaDialog] = useState<TrackerMediaDialogState>(null);
   const [receiptPreview, setReceiptPreview] = useState<TrackerReceiptPreviewState>(null);
   const [descriptionJob, setDescriptionJob] = useState<JobRow | null>(null);
+  const [compactJob, setCompactJob] = useState<JobRow | null>(null);
   const propertyScopedJobs = filters.propertyId
     ? allJobs.filter((job) => job.propertyId === filters.propertyId)
     : allJobs;
@@ -496,17 +497,96 @@ export function JobTrackerView({
   };
   const renderTrackerFlatJobRow = (job: JobRow) => {
     const timelineVisual = timelineVisualFor(job);
+    const primaryWorker = job.workers[0];
+    const locationLabel = [formatStoryDisplayLabel(job.story), job.unit, job.area]
+      .filter(Boolean)
+      .join(' · ') || 'Whole property';
 
     return (
       <div
         key={job.id}
-        className={`tracker-row tracker-row--central tracker-row--tone-${timelineVisual.tone}`}
+        className={`tracker-compact-row tracker-unit-job-row--tone-${timelineVisual.tone}`}
       >
-        <span className="tracker-property-cell">{job.propertyName}</span>
-        <span className="tracker-story-cell">{formatStoryDisplayLabel(job.story) || '-'}</span>
-        <span className="tracker-unit-cell">{job.unit || '-'}</span>
-        <span className="tracker-area-cell">{job.area || '-'}</span>
-        {renderTrackerJobCells(job, timelineVisual)}
+        <button type="button" className="tracker-compact-service" onClick={() => setCompactJob(job)}>
+          <span className="tracker-compact-service-name">{job.service}</span>
+          <span>View details</span>
+        </button>
+        <span className="tracker-compact-location" title={locationLabel}>{locationLabel}</span>
+        <div className="tracker-compact-worker">
+          {primaryWorker ? (
+            <>
+              <span className={`tracker-worker-pill ${getWorkerAccentClass(primaryWorker)}`}>
+                {primaryWorker.name}
+              </span>
+              {job.workers.length > 1 ? <small>+{job.workers.length - 1}</small> : null}
+            </>
+          ) : (
+            <span className="tracker-empty-mark">-</span>
+          )}
+        </div>
+        <span className="tracker-compact-money">{formatMoney(job.materialCost)}</span>
+        <span className="tracker-compact-money">{formatMoney(job.laborCost)}</span>
+        <div className="tracker-compact-timeline">
+          <span title={dateRangeFor(job)}>{dateRangeFor(job)}</span>
+          <div className="tracker-timeline-bar">
+            <div
+              className={`tracker-timeline-fill tracker-timeline-fill--${timelineVisual.tone}`}
+              style={{ width: `${timelineVisual.progress}%` }}
+            />
+          </div>
+        </div>
+        <div className="tracker-status-cell">
+          {canManage && job.status !== 'DONE' ? (
+            <button
+              type="button"
+              className={`pill tone-${statusToneFor(job)} tracker-pill-button`}
+              onClick={() => onWorkStatusAction(job)}
+            >
+              {job.statusLabel}
+            </button>
+          ) : (
+            <span className={`pill tone-${statusToneFor(job)}`}>{job.statusLabel}</span>
+          )}
+        </div>
+        <div className="tracker-payment-cell">
+          {canManage && job.paymentStatus !== 'PAID' ? (
+            <button
+              type="button"
+              className={`pill tone-${paymentToneFor(job)} tracker-pill-button`}
+              onClick={() => onPaymentStatusAction(job)}
+            >
+              {job.paymentStatusLabel}
+            </button>
+          ) : (
+            <span className={`pill tone-${paymentToneFor(job)}`}>{job.paymentStatusLabel}</span>
+          )}
+        </div>
+        <div className="tracker-compact-actions">
+          <button
+            type="button"
+            className="ghost-button tracker-mini-button tracker-compact-details-button"
+            onClick={() => setCompactJob(job)}
+          >
+            <UiIcon name="eye" size={14} />
+            Details
+          </button>
+          {canManage ? (
+            <>
+              <button type="button" className="ghost-button tracker-mini-button" onClick={() => onEdit(job)}>
+                <UiIcon name="file" size={13} />
+                Edit
+              </button>
+              <button
+                type="button"
+                className="records-danger-button records-action-button tracker-mini-button"
+                onClick={() => onDelete(job.id)}
+              >
+                <UiIcon name="trash" size={13} />
+                Delete
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
     );
   };
@@ -694,25 +774,19 @@ export function JobTrackerView({
                             </small>
                           </div>
                         </div>
-                        <span className="tracker-group-badge">Property · Flat view</span>
+                        <span className="tracker-group-badge">Monday-style · {propertyJobCount} items</span>
                       </header>
 
                       <div className="tracker-flat-property-scroll">
-                        <div className="tracker-table tracker-table--central tracker-flat-property-table">
-                          <div className="tracker-row tracker-header tracker-row--central">
-                            <span>Property</span>
-                            <span>Floor</span>
-                            <span>Unit</span>
-                            <span>Area</span>
-                            <span>Services</span>
+                        <div className="tracker-flat-property-table">
+                          <div className="tracker-compact-row tracker-compact-header">
+                            <span>Job / Service</span>
+                            <span>Location</span>
                             <span>Worker</span>
                             <span>Material</span>
-                            <span>Receipt</span>
                             <span>Labor</span>
                             <span>Timeline</span>
-                            <span>Pictures</span>
                             <span>Work Status</span>
-                            <span>Invoice</span>
                             <span>Payment</span>
                             <span>Actions</span>
                           </div>
@@ -871,6 +945,36 @@ export function JobTrackerView({
         key={receiptPreview ? `tracker-receipt-${receiptPreview.file.id}` : 'tracker-receipt-closed'}
         state={receiptPreview}
         onClose={() => setReceiptPreview(null)}
+      />
+      <TrackerCompactJobDialog
+        key={compactJob ? `tracker-compact-${compactJob.id}` : 'tracker-compact-closed'}
+        job={compactJob}
+        canManage={canManage}
+        onClose={() => setCompactJob(null)}
+        onEdit={(job) => {
+          setCompactJob(null);
+          onEdit(job);
+        }}
+        onDelete={(job) => {
+          setCompactJob(null);
+          onDelete(job.id);
+        }}
+        onWorkStatusAction={(job) => {
+          setCompactJob(null);
+          onWorkStatusAction(job);
+        }}
+        onPaymentStatusAction={(job) => {
+          setCompactJob(null);
+          onPaymentStatusAction(job);
+        }}
+        onReceipt={(job, file) => {
+          setCompactJob(null);
+          setReceiptPreview({ job, file });
+        }}
+        onMedia={(job, mode) => {
+          setCompactJob(null);
+          setMediaDialog({ job, mode });
+        }}
       />
       <TrackerDescriptionDialog
         key={descriptionJob ? `tracker-description-${descriptionJob.id}` : 'tracker-description-closed'}
@@ -1061,6 +1165,165 @@ function TrackerReceiptPreviewDialog({
               </button>
             </div>
           </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TrackerCompactJobDialog({
+  job,
+  canManage,
+  onClose,
+  onEdit,
+  onDelete,
+  onWorkStatusAction,
+  onPaymentStatusAction,
+  onReceipt,
+  onMedia,
+}: {
+  job: JobRow | null;
+  canManage: boolean;
+  onClose: () => void;
+  onEdit: (job: JobRow) => void;
+  onDelete: (job: JobRow) => void;
+  onWorkStatusAction: (job: JobRow) => void;
+  onPaymentStatusAction: (job: JobRow) => void;
+  onReceipt: (job: JobRow, file: JobFile) => void;
+  onMedia: (job: JobRow, mode: 'compare' | 'progress') => void;
+}) {
+  if (!job) return null;
+
+  const timelineVisual = timelineVisualFor(job);
+  const descriptionLines = splitDescriptionLines(job.description);
+  const locationLabel = [job.propertyName, formatStoryDisplayLabel(job.story), job.unit, job.area]
+    .filter(Boolean)
+    .join(' · ');
+  const workerLabel = job.workers.map((worker) => worker.name).join(', ') || 'Not assigned';
+
+  return (
+    <div className="tracker-media-dialog-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="tracker-media-dialog-card tracker-compact-job-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tracker-compact-job-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="tracker-media-dialog-head">
+          <div>
+            <p className="eyebrow">Job details</p>
+            <h2 id="tracker-compact-job-title">{job.service}</h2>
+            <p className="tracker-media-dialog-copy">{locationLabel}</p>
+          </div>
+          <button type="button" className="ghost-button" onClick={onClose}>
+            <UiIcon name="close" size={15} />
+            Close
+          </button>
+        </div>
+
+        <div className="tracker-media-dialog-body tracker-compact-job-body">
+          <div className="tracker-compact-job-meta-grid">
+            <article className="tracker-description-meta-card">
+              <span>Worker</span>
+              <strong>{workerLabel}</strong>
+            </article>
+            <article className="tracker-description-meta-card">
+              <span>Timeline</span>
+              <strong>{dateRangeFor(job)}</strong>
+              <small>{timelineVisual.caption}</small>
+            </article>
+            <article className="tracker-description-meta-card">
+              <span>Material</span>
+              <strong>{formatMoney(job.materialCost)}</strong>
+            </article>
+            <article className="tracker-description-meta-card">
+              <span>Labor</span>
+              <strong>{formatMoney(job.laborCost)}</strong>
+            </article>
+            <article className="tracker-description-meta-card">
+              <span>Work status</span>
+              <strong className={`pill tone-${statusToneFor(job)}`}>{job.statusLabel}</strong>
+            </article>
+            <article className="tracker-description-meta-card">
+              <span>Payment</span>
+              <strong className={`pill tone-${paymentToneFor(job)}`}>{job.paymentStatusLabel}</strong>
+            </article>
+            <article className="tracker-description-meta-card">
+              <span>Invoice</span>
+              <strong className={`pill tone-${invoiceToneFor(job)}`}>{job.invoiceStatusLabel}</strong>
+            </article>
+            <article className="tracker-description-meta-card">
+              <span>Advance Cash App</span>
+              <strong>{formatMoney(job.advanceCashApp)}</strong>
+            </article>
+          </div>
+
+          <section className="tracker-compact-detail-section">
+            <h3>Description</h3>
+            <div className="tracker-description-sheet">
+              {descriptionLines.length ? (
+                descriptionLines.map((line, index) => (
+                  <p key={`${job.id}-compact-description-${index}`}>{line}</p>
+                ))
+              ) : (
+                <div className="tracker-description-empty">
+                  <strong>No description yet</strong>
+                  <span>This service does not have a description saved yet.</span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="tracker-compact-detail-section">
+            <h3>Files and pictures</h3>
+            <div className="tracker-compact-file-actions">
+              {job.files.receipt[0] ? (
+                <button type="button" className="ghost-button" onClick={() => onReceipt(job, job.files.receipt[0])}>
+                  <UiIcon name="receipt" size={15} />
+                  View receipt
+                </button>
+              ) : null}
+              {job.files.before[0] || job.files.after[0] ? (
+                <button type="button" className="ghost-button" onClick={() => onMedia(job, 'compare')}>
+                  <UiIcon name="image" size={15} />
+                  Before / After
+                </button>
+              ) : null}
+              {job.files.progress.length ? (
+                <button type="button" className="ghost-button" onClick={() => onMedia(job, 'progress')}>
+                  <UiIcon name="camera" size={15} />
+                  Progress ({job.files.progress.length})
+                </button>
+              ) : null}
+              {!job.files.receipt[0] && !job.files.before[0] && !job.files.after[0] && !job.files.progress.length ? (
+                <span className="tracker-compact-no-files">No files attached to this job.</span>
+              ) : null}
+            </div>
+          </section>
+
+          {canManage ? (
+            <div className="tracker-compact-dialog-actions">
+              {job.status !== 'DONE' ? (
+                <button type="button" className="ghost-button" onClick={() => onWorkStatusAction(job)}>
+                  Update status
+                </button>
+              ) : null}
+              {job.paymentStatus !== 'PAID' ? (
+                <button type="button" className="ghost-button" onClick={() => onPaymentStatusAction(job)}>
+                  Update payment
+                </button>
+              ) : null}
+              <button type="button" className="ghost-button" onClick={() => onEdit(job)}>
+                <UiIcon name="file" size={14} />
+                Edit job
+              </button>
+              <button type="button" className="records-danger-button" onClick={() => onDelete(job)}>
+                <UiIcon name="trash" size={14} />
+                Delete
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
