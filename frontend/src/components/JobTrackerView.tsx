@@ -509,7 +509,6 @@ export function JobTrackerView({
       >
         <button type="button" className="tracker-compact-service" onClick={() => setCompactJob(job)}>
           <span className="tracker-compact-service-name">{job.service}</span>
-          <span>View details</span>
         </button>
         <span className="tracker-compact-location" title={locationLabel}>{locationLabel}</span>
         <div className="tracker-compact-worker">
