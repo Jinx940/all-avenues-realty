@@ -285,9 +285,6 @@ export function JobTrackerView({
   const renderTrackerFlatJobRow = (job: JobRow) => {
     const timelineVisual = timelineVisualFor(job);
     const primaryWorker = job.workers[0];
-    const locationLabel = [formatStoryDisplayLabel(job.story), job.unit, job.area]
-      .filter(Boolean)
-      .join(' · ') || 'Whole property';
 
     return (
       <div
@@ -297,7 +294,9 @@ export function JobTrackerView({
         <button type="button" className="tracker-compact-service" onClick={() => setCompactJob(job)}>
           <span className="tracker-compact-service-name">{job.service}</span>
         </button>
-        <span className="tracker-compact-location" title={locationLabel}>{locationLabel}</span>
+        <span className="tracker-compact-location">{formatStoryDisplayLabel(job.story) || '-'}</span>
+        <span className="tracker-compact-location">{job.unit || '-'}</span>
+        <span className="tracker-compact-location">{job.area || '-'}</span>
         <div className="tracker-compact-worker">
           {primaryWorker ? (
             <>
@@ -511,6 +510,9 @@ export function JobTrackerView({
                   propertyJobs.map((job) => `${job.story}:${job.unit}`),
                 ).size;
                 const propertyJobCount = propertyJobs.length;
+                const propertyCompletedCount = propertyJobs.filter((job) => job.status === 'DONE').length;
+                const propertyMaterialTotal = propertyJobs.reduce((total, job) => total + job.materialCost, 0);
+                const propertyLaborTotal = propertyJobs.reduce((total, job) => total + job.laborCost, 0);
 
                 return (
                   <details
@@ -529,14 +531,30 @@ export function JobTrackerView({
                           </small>
                         </div>
                       </div>
-                      <span className="tracker-group-badge">{propertyJobCount} items</span>
+                      <div className="tracker-property-summary-stats">
+                        <span className="tracker-property-stat">
+                          <small>Completed</small>
+                          <strong>{propertyCompletedCount}/{propertyJobCount}</strong>
+                        </span>
+                        <span className="tracker-property-stat">
+                          <small>Material</small>
+                          <strong>{formatMoney(propertyMaterialTotal)}</strong>
+                        </span>
+                        <span className="tracker-property-stat">
+                          <small>Labor</small>
+                          <strong>{formatMoney(propertyLaborTotal)}</strong>
+                        </span>
+                        <span className="tracker-group-badge">{propertyJobCount} items</span>
+                      </div>
                     </summary>
 
                     <div className="tracker-flat-property-scroll">
                       <div className="tracker-flat-property-table">
                         <div className="tracker-compact-row tracker-compact-header">
                           <span>Job / Service</span>
-                          <span>Location</span>
+                          <span>Floor</span>
+                          <span>Unit</span>
+                          <span>Area</span>
                           <span>Worker</span>
                           <span>Material</span>
                           <span>Labor</span>
