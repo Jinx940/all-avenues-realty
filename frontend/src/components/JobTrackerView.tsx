@@ -383,7 +383,7 @@ export function JobTrackerView({
             <UiIcon name="activity" />
             <span>Job Tracker</span>
           </h2>
-          <p>One central table with the key job files, unit details and status flow.</p>
+          <p>All properties organized in always-visible column boards with detailed job dialogs.</p>
         </div>
 
         <div className="job-tracker-filters job-tracker-filters--central">
@@ -502,8 +502,6 @@ export function JobTrackerView({
           {jobs.length ? (
             <div className="tracker-group-list">
               {groupedJobs.map((propertyGroup) => {
-                const propertyOpen =
-                  groupedJobs.length === 1 || filters.propertyId === propertyGroup.propertyId;
                 const propertyJobs = propertyGroup.jobs;
                 const propertyFloorCount = new Set(propertyJobs.map((job) => job.story)).size;
                 const propertyUnitCount = new Set(
@@ -515,15 +513,10 @@ export function JobTrackerView({
                 const propertyLaborTotal = propertyJobs.reduce((total, job) => total + job.laborCost, 0);
 
                 return (
-                  <details
-                    key={propertyGroup.key}
-                    className="tracker-flat-property-card"
-                    {...(propertyOpen ? { open: true } : {})}
-                  >
-                    <summary className="tracker-flat-property-head">
+                  <section key={propertyGroup.key} className="tracker-flat-property-card">
+                    <header className="tracker-flat-property-head">
                       <div className="tracker-flat-property-title">
                         <span className="tracker-flat-property-accent" aria-hidden="true" />
-                        <span className="tracker-group-caret" aria-hidden="true" />
                         <div className="tracker-group-copy">
                           <strong>{propertyGroup.propertyName}</strong>
                           <small>
@@ -546,7 +539,7 @@ export function JobTrackerView({
                         </span>
                         <span className="tracker-group-badge">{propertyJobCount} items</span>
                       </div>
-                    </summary>
+                    </header>
 
                     <div className="tracker-flat-property-scroll">
                       <div className="tracker-flat-property-table">
@@ -566,7 +559,7 @@ export function JobTrackerView({
                         {propertyJobs.map(renderTrackerFlatJobRow)}
                       </div>
                     </div>
-                  </details>
+                  </section>
                 );
               })}
             </div>
