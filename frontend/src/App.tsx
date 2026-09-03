@@ -2222,7 +2222,6 @@ export default function App() {
         {activeTab === 'job-tracker' ? (
           <JobTrackerView
             bootstrap={bootstrap}
-            allJobs={jobs}
             jobs={filteredJobs}
             filters={jobFilters}
             onRefresh={() => void refreshAll()}

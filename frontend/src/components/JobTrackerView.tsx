@@ -132,20 +132,6 @@ const trackerTimelineOptions = [
   { value: 'DONE', label: 'Done' },
 ];
 
-const trackerValueSort = (left: string, right: string) =>
-  left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
-
-const buildTrackerSelectOptions = (
-  values: string[],
-  labelFormatter?: (value: string) => string,
-) =>
-  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
-    .sort(trackerValueSort)
-    .map((value) => ({
-      value,
-      label: labelFormatter ? labelFormatter(value) : value,
-    }));
-
 const triggerDownload = (url: string, fileName: string) => {
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -203,7 +189,6 @@ type TrackerReceiptPreviewState = {
 
 export function JobTrackerView({
   bootstrap,
-  allJobs,
   jobs,
   filters,
   onFilterChange,
@@ -216,7 +201,6 @@ export function JobTrackerView({
   onPaymentStatusAction,
 }: {
   bootstrap: BootstrapPayload | null;
-  allJobs: JobRow[];
   jobs: JobRow[];
   filters: TrackerFilters;
   onFilterChange: (field: TrackerFilterField, value: string) => void;
@@ -231,25 +215,6 @@ export function JobTrackerView({
   const [mediaDialog, setMediaDialog] = useState<TrackerMediaDialogState>(null);
   const [receiptPreview, setReceiptPreview] = useState<TrackerReceiptPreviewState>(null);
   const [compactJob, setCompactJob] = useState<JobRow | null>(null);
-  const propertyScopedJobs = filters.propertyId
-    ? allJobs.filter((job) => job.propertyId === filters.propertyId)
-    : allJobs;
-  const storyScopedJobs = filters.story
-    ? propertyScopedJobs.filter((job) => job.story === filters.story)
-    : propertyScopedJobs;
-  const unitScopedJobs = filters.unit
-    ? storyScopedJobs.filter((job) => job.unit === filters.unit)
-    : storyScopedJobs;
-  const areaScopedJobs = filters.area
-    ? unitScopedJobs.filter((job) => job.area === filters.area)
-    : unitScopedJobs;
-  const storyOptions = buildTrackerSelectOptions(
-    propertyScopedJobs.map((job) => job.story),
-    formatStoryDisplayLabel,
-  );
-  const unitOptions = buildTrackerSelectOptions(storyScopedJobs.map((job) => job.unit));
-  const areaOptions = buildTrackerSelectOptions(unitScopedJobs.map((job) => job.area));
-  const serviceOptions = buildTrackerSelectOptions(areaScopedJobs.map((job) => job.service));
   const visiblePropertyCount = new Set(jobs.map((job) => job.propertyId || job.propertyName)).size;
   const completedJobCount = jobs.filter((job) => job.status === 'DONE').length;
   const visibleMaterialTotal = jobs.reduce((total, job) => total + job.materialCost, 0);
@@ -367,116 +332,68 @@ export function JobTrackerView({
           <p>One continuous table for every property, with a date column and detailed job dialogs.</p>
         </div>
 
-        <div className="job-tracker-filters job-tracker-filters--central">
-          <label>
-            Search
-            <input
-              value={filters.search}
-              onChange={(event) => onFilterChange('search', event.target.value)}
-              placeholder="Search property, floor, unit, area, services..."
-            />
-          </label>
+        <div className="tracker-filter-toolbar">
+          <div className="job-tracker-filters job-tracker-filters--essential">
+            <label>
+              Search
+              <input
+                value={filters.search}
+                onChange={(event) => onFilterChange('search', event.target.value)}
+                placeholder="Property, service or worker..."
+              />
+            </label>
 
-          <label>
-            Property
-            <select value={filters.propertyId} onChange={(event) => onFilterChange('propertyId', event.target.value)}>
-              <option value="">All</option>
-              {bootstrap?.properties.map((property) => (
-                <option key={property.id} value={property.id}>
-                  {property.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label>
+              Property
+              <select value={filters.propertyId} onChange={(event) => onFilterChange('propertyId', event.target.value)}>
+                <option value="">All properties</option>
+                {bootstrap?.properties.map((property) => (
+                  <option key={property.id} value={property.id}>
+                    {property.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label>
-            Floor
-            <select value={filters.story} onChange={(event) => onFilterChange('story', event.target.value)}>
-              <option value="">All</option>
-              {storyOptions.map((story) => (
-                <option key={story.value} value={story.value}>
-                  {story.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label>
+              Work Status
+              <select value={filters.timeline} onChange={(event) => onFilterChange('timeline', event.target.value)}>
+                <option value="">All statuses</option>
+                {trackerTimelineOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label>
-            Unit
-            <select value={filters.unit} onChange={(event) => onFilterChange('unit', event.target.value)}>
-              <option value="">All</option>
-              {unitOptions.map((unit) => (
-                <option key={unit.value} value={unit.value}>
-                  {unit.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label>
+              Payment Status
+              <select
+                value={filters.paymentStatus}
+                onChange={(event) => onFilterChange('paymentStatus', event.target.value)}
+              >
+                <option value="">All payments</option>
+                {bootstrap?.paymentStatuses.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-          <label>
-            Area
-            <select value={filters.area} onChange={(event) => onFilterChange('area', event.target.value)}>
-              <option value="">All</option>
-              {areaOptions.map((area) => (
-                <option key={area.value} value={area.value}>
-                  {area.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Services
-            <select value={filters.service} onChange={(event) => onFilterChange('service', event.target.value)}>
-              <option value="">All</option>
-              {serviceOptions.map((service) => (
-                <option key={service.value} value={service.value}>
-                  {service.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Timeline
-            <select value={filters.timeline} onChange={(event) => onFilterChange('timeline', event.target.value)}>
-              <option value="">All</option>
-              {trackerTimelineOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Payment Status
-            <select
-              value={filters.paymentStatus}
-              onChange={(event) => onFilterChange('paymentStatus', event.target.value)}
-            >
-              <option value="">All</option>
-              {bootstrap?.paymentStatuses.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="tracker-action-row">
-          <div className="tracker-action-group">
+          <div className="tracker-toolbar-actions">
             <button type="button" onClick={onRefresh}>
               <UiIcon name="refresh" />
-              Refresh Tracker
+              Refresh
             </button>
             <button type="button" className="ghost-button" onClick={onResetFilters}>
-              <UiIcon name="search" />
-              Reset Filters
+              <UiIcon name="close" />
+              Clear
             </button>
+            <span className="result-chip tracker-count-chip">{jobs.length} job(s)</span>
           </div>
-          <span className="result-chip tracker-count-chip">{jobs.length} job(s)</span>
         </div>
 
         <div className="tracker-table-shell">
