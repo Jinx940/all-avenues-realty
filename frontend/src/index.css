@@ -7212,10 +7212,10 @@ textarea {
 }
 
 .tracker-compact-job-dialog {
-  width: min(1220px, calc(100vw - 40px));
-  max-height: calc(100vh - 40px);
-  gap: 24px;
-  padding: 36px 42px 24px;
+  width: min(1080px, calc(100vw - 32px));
+  max-height: calc(100vh - 24px);
+  gap: 16px;
+  padding: 24px 28px 0;
   border: 1px solid #dce8f4;
   border-radius: 26px;
   background: #fff;
@@ -7229,8 +7229,8 @@ textarea {
 }
 
 .tracker-compact-job-head {
-  gap: 28px;
-  padding-bottom: 22px;
+  gap: 22px;
+  padding-bottom: 16px;
   border-bottom-color: #dfe9f4;
 }
 
@@ -7239,7 +7239,7 @@ textarea {
 }
 
 .tracker-compact-job-head .tracker-compact-job-eyebrow {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   color: #657a96;
   font-family: Inter, system-ui, sans-serif;
   font-size: 0.75rem;
@@ -7252,13 +7252,13 @@ textarea {
   max-width: 920px;
   color: #163a63;
   font-family: Inter, system-ui, sans-serif;
-  font-size: clamp(1.65rem, 2.4vw, 1.9rem);
+  font-size: clamp(1.4rem, 2vw, 1.65rem);
   font-weight: 700;
   line-height: 1.18;
 }
 
 .tracker-compact-job-head .tracker-media-dialog-copy {
-  margin-top: 10px;
+  margin-top: 6px;
   color: #657a96;
   font-family: Inter, system-ui, sans-serif;
   font-size: 0.98rem;
@@ -7286,22 +7286,23 @@ textarea {
 
 .tracker-compact-job-body {
   display: grid;
-  gap: 22px;
-  padding-right: 4px;
+  gap: 14px;
+  padding-right: 6px;
+  padding-bottom: 0;
 }
 
 .tracker-compact-job-meta-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  gap: 12px;
 }
 
 .tracker-compact-job-meta-grid .tracker-description-meta-card {
   min-width: 0;
-  min-height: 120px;
+  min-height: 82px;
   align-content: start;
-  gap: 14px;
-  padding: 20px;
+  gap: 8px;
+  padding: 13px 15px;
   border: 1px solid #d9e7f5;
   border-radius: 14px;
   background: #fff;
@@ -7312,7 +7313,7 @@ textarea {
   margin: 0;
   color: #657a96;
   font-family: Inter, system-ui, sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.04em;
 }
@@ -7323,51 +7324,51 @@ textarea {
   max-width: 100%;
   color: #163a63;
   font-family: Inter, system-ui, sans-serif;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 700;
   line-height: 1.35;
 }
 
 .tracker-compact-job-meta-grid .tracker-description-meta-card .tracker-meta-money {
-  font-size: 1.28rem;
+  font-size: 1.08rem;
 }
 
 .tracker-compact-job-meta-grid .tracker-description-meta-card .pill {
-  min-height: 34px;
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
-  padding: 7px 16px;
+  padding: 5px 12px;
   border-radius: 999px;
-  font-size: 0.84rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   box-shadow: none;
 }
 
 .tracker-compact-job-meta-grid .tracker-description-meta-card small {
-  margin-top: -8px;
+  margin-top: -4px;
   color: #657a96;
   font-family: Inter, system-ui, sans-serif;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 500;
   line-height: 1.4;
 }
 
 .tracker-compact-detail-section {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .tracker-compact-detail-section h3 {
   margin: 0;
   color: #163a63;
   font-family: Inter, system-ui, sans-serif;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 700;
 }
 
 .tracker-compact-detail-section .tracker-description-sheet {
-  gap: 16px;
-  padding: 24px 28px;
+  gap: 8px;
+  padding: 14px 18px;
   border: 1px solid #d9e7f5;
   border-radius: 16px;
   background: #fff;
@@ -7377,8 +7378,8 @@ textarea {
 .tracker-compact-detail-section .tracker-description-sheet p {
   color: #163a63;
   font-family: Inter, system-ui, sans-serif;
-  font-size: 0.94rem;
-  line-height: 1.75;
+  font-size: 0.83rem;
+  line-height: 1.52;
 }
 
 .tracker-compact-file-actions,
@@ -7392,8 +7393,8 @@ textarea {
 }
 
 .tracker-compact-file-actions {
-  min-height: 62px;
-  padding: 10px 16px;
+  min-height: 48px;
+  padding: 7px 12px;
   border: 1px solid #d9e7f5;
   border-radius: 13px;
   background: #fff;
@@ -7401,8 +7402,8 @@ textarea {
 
 .tracker-compact-file-actions .ghost-button,
 .tracker-compact-dialog-actions button {
-  min-height: 44px;
-  padding: 0 18px;
+  min-height: 38px;
+  padding: 0 14px;
   border-radius: 11px;
   box-shadow: none;
 }
@@ -7413,7 +7414,7 @@ textarea {
   gap: 12px;
   color: #657a96;
   font-family: Inter, system-ui, sans-serif;
-  font-size: 0.92rem;
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
@@ -7422,10 +7423,16 @@ textarea {
 }
 
 .tracker-compact-dialog-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
   justify-content: space-between;
-  gap: 16px;
-  padding-top: 20px;
+  gap: 12px;
+  margin: 0 -6px;
+  padding: 12px 6px 16px;
   border-top: 1px solid #dfe9f4;
+  background: #fff;
+  box-shadow: 0 -10px 18px rgba(255, 255, 255, 0.96);
 }
 
 .tracker-dialog-secondary-actions:empty {
@@ -8899,7 +8906,7 @@ input.invoice-service-check:focus-visible {
 
 @media (max-width: 1180px) {
   .tracker-compact-job-dialog {
-    padding: 28px;
+    padding: 22px 22px 0;
   }
 
   .tracker-compact-job-meta-grid {
@@ -9078,8 +9085,8 @@ input.invoice-service-check:focus-visible {
   .tracker-compact-job-dialog {
     width: calc(100vw - 20px);
     max-height: calc(100vh - 20px);
-    gap: 18px;
-    padding: 20px;
+    gap: 14px;
+    padding: 16px 16px 0;
     border-radius: 20px;
   }
 
@@ -9108,12 +9115,12 @@ input.invoice-service-check:focus-visible {
   }
 
   .tracker-compact-job-meta-grid .tracker-description-meta-card {
-    min-height: 104px;
-    padding: 18px;
+    min-height: 78px;
+    padding: 13px 15px;
   }
 
   .tracker-compact-detail-section .tracker-description-sheet {
-    padding: 20px;
+    padding: 14px 16px;
   }
 
   .tracker-compact-dialog-actions,
