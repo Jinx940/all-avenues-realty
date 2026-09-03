@@ -133,6 +133,8 @@ const trackerTimelineOptions = [
   { value: 'DONE', label: 'Completado' },
 ];
 
+const trackerPageSize = 10;
+
 const trackerWorkStatusLabel = (job: JobRow) => {
   const labels: Record<string, string> = {
     DONE: 'Completado',
@@ -243,6 +245,20 @@ export function JobTrackerView({
   const [mediaDialog, setMediaDialog] = useState<TrackerMediaDialogState>(null);
   const [receiptPreview, setReceiptPreview] = useState<TrackerReceiptPreviewState>(null);
   const [compactJob, setCompactJob] = useState<JobRow | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(jobs.length / trackerPageSize));
+  const visiblePage = Math.min(currentPage, totalPages);
+  const pageStart = (visiblePage - 1) * trackerPageSize;
+  const paginatedJobs = jobs.slice(pageStart, pageStart + trackerPageSize);
+  const handleTrackerFilterChange = (field: TrackerFilterField, value: string) => {
+    setCurrentPage(1);
+    onFilterChange(field, value);
+  };
+  const handleResetFilters = () => {
+    setCurrentPage(1);
+    onResetFilters();
+  };
+
   const renderTrackerFlatJobRow = (job: JobRow) => {
     const timelineVisual = timelineVisualFor(job);
     const primaryWorker = job.workers[0];
@@ -382,7 +398,7 @@ export function JobTrackerView({
                 <UiIcon name="search" size={15} />
                 <input
                   value={filters.search}
-                  onChange={(event) => onFilterChange('search', event.target.value)}
+                  onChange={(event) => handleTrackerFilterChange('search', event.target.value)}
                   placeholder="Propiedad, servicio o trabajador..."
                 />
               </span>
@@ -390,7 +406,7 @@ export function JobTrackerView({
 
             <label>
               Propiedad
-              <select value={filters.propertyId} onChange={(event) => onFilterChange('propertyId', event.target.value)}>
+              <select value={filters.propertyId} onChange={(event) => handleTrackerFilterChange('propertyId', event.target.value)}>
                 <option value="">Todas las propiedades</option>
                 {bootstrap?.properties.map((property) => (
                   <option key={property.id} value={property.id}>
@@ -405,13 +421,13 @@ export function JobTrackerView({
               <input
                 type="date"
                 value={filters.date}
-                onChange={(event) => onFilterChange('date', event.target.value)}
+                onChange={(event) => handleTrackerFilterChange('date', event.target.value)}
               />
             </label>
 
             <label>
               Estado del trabajo
-              <select value={filters.timeline} onChange={(event) => onFilterChange('timeline', event.target.value)}>
+              <select value={filters.timeline} onChange={(event) => handleTrackerFilterChange('timeline', event.target.value)}>
                 <option value="">Todos los estados</option>
                 {trackerTimelineOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -425,7 +441,7 @@ export function JobTrackerView({
               Estado de pago
               <select
                 value={filters.paymentStatus}
-                onChange={(event) => onFilterChange('paymentStatus', event.target.value)}
+                onChange={(event) => handleTrackerFilterChange('paymentStatus', event.target.value)}
               >
                 <option value="">Todos los pagos</option>
                 {bootstrap?.paymentStatuses.map((status) => (
@@ -438,7 +454,7 @@ export function JobTrackerView({
           </div>
 
           <div className="tracker-toolbar-actions">
-            <button type="button" className="ghost-button tracker-clear-button" onClick={onResetFilters}>
+            <button type="button" className="ghost-button tracker-clear-button" onClick={handleResetFilters}>
               Limpiar
             </button>
             <button type="button" className="tracker-refresh-button" onClick={onRefresh}>
@@ -468,9 +484,36 @@ export function JobTrackerView({
                     <span>Pago</span>
                     <span>Acciones</span>
                   </div>
-                  {jobs.map(renderTrackerFlatJobRow)}
+                  {paginatedJobs.map(renderTrackerFlatJobRow)}
                 </div>
               </div>
+
+              {jobs.length > trackerPageSize ? (
+                <footer className="tracker-pagination" aria-label="Paginación de trabajos">
+                  <span>
+                    {pageStart + 1}–{Math.min(pageStart + trackerPageSize, jobs.length)} de {jobs.length}
+                  </span>
+                  <div className="tracker-pagination-actions">
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => setCurrentPage(Math.max(1, visiblePage - 1))}
+                      disabled={visiblePage === 1}
+                    >
+                      Anterior
+                    </button>
+                    <span>Página {visiblePage} de {totalPages}</span>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => setCurrentPage(Math.min(totalPages, visiblePage + 1))}
+                      disabled={visiblePage === totalPages}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </footer>
+              ) : null}
             </section>
           ) : (
             <div className="empty-box">No hay trabajos que coincidan con los filtros activos.</div>

@@ -6289,6 +6289,53 @@ textarea {
   box-shadow: none;
 }
 
+.tracker-pagination {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 12px;
+  border-top: 1px solid #dfe9f4;
+  background: #fbfdff;
+  color: #657a96;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.tracker-pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tracker-pagination-actions button {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.68rem;
+  box-shadow: none;
+}
+
+.tracker-pagination-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 640px) {
+  .tracker-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tracker-pagination-actions {
+    justify-content: space-between;
+  }
+}
+
 .tracker-group-card {
   border: 1px solid rgba(190, 214, 236, 0.96);
   border-radius: 24px;
