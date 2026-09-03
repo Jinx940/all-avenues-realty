@@ -351,23 +351,30 @@ export function JobTrackerView({
             type="button"
             className="ghost-button tracker-mini-button tracker-compact-details-button"
             onClick={() => setCompactJob(job)}
+            aria-label={`View details for ${job.service}`}
+            title="View details"
           >
             <UiIcon name="eye" size={14} />
-            Details
           </button>
           {canManage ? (
             <>
-              <button type="button" className="ghost-button tracker-mini-button" onClick={() => onEdit(job)}>
+              <button
+                type="button"
+                className="ghost-button tracker-mini-button"
+                onClick={() => onEdit(job)}
+                aria-label={`Edit ${job.service}`}
+                title="Edit job"
+              >
                 <UiIcon name="file" size={13} />
-                Edit
               </button>
               <button
                 type="button"
                 className="records-danger-button records-action-button tracker-mini-button"
                 onClick={() => onDelete(job.id)}
+                aria-label={`Delete ${job.service}`}
+                title="Delete job"
               >
                 <UiIcon name="trash" size={13} />
-                Delete
               </button>
             </>
           ) : null}
