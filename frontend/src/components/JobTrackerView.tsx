@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { buildAssetUrl } from '../lib/api';
 import { formatDate, formatMoney } from '../lib/format';
 import { formatAreaServiceLabel, formatStoryDisplayLabel } from '../lib/jobLocation';
@@ -146,42 +146,6 @@ const buildTrackerSelectOptions = (
       label: labelFormatter ? labelFormatter(value) : value,
     }));
 
-type TrackerDateGroup = {
-  key: string;
-  label: string;
-  sortValue: number;
-  jobs: JobRow[];
-};
-
-const groupTrackerJobsByDate = (jobs: JobRow[]): TrackerDateGroup[] => {
-  const groups = new Map<string, TrackerDateGroup>();
-
-  for (const job of jobs) {
-    const dateValue = job.startDate ?? job.dueDate;
-    const dateKind = job.startDate ? 'Start date' : job.dueDate ? 'Due date' : 'Unscheduled';
-    const dateKey = dateValue?.slice(0, 10) ?? 'unscheduled';
-    const key = `${dateKind}:${dateKey}`;
-    let group = groups.get(key);
-
-    if (!group) {
-      group = {
-        key,
-        label: dateValue ? `${dateKind} · ${formatDate(dateValue)}` : dateKind,
-        sortValue: dateValue ? new Date(dateValue).getTime() : Number.POSITIVE_INFINITY,
-        jobs: [],
-      };
-      groups.set(key, group);
-    }
-
-    group.jobs.push(job);
-  }
-
-  return Array.from(groups.values()).sort((left, right) => {
-    if (left.sortValue !== right.sortValue) return left.sortValue - right.sortValue;
-    return left.label.localeCompare(right.label);
-  });
-};
-
 const triggerDownload = (url: string, fileName: string) => {
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -290,7 +254,6 @@ export function JobTrackerView({
   const completedJobCount = jobs.filter((job) => job.status === 'DONE').length;
   const visibleMaterialTotal = jobs.reduce((total, job) => total + job.materialCost, 0);
   const visibleLaborTotal = jobs.reduce((total, job) => total + job.laborCost, 0);
-  const dateGroupedJobs = groupTrackerJobsByDate(jobs);
   const renderTrackerFlatJobRow = (job: JobRow) => {
     const timelineVisual = timelineVisualFor(job);
     const primaryWorker = job.workers[0];
@@ -301,6 +264,7 @@ export function JobTrackerView({
         className={`tracker-compact-row tracker-unit-job-row--tone-${timelineVisual.tone}`}
       >
         <span className="tracker-unified-property" title={job.propertyName}>{job.propertyName}</span>
+        <span className="tracker-compact-date">{formatDate(job.startDate ?? job.dueDate)}</span>
         <button type="button" className="tracker-compact-service" onClick={() => setCompactJob(job)}>
           <span className="tracker-compact-service-name">{job.service}</span>
         </button>
@@ -400,7 +364,7 @@ export function JobTrackerView({
             <UiIcon name="activity" />
             <span>Job Tracker</span>
           </h2>
-          <p>One unified table for every property, organized by work date with detailed job dialogs.</p>
+          <p>One continuous table for every property, with a date column and detailed job dialogs.</p>
         </div>
 
         <div className="job-tracker-filters job-tracker-filters--central">
@@ -546,6 +510,7 @@ export function JobTrackerView({
                 <div className="tracker-flat-property-table tracker-unified-table">
                   <div className="tracker-compact-row tracker-compact-header">
                     <span>Property</span>
+                    <span>Date</span>
                     <span>Job / Service</span>
                     <span>Floor</span>
                     <span>Unit</span>
@@ -558,20 +523,7 @@ export function JobTrackerView({
                     <span>Payment</span>
                     <span>Actions</span>
                   </div>
-                  {dateGroupedJobs.map((dateGroup) => (
-                    <Fragment key={dateGroup.key}>
-                      <div className="tracker-date-group-row">
-                        <span className="tracker-date-group-title">
-                          <UiIcon name="calendar" size={15} />
-                          <strong>{dateGroup.label}</strong>
-                        </span>
-                        <span className="tracker-date-group-count">
-                          {dateGroup.jobs.length} {dateGroup.jobs.length === 1 ? 'job' : 'jobs'}
-                        </span>
-                      </div>
-                      {dateGroup.jobs.map(renderTrackerFlatJobRow)}
-                    </Fragment>
-                  ))}
+                  {jobs.map(renderTrackerFlatJobRow)}
                 </div>
               </div>
             </section>
