@@ -233,6 +233,7 @@ const messageFrom = (error: unknown) => (error instanceof Error ? error.message 
 const createJobFilters = () => ({
   search: '',
   propertyId: '',
+  date: '',
   story: '',
   unit: '',
   area: '',
@@ -401,6 +402,7 @@ export default function App() {
     bootstrap?.properties.find((property) => property.id === selectedPropertyId) ?? null;
   const filteredJobs = jobs.filter((job) => {
     if (jobFilters.propertyId && job.propertyId !== jobFilters.propertyId) return false;
+    if (jobFilters.date && (job.startDate ?? job.dueDate)?.slice(0, 10) !== jobFilters.date) return false;
     if (jobFilters.story && job.story !== jobFilters.story) return false;
     if (jobFilters.unit && job.unit !== jobFilters.unit) return false;
     if (jobFilters.area && job.area !== jobFilters.area) return false;
@@ -956,7 +958,7 @@ export default function App() {
   };
 
   const updateJobTrackerFilter = (
-    field: 'search' | 'propertyId' | 'story' | 'unit' | 'area' | 'service' | 'timeline' | 'paymentStatus',
+    field: 'search' | 'propertyId' | 'date' | 'story' | 'unit' | 'area' | 'service' | 'timeline' | 'paymentStatus',
     value: string,
   ) => {
     setJobFilters((current) =>

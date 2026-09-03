@@ -5740,7 +5740,7 @@ textarea {
 
 .job-tracker-filters--essential {
   flex: 1 1 720px;
-  grid-template-columns: minmax(220px, 1.45fr) repeat(3, minmax(150px, 1fr));
+  grid-template-columns: minmax(220px, 1.4fr) repeat(4, minmax(145px, 1fr));
   gap: 10px;
   align-items: end;
 }

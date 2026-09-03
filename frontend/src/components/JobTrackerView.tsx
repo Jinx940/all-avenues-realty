@@ -107,6 +107,7 @@ const dateRangeFor = (job: JobRow) => {
 type TrackerFilterField =
   | 'search'
   | 'propertyId'
+  | 'date'
   | 'story'
   | 'unit'
   | 'area'
@@ -117,6 +118,7 @@ type TrackerFilterField =
 type TrackerFilters = {
   search: string;
   propertyId: string;
+  date: string;
   story: string;
   unit: string;
   area: string;
@@ -215,10 +217,6 @@ export function JobTrackerView({
   const [mediaDialog, setMediaDialog] = useState<TrackerMediaDialogState>(null);
   const [receiptPreview, setReceiptPreview] = useState<TrackerReceiptPreviewState>(null);
   const [compactJob, setCompactJob] = useState<JobRow | null>(null);
-  const visiblePropertyCount = new Set(jobs.map((job) => job.propertyId || job.propertyName)).size;
-  const completedJobCount = jobs.filter((job) => job.status === 'DONE').length;
-  const visibleMaterialTotal = jobs.reduce((total, job) => total + job.materialCost, 0);
-  const visibleLaborTotal = jobs.reduce((total, job) => total + job.laborCost, 0);
   const renderTrackerFlatJobRow = (job: JobRow) => {
     const timelineVisual = timelineVisualFor(job);
     const primaryWorker = job.workers[0];
@@ -356,6 +354,15 @@ export function JobTrackerView({
             </label>
 
             <label>
+              Date
+              <input
+                type="date"
+                value={filters.date}
+                onChange={(event) => onFilterChange('date', event.target.value)}
+              />
+            </label>
+
+            <label>
               Work Status
               <select value={filters.timeline} onChange={(event) => onFilterChange('timeline', event.target.value)}>
                 <option value="">All statuses</option>
@@ -399,30 +406,6 @@ export function JobTrackerView({
         <div className="tracker-table-shell">
           {jobs.length ? (
             <section className="tracker-flat-property-card tracker-unified-board">
-              <header className="tracker-flat-property-head tracker-unified-head">
-                <div className="tracker-flat-property-title">
-                  <span className="tracker-flat-property-accent" aria-hidden="true" />
-                  <div className="tracker-group-copy">
-                    <strong>All Properties</strong>
-                    <small>{visiblePropertyCount} properties · {jobs.length} job row(s)</small>
-                  </div>
-                </div>
-                <div className="tracker-property-summary-stats">
-                  <span className="tracker-property-stat">
-                    <small>Completed</small>
-                    <strong>{completedJobCount}/{jobs.length}</strong>
-                  </span>
-                  <span className="tracker-property-stat">
-                    <small>Material</small>
-                    <strong>{formatMoney(visibleMaterialTotal)}</strong>
-                  </span>
-                  <span className="tracker-property-stat">
-                    <small>Labor</small>
-                    <strong>{formatMoney(visibleLaborTotal)}</strong>
-                  </span>
-                </div>
-              </header>
-
               <div className="tracker-flat-property-scroll tracker-unified-scroll">
                 <div className="tracker-flat-property-table tracker-unified-table">
                   <div className="tracker-compact-row tracker-compact-header">
