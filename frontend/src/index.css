@@ -5878,20 +5878,21 @@ textarea {
 }
 
 .tracker-flat-property-table {
-  min-width: 1430px;
+  min-width: 1580px;
 }
 
 .tracker-compact-row {
   display: grid;
   grid-template-columns:
-    minmax(245px, 1.7fr)
+    minmax(145px, 0.9fr)
+    minmax(230px, 1.55fr)
     minmax(86px, 0.54fr)
     minmax(82px, 0.52fr)
-    minmax(155px, 0.94fr)
-    minmax(145px, 0.86fr)
+    minmax(145px, 0.9fr)
+    minmax(135px, 0.82fr)
     minmax(78px, 0.5fr)
     minmax(78px, 0.5fr)
-    minmax(205px, 1.2fr)
+    minmax(195px, 1.15fr)
     minmax(100px, 0.66fr)
     minmax(100px, 0.66fr)
     minmax(112px, 0.72fr);
@@ -5936,10 +5937,10 @@ textarea {
 }
 
 .tracker-compact-header > span:first-child,
-.tracker-compact-service {
+.tracker-unified-property {
   position: sticky;
   left: 0;
-  z-index: 2;
+  z-index: 3;
 }
 
 .tracker-compact-header > span:first-child {
@@ -5950,6 +5951,23 @@ textarea {
   padding: 6px 10px 6px 12px;
   background: linear-gradient(180deg, rgba(231, 244, 254, 1), rgba(218, 237, 252, 1));
   box-shadow: 8px 0 14px rgba(104, 144, 179, 0.08);
+}
+
+.tracker-unified-property {
+  align-self: stretch;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  margin: -6px 0 -6px -12px;
+  padding: 6px 10px 6px 16px;
+  border-right: 1px solid rgba(215, 230, 242, 0.9);
+  background: inherit;
+  color: #2f6f9f;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  box-shadow: 8px 0 14px rgba(104, 144, 179, 0.06);
 }
 
 .tracker-compact-service {
@@ -5966,7 +5984,6 @@ textarea {
   color: var(--ink-strong);
   box-shadow: none;
   text-align: left;
-  box-shadow: 8px 0 14px rgba(104, 144, 179, 0.06);
 }
 
 .tracker-compact-service:hover {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { buildAssetUrl } from '../lib/api';
 import { formatDate, formatMoney } from '../lib/format';
 import { formatAreaServiceLabel, formatStoryDisplayLabel } from '../lib/jobLocation';
@@ -146,37 +146,6 @@ const buildTrackerSelectOptions = (
       label: labelFormatter ? labelFormatter(value) : value,
     }));
 
-type TrackerPropertyGroup = {
-  key: string;
-  propertyId: string;
-  propertyName: string;
-  jobs: JobRow[];
-};
-
-const groupTrackerJobs = (jobs: JobRow[]): TrackerPropertyGroup[] => {
-  const propertyGroups: TrackerPropertyGroup[] = [];
-  const propertyIndex = new Map<string, TrackerPropertyGroup>();
-
-  for (const job of jobs) {
-    const propertyKey = job.propertyId || job.propertyName;
-    let propertyGroup = propertyIndex.get(propertyKey);
-    if (!propertyGroup) {
-      propertyGroup = {
-        key: propertyKey,
-        propertyId: job.propertyId,
-        propertyName: job.propertyName,
-        jobs: [],
-      };
-      propertyIndex.set(propertyKey, propertyGroup);
-      propertyGroups.push(propertyGroup);
-    }
-
-    propertyGroup.jobs.push(job);
-  }
-
-  return propertyGroups;
-};
-
 const triggerDownload = (url: string, fileName: string) => {
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -281,7 +250,10 @@ export function JobTrackerView({
   const unitOptions = buildTrackerSelectOptions(storyScopedJobs.map((job) => job.unit));
   const areaOptions = buildTrackerSelectOptions(unitScopedJobs.map((job) => job.area));
   const serviceOptions = buildTrackerSelectOptions(areaScopedJobs.map((job) => job.service));
-  const groupedJobs = useMemo(() => groupTrackerJobs(jobs), [jobs]);
+  const visiblePropertyCount = new Set(jobs.map((job) => job.propertyId || job.propertyName)).size;
+  const completedJobCount = jobs.filter((job) => job.status === 'DONE').length;
+  const visibleMaterialTotal = jobs.reduce((total, job) => total + job.materialCost, 0);
+  const visibleLaborTotal = jobs.reduce((total, job) => total + job.laborCost, 0);
   const renderTrackerFlatJobRow = (job: JobRow) => {
     const timelineVisual = timelineVisualFor(job);
     const primaryWorker = job.workers[0];
@@ -291,6 +263,7 @@ export function JobTrackerView({
         key={job.id}
         className={`tracker-compact-row tracker-unit-job-row--tone-${timelineVisual.tone}`}
       >
+        <span className="tracker-unified-property" title={job.propertyName}>{job.propertyName}</span>
         <button type="button" className="tracker-compact-service" onClick={() => setCompactJob(job)}>
           <span className="tracker-compact-service-name">{job.service}</span>
         </button>
@@ -390,7 +363,7 @@ export function JobTrackerView({
             <UiIcon name="activity" />
             <span>Job Tracker</span>
           </h2>
-          <p>All properties organized in always-visible column boards with detailed job dialogs.</p>
+          <p>One unified table for every property, with filters and detailed job dialogs.</p>
         </div>
 
         <div className="job-tracker-filters job-tracker-filters--central">
@@ -507,69 +480,51 @@ export function JobTrackerView({
 
         <div className="tracker-table-shell">
           {jobs.length ? (
-            <div className="tracker-group-list">
-              {groupedJobs.map((propertyGroup) => {
-                const propertyJobs = propertyGroup.jobs;
-                const propertyFloorCount = new Set(propertyJobs.map((job) => job.story)).size;
-                const propertyUnitCount = new Set(
-                  propertyJobs.map((job) => `${job.story}:${job.unit}`),
-                ).size;
-                const propertyJobCount = propertyJobs.length;
-                const propertyCompletedCount = propertyJobs.filter((job) => job.status === 'DONE').length;
-                const propertyMaterialTotal = propertyJobs.reduce((total, job) => total + job.materialCost, 0);
-                const propertyLaborTotal = propertyJobs.reduce((total, job) => total + job.laborCost, 0);
+            <section className="tracker-flat-property-card tracker-unified-board">
+              <header className="tracker-flat-property-head tracker-unified-head">
+                <div className="tracker-flat-property-title">
+                  <span className="tracker-flat-property-accent" aria-hidden="true" />
+                  <div className="tracker-group-copy">
+                    <strong>All Properties</strong>
+                    <small>{visiblePropertyCount} properties · {jobs.length} job row(s)</small>
+                  </div>
+                </div>
+                <div className="tracker-property-summary-stats">
+                  <span className="tracker-property-stat">
+                    <small>Completed</small>
+                    <strong>{completedJobCount}/{jobs.length}</strong>
+                  </span>
+                  <span className="tracker-property-stat">
+                    <small>Material</small>
+                    <strong>{formatMoney(visibleMaterialTotal)}</strong>
+                  </span>
+                  <span className="tracker-property-stat">
+                    <small>Labor</small>
+                    <strong>{formatMoney(visibleLaborTotal)}</strong>
+                  </span>
+                </div>
+              </header>
 
-                return (
-                  <section key={propertyGroup.key} className="tracker-flat-property-card">
-                    <header className="tracker-flat-property-head">
-                      <div className="tracker-flat-property-title">
-                        <span className="tracker-flat-property-accent" aria-hidden="true" />
-                        <div className="tracker-group-copy">
-                          <strong>{propertyGroup.propertyName}</strong>
-                          <small>
-                            {propertyFloorCount} floor(s) · {propertyUnitCount} unit(s) · {propertyJobCount} row(s)
-                          </small>
-                        </div>
-                      </div>
-                      <div className="tracker-property-summary-stats">
-                        <span className="tracker-property-stat">
-                          <small>Completed</small>
-                          <strong>{propertyCompletedCount}/{propertyJobCount}</strong>
-                        </span>
-                        <span className="tracker-property-stat">
-                          <small>Material</small>
-                          <strong>{formatMoney(propertyMaterialTotal)}</strong>
-                        </span>
-                        <span className="tracker-property-stat">
-                          <small>Labor</small>
-                          <strong>{formatMoney(propertyLaborTotal)}</strong>
-                        </span>
-                        <span className="tracker-group-badge">{propertyJobCount} items</span>
-                      </div>
-                    </header>
-
-                    <div className="tracker-flat-property-scroll">
-                      <div className="tracker-flat-property-table">
-                        <div className="tracker-compact-row tracker-compact-header">
-                          <span>Job / Service</span>
-                          <span>Floor</span>
-                          <span>Unit</span>
-                          <span>Area</span>
-                          <span>Worker</span>
-                          <span>Material</span>
-                          <span>Labor</span>
-                          <span>Timeline</span>
-                          <span>Work Status</span>
-                          <span>Payment</span>
-                          <span>Actions</span>
-                        </div>
-                        {propertyJobs.map(renderTrackerFlatJobRow)}
-                      </div>
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
+              <div className="tracker-flat-property-scroll tracker-unified-scroll">
+                <div className="tracker-flat-property-table tracker-unified-table">
+                  <div className="tracker-compact-row tracker-compact-header">
+                    <span>Property</span>
+                    <span>Job / Service</span>
+                    <span>Floor</span>
+                    <span>Unit</span>
+                    <span>Area</span>
+                    <span>Worker</span>
+                    <span>Material</span>
+                    <span>Labor</span>
+                    <span>Timeline</span>
+                    <span>Work Status</span>
+                    <span>Payment</span>
+                    <span>Actions</span>
+                  </div>
+                  {jobs.map(renderTrackerFlatJobRow)}
+                </div>
+              </div>
+            </section>
           ) : (
             <div className="empty-box">No jobs match the active filters.</div>
           )}
