@@ -790,13 +790,13 @@ function TrackerCompactJobDialog({
         aria-labelledby="tracker-compact-job-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="tracker-media-dialog-head">
+        <div className="tracker-media-dialog-head tracker-compact-job-head">
           <div>
-            <p className="eyebrow">Job details</p>
+            <p className="eyebrow tracker-compact-job-eyebrow">Job details</p>
             <h2 id="tracker-compact-job-title">{job.service}</h2>
             <p className="tracker-media-dialog-copy">{locationLabel}</p>
           </div>
-          <button type="button" className="ghost-button" onClick={onClose}>
+          <button type="button" className="ghost-button tracker-compact-close-button" onClick={onClose}>
             <UiIcon name="close" size={15} />
             Close
           </button>
@@ -806,20 +806,20 @@ function TrackerCompactJobDialog({
           <div className="tracker-compact-job-meta-grid">
             <article className="tracker-description-meta-card">
               <span>Worker</span>
-              <strong>{workerLabel}</strong>
+              <strong className="tracker-meta-worker">{workerLabel}</strong>
             </article>
             <article className="tracker-description-meta-card">
               <span>Timeline</span>
-              <strong>{dateRangeFor(job)}</strong>
+              <strong className="tracker-meta-timeline">{dateRangeFor(job)}</strong>
               <small>{timelineVisual.caption}</small>
             </article>
             <article className="tracker-description-meta-card">
               <span>Material</span>
-              <strong>{formatMoney(job.materialCost)}</strong>
+              <strong className="tracker-meta-money">{formatMoney(job.materialCost)}</strong>
             </article>
             <article className="tracker-description-meta-card">
               <span>Labor</span>
-              <strong>{formatMoney(job.laborCost)}</strong>
+              <strong className="tracker-meta-money">{formatMoney(job.laborCost)}</strong>
             </article>
             <article className="tracker-description-meta-card">
               <span>Work status</span>
@@ -835,7 +835,7 @@ function TrackerCompactJobDialog({
             </article>
             <article className="tracker-description-meta-card">
               <span>Advance Cash App</span>
-              <strong>{formatMoney(job.advanceCashApp)}</strong>
+              <strong className="tracker-meta-money">{formatMoney(job.advanceCashApp)}</strong>
             </article>
           </div>
 
@@ -877,31 +877,38 @@ function TrackerCompactJobDialog({
                 </button>
               ) : null}
               {!job.files.receipt[0] && !job.files.before[0] && !job.files.after[0] && !job.files.progress.length ? (
-                <span className="tracker-compact-no-files">No files attached to this job.</span>
+                <span className="tracker-compact-no-files">
+                  <UiIcon name="paperclip" size={18} />
+                  No files attached to this job.
+                </span>
               ) : null}
             </div>
           </section>
 
           {canManage ? (
             <div className="tracker-compact-dialog-actions">
-              {job.status !== 'DONE' ? (
-                <button type="button" className="ghost-button" onClick={() => onWorkStatusAction(job)}>
-                  Update status
+              <div className="tracker-dialog-secondary-actions">
+                {job.status !== 'DONE' ? (
+                  <button type="button" className="ghost-button" onClick={() => onWorkStatusAction(job)}>
+                    Update status
+                  </button>
+                ) : null}
+                {job.paymentStatus !== 'PAID' ? (
+                  <button type="button" className="ghost-button" onClick={() => onPaymentStatusAction(job)}>
+                    Update payment
+                  </button>
+                ) : null}
+              </div>
+              <div className="tracker-dialog-primary-actions">
+                <button type="button" className="ghost-button tracker-dialog-edit-button" onClick={() => onEdit(job)}>
+                  <UiIcon name="file" size={14} />
+                  Edit job
                 </button>
-              ) : null}
-              {job.paymentStatus !== 'PAID' ? (
-                <button type="button" className="ghost-button" onClick={() => onPaymentStatusAction(job)}>
-                  Update payment
+                <button type="button" className="records-danger-button tracker-dialog-delete-button" onClick={() => onDelete(job)}>
+                  <UiIcon name="trash" size={14} />
+                  Delete
                 </button>
-              ) : null}
-              <button type="button" className="ghost-button" onClick={() => onEdit(job)}>
-                <UiIcon name="file" size={14} />
-                Edit job
-              </button>
-              <button type="button" className="records-danger-button" onClick={() => onDelete(job)}>
-                <UiIcon name="trash" size={14} />
-                Delete
-              </button>
+              </div>
             </div>
           ) : null}
         </div>
