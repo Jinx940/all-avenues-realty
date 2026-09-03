@@ -5953,6 +5953,44 @@ textarea {
   box-shadow: 8px 0 14px rgba(104, 144, 179, 0.08);
 }
 
+.tracker-date-group-row {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 14px;
+  border-top: 2px solid rgba(153, 201, 235, 0.9);
+  border-bottom: 1px solid rgba(180, 213, 237, 0.96);
+  background: linear-gradient(90deg, rgba(223, 242, 255, 1), rgba(241, 249, 255, 0.98));
+  color: #2e668f;
+}
+
+.tracker-date-group-title {
+  position: sticky;
+  left: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  background: rgba(223, 242, 255, 0.98);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+
+.tracker-date-group-count {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border: 1px solid rgba(161, 202, 231, 0.92);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #55728d;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
 .tracker-unified-property {
   align-self: stretch;
   min-width: 0;
