@@ -35,6 +35,7 @@ import type {
   JobRow,
   TrackerJobUpdate,
   TrackerLabel,
+  TrackerColumn,
   LoginPayload,
   ManagedUser,
   PhotoStorageAuditPayload,
@@ -1090,6 +1091,15 @@ export default function App() {
     const updated = await requestJson<JobRow>(`/api/jobs/${job.id}/tracker/files`, { method: 'POST', body });
     setJobs((current) => current.map((item) => item.id === updated.id ? updated : item));
     await refreshAll();
+  };
+
+  const updateTrackerColumn = async (column: TrackerColumn) => {
+    const updated = await requestJson<TrackerColumn>(`/api/job-tracker/columns/${column.key}`, {
+      method: 'PATCH', body: JSON.stringify({ label: column.label }),
+    });
+    setBootstrap((current) => current ? {
+      ...current, trackerColumns: [...(current.trackerColumns ?? []).filter((item) => item.key !== updated.key), updated],
+    } : current);
   };
 
   const requestMarkJobDone = (job: JobRow) => {
@@ -2270,6 +2280,7 @@ export default function App() {
             onCreate={(propertyId) => void handleCreateTrackerJob(propertyId)}
             onTrackerUpdate={updateTrackerJob}
             onTrackerLabelsChange={updateTrackerLabels}
+            onTrackerColumnChange={updateTrackerColumn}
             canDeleteFiles={currentUser.role === 'ADMIN'}
             onUploadFiles={uploadTrackerFiles}
             onFileDelete={deleteJobFile}

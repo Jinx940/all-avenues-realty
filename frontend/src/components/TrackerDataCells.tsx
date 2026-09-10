@@ -17,21 +17,19 @@ function parseTrackerMoney(input: string) {
   return amount;
 }
 
-export function TrackerTextCell({ job, field, canManage, onUpdate }: CellProps & { field: 'description' | 'laborCost' | 'materialCost' }) {
-  const money = field !== 'description';
-  const Field = money ? 'input' : 'textarea';
-  const label = field === 'description' ? 'Notas' : field === 'laborCost' ? 'Mano de obra' : 'Material';
+export function TrackerTextCell({ job, field, canManage, onUpdate }: CellProps & { field: 'laborCost' | 'materialCost' }) {
+  const label = field === 'laborCost' ? 'Mano de obra' : 'Material';
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const busy = useRef(false);
   const canceled = useRef(false);
-  const display = money ? formatMoney(job[field]) : job.description || '—';
+  const display = formatMoney(job[field]);
   const save = async () => {
     if (busy.current || canceled.current) return;
     try {
-      const value = money ? parseTrackerMoney(draft) : draft;
+      const value = parseTrackerMoney(draft);
       if (value === job[field]) { setEditing(false); return; }
       busy.current = true; setSaving(true); setError('');
       await onUpdate(job, { [field]: value });
@@ -39,15 +37,15 @@ export function TrackerTextCell({ job, field, canManage, onUpdate }: CellProps &
     } catch (failure) { setError(errorText(failure)); }
     finally { busy.current = false; setSaving(false); }
   };
-  return <td className={`jt-data-cell ${money ? 'jt-money' : 'jt-note-cell'}`}>
+  return <td className="jt-data-cell jt-money">
     {editing ? <div className="jt-inline-editor">
-      <div className="jt-inline-field">{money ? <span className="jt-currency-sign">$</span> : null}
-        <Field aria-label={label} inputMode={money ? 'decimal' : 'text'} value={draft} maxLength={money ? 20 : 3000}
+      <div className="jt-inline-field"><span className="jt-currency-sign">$</span>
+        <input aria-label={label} inputMode="decimal" value={draft} maxLength={20}
           disabled={saving} aria-invalid={Boolean(error)} title={error || undefined}
-          ref={(element: HTMLInputElement | HTMLTextAreaElement | null) => { if (element && document.activeElement !== element) { element.focus({ preventScroll: true }); element.select(); } }}
+          ref={(element) => { if (element && document.activeElement !== element) { element.focus({ preventScroll: true }); element.select(); } }}
           onChange={(event) => { setDraft(event.target.value); setError(''); }} onBlur={() => { void save(); }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && (money || !event.shiftKey)) { event.preventDefault(); void save(); }
+            if (event.key === 'Enter') { event.preventDefault(); void save(); }
             if (event.key === 'Escape') { event.preventDefault(); canceled.current = true; setEditing(false); }
           }} />
       </div>

@@ -1,4 +1,21 @@
-import type { JobRow, TrackerLabel } from '../types';
+import type { JobRow, TrackerLabel, TrackerColumn } from '../types';
+
+export const defaultTrackerColumns: TrackerColumn[] = [
+  { key: 'service', label: 'Trabajo' }, { key: 'workers', label: 'Responsable' },
+  { key: 'status', label: 'Estado' }, { key: 'dueDate', label: 'Vencimiento' },
+  { key: 'description', label: 'Notas' }, { key: 'priority', label: 'Prioridad' },
+  { key: 'paymentStatus', label: 'Pago' }, { key: 'laborCost', label: 'Mano de obra' },
+  { key: 'materialCost', label: 'Material' }, { key: 'before', label: 'Antes' },
+  { key: 'after', label: 'Después' }, { key: 'timeline', label: 'Cronograma' },
+  { key: 'updatedAt', label: 'Actualizado' }, { key: 'actions', label: 'Acciones' },
+];
+
+export const resolveTrackerColumns = (overrides: TrackerColumn[] = []) => defaultTrackerColumns.map(
+  (column) => overrides.find((item) => item.key === column.key) ?? column,
+);
+
+export const trackerSegmentText = (label: string, count: number, total: number) =>
+  `${label} ${count}/${total}  ${((total ? count / total : 0) * 100).toFixed(1)}%`;
 
 export const defaultTrackerLabels: TrackerLabel[] = [
   { kind: 'status', value: 'DONE', label: 'Completado', color: '#008c60' },

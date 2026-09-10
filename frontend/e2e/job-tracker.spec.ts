@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { AuthUser, BootstrapPayload, JobRow, PropertySummary, TrackerLabel } from '../src/types';
+import type { AuthUser, BootstrapPayload, JobRow, PropertySummary, TrackerLabel, TrackerColumn } from '../src/types';
 
 const property = (id: string, name: string): PropertySummary => ({
   id, name, address: null, cityLine: null, notes: null, coverImageUrl: null, stories: [],
@@ -36,8 +36,15 @@ const sampleJobs = [
 async function openTracker(page: Page, jobs = sampleJobs, role: AuthUser['role'] = 'OFFICE') {
   jobs = structuredClone(jobs);
   let trackerLabels: TrackerLabel[] = [];
+  let trackerColumns: TrackerColumn[] = [];
   await page.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (route.request().method() === 'PATCH' && path.startsWith('/api/job-tracker/columns/')) {
+      const column = { key: path.split('/').at(-1) as TrackerColumn['key'], label: route.request().postDataJSON().label };
+      trackerColumns = [...trackerColumns.filter((item) => item.key !== column.key), column];
+      await route.fulfill({ json: column });
+      return;
+    }
     if (route.request().method() === 'POST' && path.endsWith('/tracker/files')) {
       const item = jobs.find((job) => job.id === path.split('/')[3])!;
       const body = route.request().postDataBuffer()!.toString();
@@ -70,7 +77,7 @@ async function openTracker(page: Page, jobs = sampleJobs, role: AuthUser['role']
     }
     if (route.request().method() !== 'GET') throw new Error(`Unexpected mutation: ${path}`);
     const payload = path === '/api/auth/session' ? { user: { id: 'test', username: 'test', displayName: 'Preview User', role, status: 'ACTIVE', workerId: null } }
-      : path === '/api/bootstrap' ? { ...bootstrap, trackerLabels }
+      : path === '/api/bootstrap' ? { ...bootstrap, trackerLabels, trackerColumns }
       : path === '/api/jobs' ? jobs
       : path === '/api/health' ? { status: 'ok', database: 'up', timestamp: '2026-09-10T14:00:00Z' }
       : [];
@@ -147,6 +154,7 @@ test('viewer has read-only actions and the mobile board scrolls within the page'
   await expect(page.getByRole('button', { name: 'Cambiar estado: Drywall' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Cambiar prioridad: Drywall' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Editar cronograma: Drywall' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Renombrar columna:/ })).toHaveCount(0);
   for (const field of ['responsables', 'vencimiento', 'notas', 'pago', 'mano de obra', 'material']) {
     await expect(page.getByRole('button', { name: `Editar ${field}: Drywall`, exact: true })).toHaveCount(0);
   }
@@ -277,7 +285,7 @@ test('inline editors remain usable inside the horizontally scrolling mobile boar
   await expect(dialog).toHaveCount(0);
 });
 
-test('edits notes and USD amounts in the full cell, recalculates totals and retains values', async ({ page }) => {
+test('edits notes in a dialog and USD amounts in the cell, retaining values and totals', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
   await openTracker(page);
   await page.getByRole('button', { name: 'Hide menu', exact: true }).click();
@@ -288,8 +296,10 @@ test('edits notes and USD amounts in the full cell, recalculates totals and reta
   expect(button!.height).toBeGreaterThanOrEqual(cell!.height - 2);
   await notes.click();
   await page.getByRole('textbox', { name: 'Notas', exact: true }).fill('First line\nSecond line');
-  await page.screenshot({ path: 'test-results/tracker-inline-notes.png' });
-  await page.getByRole('textbox', { name: 'Notas', exact: true }).press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Notas', exact: true })).toBeVisible();
+  await expect(page.locator('.jt-note-cell textarea')).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/tracker-notes-dialog.png' });
+  await page.getByRole('button', { name: 'Guardar notas', exact: true }).click();
   await expect(notes).toHaveText('First line Second line');
   const material = page.getByRole('button', { name: 'Editar material: Plumbing', exact: true });
   await material.click();
@@ -311,8 +321,133 @@ test('edits notes and USD amounts in the full cell, recalculates totals and reta
   await notes.click();
   await expect(page.getByRole('textbox', { name: 'Notas', exact: true })).toHaveValue('First line\nSecond line');
   await page.getByRole('textbox', { name: 'Notas', exact: true }).fill('');
-  await page.getByRole('heading', { name: 'Job Tracker', exact: true }).click();
+  await page.getByRole('button', { name: 'Guardar notas', exact: true }).click();
   await expect(notes).toHaveText('—');
+});
+
+test('notes dialog cancels drafts, keeps line breaks and allows retry after failed saves', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openTracker(page);
+  const notes = page.getByRole('button', { name: 'Editar notas: Drywall', exact: true });
+  await notes.click();
+  const dialog = page.getByRole('dialog', { name: 'Notas', exact: true });
+  const bounds = await dialog.boundingBox();
+  expect(bounds!.width).toBeGreaterThan(300);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  const text = dialog.getByRole('textbox', { name: 'Notas', exact: true });
+  await expect(text).toBeFocused();
+  await text.fill('Discard this');
+  await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await expect(notes).toHaveText('Finish walls in the living room.');
+  await notes.click();
+  await text.fill('Also discard');
+  await text.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await notes.click();
+  await text.fill('First line');
+  await text.press('End');
+  await text.press('Enter');
+  await text.pressSequentially('Second line');
+  await expect(text).toHaveValue('First line\nSecond line');
+  let fail = true;
+  await page.route('**/api/jobs/drywall/tracker', async (route) => {
+    if (fail) { fail = false; await route.fulfill({ status: 500, json: { message: 'Try again' } }); }
+    else await route.fallback();
+  });
+  await dialog.getByRole('button', { name: 'Guardar notas', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toHaveText('Try again');
+  await expect(text).toHaveValue('First line\nSecond line');
+  await page.screenshot({ path: 'test-results/tracker-notes-mobile.png' });
+  await dialog.getByRole('button', { name: 'Guardar notas', exact: true }).click();
+  await expect(notes).toHaveText('First line Second line');
+});
+
+test('viewers can read full notes without editing them', async ({ page }) => {
+  await openTracker(page, sampleJobs, 'VIEWER');
+  await page.getByRole('button', { name: 'Ver notas: Plumbing', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Notas', exact: true })).toHaveJSProperty('readOnly', true);
+  await expect(page.getByRole('button', { name: 'Guardar notas', exact: true })).toHaveCount(0);
+});
+
+test('summary tooltips show label, count and percentage for each segment', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await openTracker(page, [job('plumbing', { priority: 'HIGH' }), job('drywall', { service: 'Drywall', priority: 'MEDIUM', status: 'IN_PROGRESS' }), job('cleaning', { service: 'Cleaning', priority: 'LOW' })]);
+  await page.getByRole('button', { name: 'Hide menu', exact: true }).click();
+  const priority = page.getByRole('button', { name: 'Resumen de prioridad de Glynn', exact: true });
+  await priority.locator('.jt-summary-segment').first().hover();
+  await expect(page.getByRole('tooltip')).toHaveText('Alta 1/3 33.3%');
+  await page.screenshot({ path: 'test-results/tracker-summary-tooltip.png' });
+  await priority.locator('.jt-summary-segment').nth(1).hover();
+  await expect(page.getByRole('tooltip')).toHaveText('Media 1/3 33.3%');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await priority.click();
+  await page.getByRole('radio', { name: "What's Done", exact: true }).check();
+  await expect(page.getByRole('dialog')).toHaveText("All LabelsWhat's Done");
+  await page.keyboard.press('Escape');
+  await priority.locator('.jt-summary-segment').last().hover();
+  await expect(page.getByRole('tooltip')).toHaveText('Sin completar 1/3 33.3%');
+  await priority.focus();
+  await priority.press('ArrowRight');
+  await expect(page.getByRole('tooltip')).toContainText('1/3');
+  const payment = page.getByRole('button', { name: 'Resumen de pago de Glynn', exact: true });
+  await payment.hover();
+  await expect(page.getByRole('tooltip').filter({ hasText: 'Pagado 3/3' })).toContainText('100.0%');
+  await page.getByRole('button', { name: 'Resumen de estado de Glynn', exact: true }).locator('.jt-summary-segment').first().hover();
+  await expect(page.getByRole('tooltip').filter({ hasText: 'Completado' })).toHaveText('Completado 2/3 66.7%');
+});
+
+test('renames headers across groups, persists them after reload and exports custom names', async ({ page }) => {
+  await openTracker(page);
+  const rename = page.getByRole('button', { name: 'Renombrar columna: Notas', exact: true });
+  await rename.first().click();
+  const input = page.getByRole('textbox', { name: 'Nombre de columna', exact: true });
+  await input.fill('Work notes');
+  const saved = page.waitForRequest((request) => request.method() === 'PATCH' && request.url().endsWith('/columns/description'));
+  await page.getByRole('dialog').getByRole('button', { name: 'Guardar', exact: true }).click();
+  expect((await saved).postDataJSON()).toEqual({ label: 'Work notes' });
+  await expect(page.getByRole('button', { name: 'Renombrar columna: Work notes', exact: true })).toHaveCount(2);
+  await page.getByRole('button', { name: 'Editar notas: Plumbing', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Work notes', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Renombrar columna: Work notes', exact: true })).toHaveCount(2);
+  await page.getByRole('checkbox', { name: 'Seleccionar Plumbing', exact: true }).check();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Exportar selección', exact: true }).click();
+  const stream = await (await downloadPromise).createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  expect(Buffer.concat(chunks).toString('utf8')).toContain('Work notes');
+  await page.getByRole('button', { name: 'Renombrar columna: Trabajo', exact: true }).first().click();
+  await input.fill('Task');
+  await page.getByRole('dialog').getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Renombrar columna: Task', exact: true })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Plumbing Floor 1 · Unit 1 · Kitchen', exact: true })).toBeVisible();
+});
+
+test('header editing rejects blank names and retains the draft on a failed save', async ({ page }) => {
+  await openTracker(page);
+  await page.getByRole('button', { name: 'Renombrar columna: Notas', exact: true }).first().click();
+  const input = page.getByRole('textbox', { name: 'Nombre de columna', exact: true });
+  await input.fill('  ');
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
+  await input.fill('Description');
+  let fail = true;
+  await page.route('**/api/job-tracker/columns/description', async (route) => {
+    if (fail) { fail = false; await route.fulfill({ status: 500, json: { message: 'Try again' } }); }
+    else await route.fallback();
+  });
+  await page.getByRole('dialog').getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText('Try again');
+  await expect(input).toHaveValue('Description');
+  await expect(page.getByRole('button', { name: 'Renombrar columna: Notas', exact: true })).toHaveCount(2);
+  await page.getByRole('dialog').getByRole('button', { name: 'Guardar', exact: true }).click();
+  await page.getByRole('button', { name: 'Renombrar columna: Description', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Restablecer', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Renombrar columna: Notas', exact: true })).toHaveCount(2);
 });
 
 test('invalid amounts and failed saves keep the draft available for correction', async ({ page }) => {

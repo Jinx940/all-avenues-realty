@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { calendarDate, isoCalendarDate, labelTextColor, rangeDayCount, trackerSummary, type TrackerSummaryMode } from '../lib/jobTracker';
 import type { JobRow, TrackerJobUpdate, TrackerLabel } from '../types';
 import { UiIcon } from './UiIcon';
+import { TrackerSummaryBar } from './TrackerSummaryBar';
 import './TrackerCellEditors.css';
 
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'No se pudo guardar. Inténtalo de nuevo.';
@@ -195,11 +196,8 @@ export function TrackerSummaryCell({ jobs, labels, kind, propertyName }: { jobs:
     return () => window.removeEventListener('tracker-summary-change', sync);
   }, [storageKey]);
   const segments = trackerSummary(jobs, labels, kind, mode);
-  const summary = segments.map((segment) => `${segment.count} ${segment.label}`).join(', ');
   const title = `Resumen de ${kind === 'status' ? 'estado' : 'prioridad'} de ${propertyName}`;
-  return <td><button type="button" className="jt-summary-button" aria-label={title} title={summary} aria-haspopup="dialog" aria-expanded={Boolean(anchor)} onClick={(event) => setAnchor(event.currentTarget)}>
-    <span className="jt-status-summary" role="img" aria-label={summary}>{segments.map((segment) => <span key={segment.value} style={{ flex: segment.count, background: segment.color }} />)}</span>
-  </button>
+  return <td><TrackerSummaryBar segments={segments} total={jobs.length} actionLabel={title} expanded={Boolean(anchor)} onOpen={setAnchor} />
     {anchor ? <TrackerPopover anchor={anchor} title={title} compact onClose={() => setAnchor(null)}>
       <div className="jt-summary-options">{(['all', 'done'] as const).map((value) => <label key={value}><input type="radio" name={title} value={value} checked={mode === value} onChange={() => {
         setMode(value);

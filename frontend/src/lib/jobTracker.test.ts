@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultTrackerLabels, labelTextColor, rangeDayCount, resolveTrackerLabels, trackerSummary } from './jobTracker';
+import { defaultTrackerLabels, labelTextColor, rangeDayCount, resolveTrackerLabels, trackerSummary, trackerSegmentText, resolveTrackerColumns } from './jobTracker';
 import type { JobRow } from '../types';
 
 describe('tracker summaries', () => {
@@ -15,6 +15,19 @@ describe('tracker summaries', () => {
     expect(trackerSummary(jobs, labels, 'priority', 'all').some((segment) => segment.value === 'LOW')).toBe(true);
     expect(trackerSummary([], labels, 'status', 'done')).toEqual([]);
   });
+  it('reports each segment using the full group denominator and one decimal place', () => {
+    expect(trackerSegmentText('High', 1, 3)).toBe('High 1/3  33.3%');
+    expect(trackerSegmentText('Done', 2, 3)).toBe('Done 2/3  66.7%');
+    expect(trackerSegmentText('Empty', 0, 0)).toBe('Empty 0/0  0.0%');
+    const segments = trackerSummary(jobs, defaultTrackerLabels, 'priority', 'done');
+    expect(trackerSegmentText(segments[0].label, segments[0].count, jobs.length)).toBe('Alta 1/3  33.3%');
+  });
+});
+it('renames headers without reordering or changing their data keys', () => {
+  const columns = resolveTrackerColumns([{ key: 'description', label: 'Work notes' }]);
+  expect(columns).toHaveLength(14);
+  expect(columns[0]).toEqual({ key: 'service', label: 'Trabajo' });
+  expect(columns[4]).toEqual({ key: 'description', label: 'Work notes' });
 });
 it('counts calendar dates inclusively across months and daylight saving changes', () => {
   expect(rangeDayCount('2026-08-27', '2026-08-29')).toBe(3);

@@ -3,10 +3,13 @@ import { buildCsv } from '../lib/csv';
 import { formatDate, formatMoney } from '../lib/format';
 import { formatStoryDisplayLabel } from '../lib/jobLocation';
 import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
-import type { JobFile, JobRow, Tone, TrackerJobUpdate, TrackerLabel, WorkerSummary } from '../types';
-import { resolveTrackerLabels } from '../lib/jobTracker';
+import type { JobFile, JobRow, Tone, TrackerJobUpdate, TrackerLabel, WorkerSummary, TrackerColumn } from '../types';
+import { resolveTrackerLabels, resolveTrackerColumns } from '../lib/jobTracker';
 import { TrackerLabelCell, TrackerTimelineCell, TrackerSummaryCell } from './TrackerCellEditors';
 import { TrackerOwnerCell, TrackerDueCell, TrackerTextCell, TrackerPaymentCell } from './TrackerDataCells';
+import { TrackerNotesCell } from './TrackerNotesCell';
+import { TrackerColumnHeader } from './TrackerColumnHeader';
+import { TrackerSummaryBar } from './TrackerSummaryBar';
 import { ProtectedAssetImage } from './ProtectedAssetImage';
 import { UiIcon } from './UiIcon';
 import './JobTrackerBoard.css';
@@ -58,14 +61,12 @@ function StatusSummary({ jobs, payment = false }: { jobs: JobRow[]; payment?: bo
     else segments.set(key, { count: 1, label: payment ? paymentLabel(job) : workLabel(job),
       tone: payment ? paymentStatusTone(job.paymentStatus) : workStatusTone(job.status) });
   }
-  const summary = [...segments.values()].map(({ count, label }) => `${count} ${label}`).join(', ');
-  return <div className="jt-status-summary" role="img" aria-label={summary} title={summary}>
-    {[...segments.entries()].map(([key, segment]) => <span key={key}
-      className={`jt-status--${segment.tone}`} style={{ flex: segment.count }} />)}
-  </div>;
+  return <TrackerSummaryBar segments={[...segments.entries()].map(([value, segment]) => ({
+    value, label: segment.label, count: segment.count, className: `jt-status--${segment.tone}`,
+  }))} total={jobs.length} actionLabel={`Resumen de ${payment ? 'pago' : 'estado'} de ${jobs[0]?.propertyName ?? ''}`} />;
 }
 
-export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUploadFiles, onFileDelete, trackerLabels, onTrackerUpdate, onTrackerLabelsChange, onCreate, onDetails, onEdit, onDelete, onFilePreview }: {
+export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUploadFiles, onFileDelete, trackerLabels, trackerColumns, onTrackerColumnChange, onTrackerUpdate, onTrackerLabelsChange, onCreate, onDetails, onEdit, onDelete, onFilePreview }: {
   jobs: JobRow[];
   canManage: boolean;
   workers: WorkerSummary[];
@@ -77,12 +78,16 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
   onEdit: (job: JobRow) => void;
   onDelete: (jobId: string) => void;
   trackerLabels?: TrackerLabel[];
+  trackerColumns?: TrackerColumn[];
+  onTrackerColumnChange: (column: TrackerColumn) => Promise<void>;
   onTrackerUpdate: (job: JobRow, update: TrackerJobUpdate) => Promise<void>;
   onTrackerLabelsChange: (labels: TrackerLabel[]) => Promise<void>;
   onFilePreview: (job: JobRow, file: JobFile) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const labels = resolveTrackerLabels(trackerLabels);
+  const columns = resolveTrackerColumns(trackerColumns);
+  const columnLabel = (key: TrackerColumn['key']) => columns.find((column) => column.key === key)!.label;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [gallery, setGallery] = useState<{ job: JobRow; category: 'before' | 'after' } | null>(null);
@@ -115,7 +120,7 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
   const exportSelected = () => {
     const safeText = (value: string) => /^[=+@\-\t\r]/.test(value) ? `'${value}` : value;
     const csv = buildCsv([
-      ['Propiedad', 'Trabajo', 'Ubicación', 'Responsables', 'Estado', 'Prioridad', 'Vencimiento', 'Notas', 'Pago', 'Mano de obra', 'Material', 'Total'],
+      ['Propiedad', columnLabel('service'), 'Ubicación', columnLabel('workers'), columnLabel('status'), columnLabel('priority'), columnLabel('dueDate'), columnLabel('description'), columnLabel('paymentStatus'), columnLabel('laborCost'), columnLabel('materialCost'), 'Total'].map(safeText),
       ...selectedJobs.map((job) => [safeText(job.propertyName), safeText(job.service),
         safeText([job.story, job.unit, job.area].filter(Boolean).join(' · ')),
         safeText(job.workers.map((worker) => worker.name).join(', ')), safeText(labels.find((label) => label.kind === 'status' && label.value === job.status)?.label ?? workLabel(job)),
@@ -178,7 +183,7 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
                 <th className="jt-select-cell"><BoardCheckbox checked={groupSelected === group.jobs.length}
                   mixed={groupSelected > 0 && groupSelected < group.jobs.length} label={`Seleccionar trabajos de ${group.name}`}
                   onChange={() => toggleSelected(group.jobs)} /></th>
-                {['Trabajo', 'Responsable', 'Estado', 'Vencimiento', 'Notas', 'Prioridad', 'Pago', 'Mano de obra', 'Material', 'Antes', 'Después', 'Cronograma', 'Actualizado', 'Acciones'].map((label) => <th scope="col" key={label}>{label}</th>)}
+                {columns.map((column) => <TrackerColumnHeader key={column.key} column={column} canManage={canManage} onChange={onTrackerColumnChange} />)}
               </tr></thead>
               <tbody>
                 {visibleJobs.map((job) => {
@@ -192,7 +197,7 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
                     <TrackerOwnerCell job={job} workers={workers} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerLabelCell kind="status" job={job} labels={labels} canManage={canManage} onUpdate={onTrackerUpdate} onLabelsChange={onTrackerLabelsChange} />
                     <TrackerDueCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
-                    <TrackerTextCell job={job} field="description" canManage={canManage} onUpdate={onTrackerUpdate} />
+                    <TrackerNotesCell job={job} label={columnLabel('description')} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerLabelCell kind="priority" job={job} labels={labels} canManage={canManage} onUpdate={onTrackerUpdate} onLabelsChange={onTrackerLabelsChange} />
                     <TrackerPaymentCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerTextCell job={job} field="laborCost" canManage={canManage} onUpdate={onTrackerUpdate} />

@@ -1,9 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { JobStatus } from '@prisma/client';
-import { buildTrackerUpdate, trackerLabelsSchema } from '../src/lib/jobTracker.js';
+import { buildTrackerUpdate, trackerLabelsSchema, trackerColumnKeySchema, trackerColumnUpdateSchema } from '../src/lib/jobTracker.js';
 
 const existing = { status: JobStatus.DONE, completedAt: new Date('2026-08-29T00:00:00Z'), startDate: new Date('2026-08-27T00:00:00Z'), dueDate: new Date('2026-08-31T00:00:00Z') };
+
+test('column renaming accepts every board header but rejects unknown fields and empty names', () => {
+  for (const key of ['service', 'workers', 'status', 'dueDate', 'description', 'priority', 'paymentStatus', 'laborCost', 'materialCost', 'before', 'after', 'timeline', 'updatedAt', 'actions']) {
+    assert.equal(trackerColumnKeySchema.parse(key), key);
+  }
+  assert.deepEqual(trackerColumnUpdateSchema.parse({ label: '  Work notes  ' }), { label: 'Work notes' });
+  for (const label of ['', '   ', 'a'.repeat(41), null]) assert.throws(() => trackerColumnUpdateSchema.parse({ label }));
+  assert.throws(() => trackerColumnKeySchema.parse('totalCost'));
+  assert.throws(() => trackerColumnUpdateSchema.parse({ label: 'Work notes', key: 'service' }));
+});
 
 test('reopening a completed job clears its completion timestamp', () => {
   assert.deepEqual(buildTrackerUpdate(existing, { status: 'STUCK' }), { status: 'STUCK', completedAt: null });

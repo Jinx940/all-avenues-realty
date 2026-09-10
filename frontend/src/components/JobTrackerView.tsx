@@ -3,7 +3,7 @@ import { buildAssetUrl } from '../lib/api';
 import { formatDate, formatMoney } from '../lib/format';
 import { formatAreaServiceLabel, formatStoryDisplayLabel } from '../lib/jobLocation';
 import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
-import type { BootstrapPayload, JobFile, JobRow, Tone, TrackerJobUpdate, TrackerLabel } from '../types';
+import type { BootstrapPayload, JobFile, JobRow, Tone, TrackerJobUpdate, TrackerLabel, TrackerColumn } from '../types';
 import { ProtectedAssetFrame } from './ProtectedAssetFrame';
 import { ProtectedAssetImage } from './ProtectedAssetImage';
 import {
@@ -212,6 +212,7 @@ export function JobTrackerView({
   onCreate,
   onTrackerUpdate,
   onTrackerLabelsChange,
+  onTrackerColumnChange,
   canDeleteFiles,
   onUploadFiles,
   onFileDelete,
@@ -229,6 +230,7 @@ export function JobTrackerView({
   canManage: boolean;
   onTrackerUpdate: (job: JobRow, update: TrackerJobUpdate) => Promise<void>;
   onTrackerLabelsChange: (labels: TrackerLabel[]) => Promise<void>;
+  onTrackerColumnChange: (column: TrackerColumn) => Promise<void>;
   canDeleteFiles: boolean;
   onUploadFiles: (job: JobRow, category: 'before' | 'after', files: File[]) => Promise<void>;
   onFileDelete: (jobId: string, fileId: string) => void;
@@ -337,6 +339,8 @@ export function JobTrackerView({
               onEdit={onEdit}
               onDelete={onDelete}
               trackerLabels={bootstrap?.trackerLabels}
+              trackerColumns={bootstrap?.trackerColumns}
+              onTrackerColumnChange={onTrackerColumnChange}
               onTrackerUpdate={onTrackerUpdate}
               onTrackerLabelsChange={onTrackerLabelsChange}
               workers={[...(bootstrap?.workers ?? []), ...(bootstrap?.inactiveWorkers ?? [])]}

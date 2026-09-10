@@ -30,6 +30,12 @@ model TrackerLabel {
   @@id([kind, value])
 }
 
+model TrackerColumn {
+  key       String   @id
+  label     String
+  updatedAt DateTime @updatedAt
+}
+
 enum PaymentStatus {
   PAID
   PARTIAL_PAYMENT

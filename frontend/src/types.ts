@@ -239,6 +239,9 @@ export type TrackerLabel = {
 
 export type TrackerJobUpdate = Partial<Pick<JobRow, 'status' | 'priority' | 'startDate' | 'dueDate' | 'description' | 'laborCost' | 'materialCost' | 'paymentStatus' | 'advanceCashApp' | 'workerIds'>>;
 
+export type TrackerColumnKey = 'service' | 'workers' | 'status' | 'dueDate' | 'description' | 'priority' | 'paymentStatus' | 'laborCost' | 'materialCost' | 'before' | 'after' | 'timeline' | 'updatedAt' | 'actions';
+export type TrackerColumn = { key: TrackerColumnKey; label: string };
+
 export type JobRow = {
   priority?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
   id: string;
@@ -319,6 +322,7 @@ export type GeneratedDocumentHistoryItem = {
 
 export type BootstrapPayload = {
   trackerLabels?: TrackerLabel[];
+  trackerColumns?: TrackerColumn[];
   statuses: Option[];
   invoiceStatuses: Option[];
   paymentStatuses: Option[];

@@ -36,7 +36,7 @@ import {
 } from './data/defaults.js';
 import { env } from './env.js';
 import { buildInfo, buildSummary } from './lib/buildInfo.js';
-import { buildTrackerUpdate, trackerLabelsSchema } from './lib/jobTracker.js';
+import { buildTrackerUpdate, trackerLabelsSchema, trackerColumnKeySchema, trackerColumnUpdateSchema } from './lib/jobTracker.js';
 import { parseNullableLocalDate } from './lib/dates.js';
 import { recordAuditLog } from './lib/audit.js';
 import {
@@ -1814,7 +1814,7 @@ app.get(
       return;
     }
 
-    const [properties, propertyJobs, workers, trackerLabels] = await Promise.all([
+    const [properties, propertyJobs, workers, trackerLabels, trackerColumns] = await Promise.all([
       prisma.property.findMany({
         where: roleScopeForProperties(auth),
         orderBy: { name: 'asc' },
@@ -1846,6 +1846,7 @@ app.get(
         },
       }),
       prisma.trackerLabel.findMany(),
+      prisma.trackerColumn.findMany(),
     ]);
 
     const propertyJobStats = summarizePropertyJobs(propertyJobs);
@@ -1854,6 +1855,7 @@ app.get(
     response.json({
       statuses: jobStatusOptions,
       trackerLabels,
+      trackerColumns,
       invoiceStatuses: invoiceStatusOptions,
       paymentStatuses: visiblePaymentStatusOptions,
       properties: properties.map((property) =>
@@ -1891,6 +1893,21 @@ app.put('/api/job-tracker/labels', asyncRoute(async (request, response) => {
     });
   });
   response.json(await prisma.trackerLabel.findMany());
+}));
+
+app.patch('/api/job-tracker/columns/:key', asyncRoute(async (request, response) => {
+  if (!requireJobManager(request, response)) return;
+  const key = trackerColumnKeySchema.parse(request.params.key);
+  const { label } = trackerColumnUpdateSchema.parse(request.body);
+  const column = await prisma.$transaction(async (tx) => {
+    const updated = await tx.trackerColumn.upsert({ where: { key }, create: { key, label }, update: { label } });
+    await recordAuditLog(tx, request, {
+      entityType: 'JobTracker', entityId: key, action: 'Updated',
+      summary: 'Renamed Job Tracker column.', metadata: { key, label },
+    });
+    return updated;
+  });
+  response.json(column);
 }));
 
 app.patch('/api/jobs/:jobId/tracker', asyncRoute(async (request, response) => {

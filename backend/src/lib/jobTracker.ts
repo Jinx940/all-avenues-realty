@@ -8,6 +8,12 @@ const usdAmount = z.number().finite().min(0).max(9999999999.99).refine(
   'Use at most two decimal places.',
 );
 
+export const trackerColumnKeySchema = z.enum([
+  'service', 'workers', 'status', 'dueDate', 'description', 'priority', 'paymentStatus',
+  'laborCost', 'materialCost', 'before', 'after', 'timeline', 'updatedAt', 'actions',
+]);
+export const trackerColumnUpdateSchema = z.object({ label: z.string().trim().min(1).max(40) }).strict();
+
 export const trackerUpdateSchema = z.object({
   status: z.nativeEnum(JobStatus).optional(),
   priority: z.nativeEnum(JobPriority).nullable().optional(),
