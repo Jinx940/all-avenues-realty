@@ -3,12 +3,14 @@ import { ApiError, buildAssetUrl, fetchAssetBlob, requestJson } from '../lib/api
 import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendix } from '../lib/generatedPdf';
 import { azeDocumentBrandLinesFor, generatedDocumentTemplateFor } from '../lib/generatedDocumentTemplate';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
+import { formatMoney } from '../lib/format';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import homeEnvyLogoUrl from '../assets/Home_envy_logo.png';
 import moralesLogoUrl from '../assets/Morales-full-transparent.png';
 import ryanLogoUrl from '../assets/ryan-logo-transparent.png';
 import { ConfirmDialog } from './ConfirmDialog';
 import { UiIcon } from './UiIcon';
+import './InvoiceQuoteView.css';
 
 type DocumentType = 'Invoice' | 'Quote';
 type OwnerKey = 'aze' | 'ryan' | 'todd' | 'morales';
@@ -6182,7 +6184,7 @@ export function InvoiceQuoteView({
     mode: 'auto',
   });
   const [isServicesOpen, setIsServicesOpen] = useState(true);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(true);
   const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<GeneratedDocumentContent | null>(null);
   const [generatePdfConfirmOpen, setGeneratePdfConfirmOpen] = useState(false);
@@ -6194,6 +6196,7 @@ export function InvoiceQuoteView({
   const [historyType, setHistoryType] = useState<'ALL' | 'INVOICE' | 'QUOTE'>('ALL');
   const [historyDateRange, setHistoryDateRange] = useState<'ALL' | 'TODAY' | '7' | '30'>('ALL');
   const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
+  const historyHeadingRef = useRef<HTMLHeadingElement | null>(null);
 
   const normalizedPropertyId =
     propertyId && properties.some((property) => property.id === propertyId) ? propertyId : '';
@@ -6939,32 +6942,35 @@ export function InvoiceQuoteView({
   };
 
   return (
-    <section className="tab-panel">
-      <div className="panel invoice-shell">
-        <div className="invoice-shell-head">
+    <section className="iq-workspace" aria-label="Invoice and quote workspace">
+      <div className="iq-shell">
+        <header className="iq-heading">
           <div>
-            <p className="page-kicker">Invoice / Quote Generator</p>
-            <h2 className="title-with-icon">
-              <UiIcon name="file" />
-              <span>Generate Invoice / Quote</span>
-            </h2>
-            <p>Prepare a document preview using the jobs registered under a property.</p>
+            <p className="iq-eyebrow">DOCUMENT WORKSPACE</p>
+            <h2>Generate Invoice / Quote</h2>
+            <p>Create, review and download your documents.</p>
           </div>
-        </div>
+          <button type="button" className="iq-history-link" onClick={() => {
+            historyHeadingRef.current?.scrollIntoView({ block: 'start' });
+            historyHeadingRef.current?.focus({ preventScroll: true });
+          }}><UiIcon name="folder" size={16} />Document history<span>{documents.length}</span></button>
+        </header>
 
-        <div className="invoice-section-card">
+        <div className="iq-builder">
+        <div className="iq-editor">
+        <div className="invoice-section-card iq-setup">
           <div className="invoice-section-head">
             <div>
-              <p className="eyebrow">Document Setup</p>
               <h3 className="title-with-icon title-with-icon--sm">
-                <UiIcon name="clipboard" />
-                <span>{documentType} details</span>
+                <span className="iq-step">1</span>
+                <span>Document details</span>
               </h3>
             </div>
+            <span className={`iq-type-badge iq-type-badge--${documentType.toLowerCase()}`}>{documentType}</span>
           </div>
 
-          <div className="form-grid">
-            <label>
+          <div className="form-grid iq-setup-grid">
+            <label className="iq-field-wide">
               Property
               <select value={normalizedPropertyId} onChange={(event) => setPropertyId(event.target.value)}>
                 <option value="">Select a property</option>
@@ -6976,7 +6982,7 @@ export function InvoiceQuoteView({
               </select>
             </label>
 
-            <label>
+            <label className="iq-field-wide">
               Header / Owner
               <select
                 value={headerOwner}
@@ -7004,19 +7010,18 @@ export function InvoiceQuoteView({
             </label>
 
             <label>
-              No.
+              Document number
               <input
                 value={documentNumber}
                 onChange={(event) => setDocumentNumber(event.target.value)}
                 placeholder="Enter number"
+                aria-invalid={documentNumberExists}
               />
-              <small className="muted-copy">
-                Enter the invoice or quote number manually.
-              </small>
+              {documentNumberExists ? <small className="iq-field-error">This number is already in use.</small> : null}
             </label>
 
             <label>
-              Date (MM/DD/YYYY)
+              Issue date
               <input
                 type="date"
                 value={issueDate}
@@ -7027,7 +7032,7 @@ export function InvoiceQuoteView({
             <label className="span-2">
               Bill To ({documentType})
               <textarea
-                rows={4}
+                rows={2}
                 value={billTo}
                 onChange={(event) => setBillTo(event.target.value)}
                 maxLength={ownerKey === 'ryan' && documentType === 'Invoice' ? ryanBillToMaxLength : undefined}
@@ -7046,18 +7051,20 @@ export function InvoiceQuoteView({
                 className="invoice-attachment-trigger"
                 onClick={() => setAttachmentsOpen((current) => !current)}
                 disabled={!allowsPdfAttachments || !hasSelectablePdfAttachments}
+                aria-expanded={attachmentsOpen && allowsPdfAttachments && hasSelectablePdfAttachments}
               >
+                <UiIcon name="paperclip" size={18} />
                 <span>
                   Add attachments to PDF
                   <small>
                     {selectedAttachmentSummary ||
-                      (hasSelectablePdfAttachments
+                      (!allowsPdfAttachments ? 'Attachments are available for invoices.' : hasSelectablePdfAttachments
                         ? 'Choose Before, After or Receipts'
                         : 'Select jobs with before, after or receipt files to enable this.')}
                   </small>
                 </span>
                 <span className={`invoice-services-caret ${attachmentsOpen ? 'is-open' : ''}`}>
-                  v
+                  <UiIcon name="chevronDown" size={15} />
                 </span>
               </button>
 
@@ -7104,6 +7111,7 @@ export function InvoiceQuoteView({
                         <div className="invoice-attachment-option invoice-attachment-kind-head">
                           <input
                             type="checkbox"
+                            aria-label={`Select all ${attachmentKindLabels[kind]} attachments`}
                             checked={checked}
                             onChange={(event) => setKindChecked(event.target.checked)}
                             disabled={!attachmentsForKind.length}
@@ -7117,7 +7125,7 @@ export function InvoiceQuoteView({
                           >
                             <span>{attachmentKindLabels[kind]}</span>
                             <span className={`invoice-services-caret ${expandedAttachmentKinds[kind] ? 'is-open' : ''}`}>
-                              v
+                              <UiIcon name="chevronDown" size={14} />
                             </span>
                           </button>
                           <small>
@@ -7161,20 +7169,16 @@ export function InvoiceQuoteView({
           </div>
         </div>
 
-        <div className="invoice-section-card">
+        <div className="invoice-section-card iq-services">
           <div className="invoice-section-head">
             <div>
-              <p className="eyebrow">Services</p>
               <h3 className="title-with-icon title-with-icon--sm">
-                <UiIcon name="briefcase" />
-                <span>{propertyJobs.length} loaded</span>
+                <span className="iq-step">2</span>
+                <span>Services</span>
+                <span className="iq-count">{selectedJobIds.length} / {propertyJobs.length}</span>
               </h3>
               <p className="invoice-description-note">
-                {usesSterlingInvoice
-                  ? 'Edit the invoice rows before previewing or generating the PDF.'
-                  : usesMoralesInvoice
-                    ? 'Edit the invoice rows before previewing or generating the PDF.'
-                  : 'You can edit only the description here. We automatically remove list dashes and add a final period.'}
+                {usesLaborColumn ? 'Select services and review descriptions and amounts.' : 'Select services and review their descriptions.'}
               </p>
             </div>
             <div className="invoice-section-actions">
@@ -7185,7 +7189,7 @@ export function InvoiceQuoteView({
                 aria-expanded={isServicesOpen}
               >
                 <span className={`invoice-services-caret ${isServicesOpen ? 'is-open' : ''}`}>
-                  {isServicesOpen ? 'v' : '>'}
+                  <UiIcon name="chevronDown" size={14} />
                 </span>
                 <span>{isServicesOpen ? 'Hide services' : 'Show services'}</span>
               </button>
@@ -7203,11 +7207,11 @@ export function InvoiceQuoteView({
           </div>
 
           {isServicesOpen ? (
-            <div className="invoice-services-shell">
+            <div className={`invoice-services-shell${propertyJobs.length ? '' : ' iq-services-empty'}`} tabIndex={0} aria-label="Document services">
               <div className="invoice-services-table">
                 <div className={`invoice-services-row invoice-services-row--header${usesLaborColumn ? ' invoice-services-row--sterling' : ''}`}>
                   <span>Unit</span>
-                  <span>Area</span>
+                  <span>Work</span>
                   <span>Service</span>
                   <span>Description</span>
                   {usesLaborColumn ? <span>Labor</span> : null}
@@ -7224,13 +7228,14 @@ export function InvoiceQuoteView({
                     return (
                       <div
                         key={group.key}
-                        className={`invoice-services-row${usesLaborColumn ? ' invoice-services-row--sterling' : ''}${groupedClassName}`}
+                        className={`invoice-services-row${usesLaborColumn ? ' invoice-services-row--sterling' : ''}${groupedClassName}${selectedGroupCount ? ' iq-service-selected' : ''}`}
                       >
                         <span className="invoice-services-cell invoice-services-cell--unit">
                           <label className="invoice-service-select">
                             <input
                               className="invoice-service-check"
                               type="checkbox"
+                              aria-label={`Include ${group.service || 'General Service'} in ${group.area || 'property'}`}
                               checked={groupChecked}
                               onChange={() => toggleJobGroupSelection(groupJobIds)}
                             />
@@ -7255,6 +7260,7 @@ export function InvoiceQuoteView({
                                 key={job.id}
                                 className="invoice-description-editor"
                                 rows={2}
+                                aria-label={`Description for ${job.service || 'service'}`}
                                 value={descriptionValueFor(job)}
                                 onChange={(event) => updateDescriptionEdit(job.id, event.target.value)}
                                 onBlur={() => commitDescriptionEdit(job)}
@@ -7311,7 +7317,7 @@ export function InvoiceQuoteView({
                                 );
                               })() : (
                                 <strong key={job.id} className="invoice-service-price-value">
-                                  {formatUsd(job.totalCost)}
+                                  {formatMoney(job.totalCost)}
                                 </strong>
                               ),
                             )}
@@ -7321,7 +7327,7 @@ export function InvoiceQuoteView({
                     );
                   })
                 ) : (
-                  <div className="empty-box">Select a property with jobs to generate a preview.</div>
+                  <div className="iq-empty"><span><UiIcon name="briefcase" size={26} /></span><strong>{activeProperty ? 'No services at this property' : 'Start with a property'}</strong><p>{activeProperty ? 'Add jobs to this property to create a document.' : 'Choose a property above to load its services.'}</p></div>
                 )}
               </div>
             </div>
@@ -7334,7 +7340,7 @@ export function InvoiceQuoteView({
         </div>
 
         {usesLineItemInvoice ? (
-          <div className="invoice-section-card">
+          <div className="invoice-section-card iq-adjustments">
             <div className="invoice-section-head">
               <div>
                 <p className="eyebrow">Invoice Adjustments</p>
@@ -7371,7 +7377,7 @@ export function InvoiceQuoteView({
               <label className="span-2">
                 Observation
                 <textarea
-                  rows={4}
+                  rows={2}
                   value={observation}
                   onChange={(event) => setObservation(event.target.value)}
                   placeholder="Optional invoice observation"
@@ -7382,7 +7388,7 @@ export function InvoiceQuoteView({
         ) : null}
 
         {usesAzeInvoiceDeductions ? (
-          <div className="invoice-section-card">
+          <div className="invoice-section-card iq-adjustments">
             <div className="invoice-section-head">
               <div>
                 <p className="eyebrow">Invoice Adjustments</p>
@@ -7420,7 +7426,7 @@ export function InvoiceQuoteView({
         ) : null}
 
         {usesManualAmounts ? (
-          <div className="invoice-section-card">
+          <div className="invoice-section-card iq-adjustments">
             <div className="invoice-section-head">
               <div>
                 <p className="eyebrow">Additional Amounts</p>
@@ -7479,7 +7485,14 @@ export function InvoiceQuoteView({
           </div>
         ) : null}
 
-        <div className="invoice-section-card">
+        </div>
+        <aside className="invoice-section-card iq-summary" aria-label="Document summary">
+          <div className="invoice-section-head"><h3><UiIcon name="receipt" size={19} />Document summary</h3><span className="iq-currency">USD</span></div>
+          <div className="iq-document-meta">
+            <div className="iq-document-icon"><UiIcon name="file" size={24} /></div>
+            <div><strong>{documentType}{effectiveDocumentNumber ? ` #${effectiveDocumentNumber}` : ''}</strong><span>{activeProperty?.name || 'No property selected'}</span></div>
+          </div>
+          <dl className="iq-summary-facts"><div><dt>Owner</dt><dd>{ownerLabel}</dd></div><div><dt>Issue date</dt><dd>{issueDate ? formatPdfDate(issueDate) : 'Not set'}</dd></div><div><dt>Selected jobs</dt><dd>{selectedJobIds.length}</dd></div></dl>
           {usesManualAmounts ? (
             <p className="invoice-preview-note">Advance Payment is used only to compute Total Due.</p>
           ) : null}
@@ -7490,20 +7503,13 @@ export function InvoiceQuoteView({
                 type="button"
                 className="invoice-preview-title"
                 onClick={() => setPreviewOpen((current) => !current)}
+                aria-expanded={previewOpen}
               >
-                <span className="invoice-preview-caret">{previewOpen ? 'v' : '>'}</span>
-                <UiIcon name="chart" size={16} />
-                <span>Live Preview Totals</span>
+                <UiIcon name="chevronDown" size={14} className={previewOpen ? '' : 'iq-caret-closed'} />
+                <span>Cost breakdown</span>
               </button>
 
               <div className="invoice-preview-actions">
-                <button
-                  type="button"
-                  className="ghost-button invoice-preview-text-button"
-                  onClick={() => setPreviewOpen((current) => !current)}
-                >
-                  {previewOpen ? 'Hide preview' : 'Show preview'}
-                </button>
                 <button type="button" className="ghost-button" onClick={resetPreview}>
                   Reset
                 </button>
@@ -7512,18 +7518,21 @@ export function InvoiceQuoteView({
 
             {previewOpen ? (
               <div className="invoice-preview-grid">
-                {previewRows.map((row) => (
+                {previewRows.filter((row) => !row.strong).map((row) => (
                   <div
                     key={row.label}
                     className={`invoice-preview-item${row.strong ? ' invoice-preview-item--strong' : ''}`}
                   >
                     <span>{row.label}</span>
-                    <strong>{formatUsd(row.value)}</strong>
+                    <strong>{formatMoney(row.value)}</strong>
                   </div>
                 ))}
               </div>
             ) : null}
           </div>
+
+          <div className="iq-total" aria-live="polite"><span>Total due</span><strong>{formatMoney(totalDue)}</strong></div>
+          <p className="iq-selection-note">{selectedJobIds.length ? `${selectedJobIds.length} ${selectedJobIds.length === 1 ? 'job' : 'jobs'} included in this ${documentType.toLowerCase()}.` : 'Select services to prepare your document.'}</p>
 
           <div className="invoice-generate-row">
             <div className="invoice-generate-actions">
@@ -7547,19 +7556,20 @@ export function InvoiceQuoteView({
               </button>
             </div>
           </div>
+          {!effectiveDocumentNumber && selectedItems.length ? <p className="iq-selection-note">Enter a document number to generate the PDF.</p> : null}
+        </aside>
         </div>
 
-        <div className="invoice-section-card">
+        <div className="invoice-section-card iq-history">
           <div className="invoice-section-head">
             <div>
-              <p className="eyebrow">Document center</p>
-              <h3 className="title-with-icon title-with-icon--sm">
+              <h3 className="title-with-icon title-with-icon--sm" ref={historyHeadingRef} tabIndex={-1}>
                 <UiIcon name="folder" />
                 <span>Invoice / Quote history</span>
               </h3>
-              <p>Search by No., property, owner and date, then reopen or print any saved document.</p>
+              <p>Find and manage your saved documents.</p>
             </div>
-            <span className="pill tone-neutral">{filteredDocuments.length} document(s)</span>
+            <span className="iq-count">{filteredDocuments.length} {filteredDocuments.length === 1 ? 'document' : 'documents'}</span>
           </div>
 
           <div className="invoice-history-filters">
@@ -7626,7 +7636,7 @@ export function InvoiceQuoteView({
             </label>
           </div>
 
-          <div className="invoice-history-table-shell">
+          <div className="invoice-history-table-shell" tabIndex={0} aria-label="Document history">
             <div className="invoice-history-table">
               <div className="invoice-history-row invoice-history-row--header">
                 <span>No.</span>
@@ -7642,7 +7652,7 @@ export function InvoiceQuoteView({
                 filteredDocuments.map((document) => (
                   <div key={document.id} className="invoice-history-row">
                     <span className="invoice-history-number">{document.documentNumber}</span>
-                    <span>{document.documentTypeLabel}</span>
+                    <span><span className={`iq-type-badge iq-type-badge--${document.documentTypeLabel.toLowerCase()}`}>{document.documentTypeLabel}</span></span>
                     <span>{document.ownerLabel}</span>
                     <span>
                       <strong>{document.propertyName}</strong>
