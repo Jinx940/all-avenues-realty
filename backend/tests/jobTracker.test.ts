@@ -6,7 +6,7 @@ import { buildTrackerUpdate, trackerLabelsSchema, trackerColumnKeySchema, tracke
 const existing = { status: JobStatus.DONE, completedAt: new Date('2026-08-29T00:00:00Z'), startDate: new Date('2026-08-27T00:00:00Z'), dueDate: new Date('2026-08-31T00:00:00Z') };
 
 test('column renaming accepts every board header but rejects unknown fields and empty names', () => {
-  for (const key of ['service', 'workers', 'status', 'dueDate', 'description', 'priority', 'paymentStatus', 'laborCost', 'materialCost', 'before', 'after', 'timeline', 'updatedAt', 'actions']) {
+  for (const key of ['area', 'service', 'workers', 'status', 'dueDate', 'description', 'priority', 'paymentStatus', 'laborCost', 'materialCost', 'before', 'after', 'timeline', 'updatedAt', 'actions']) {
     assert.equal(trackerColumnKeySchema.parse(key), key);
   }
   assert.deepEqual(trackerColumnUpdateSchema.parse({ label: '  Work notes  ' }), { label: 'Work notes' });
@@ -26,7 +26,9 @@ test('completion is timestamped once and preserved on repeated updates', () => {
 test('priority updates and clearing never overwrite status, dates or costs', () => {
   assert.deepEqual(buildTrackerUpdate(existing, { priority: 'HIGH' }), { priority: 'HIGH' });
   assert.deepEqual(buildTrackerUpdate(existing, { priority: null }), { priority: null });
-  assert.throws(() => buildTrackerUpdate(existing, { service: 'Renamed task' }));
+  assert.deepEqual(buildTrackerUpdate(existing, { service: '  Plumbing  ' }), { service: 'Plumbing' });
+  assert.throws(() => buildTrackerUpdate(existing, { service: '  ' }));
+  assert.throws(() => buildTrackerUpdate(existing, { area: 'Kitchen' }));
   assert.throws(() => buildTrackerUpdate(existing, { priority: 'URGENT' }));
   assert.throws(() => buildTrackerUpdate(existing, {}));
 });

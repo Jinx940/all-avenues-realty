@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { buildCsv } from '../lib/csv';
 import { formatDate, formatMoney } from '../lib/format';
 import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
@@ -9,6 +9,8 @@ import { TrackerOwnerCell, TrackerDueCell, TrackerTextCell, TrackerPaymentCell }
 import { TrackerNotesCell } from './TrackerNotesCell';
 import { TrackerColumnHeader } from './TrackerColumnHeader';
 import { TrackerSummaryBar } from './TrackerSummaryBar';
+import { TrackerDateSummaryCell } from './TrackerDateSummaryCell';
+import { TrackerSubitems } from './TrackerSubitems';
 import { ProtectedAssetImage } from './ProtectedAssetImage';
 import { UiIcon } from './UiIcon';
 import './JobTrackerBoard.css';
@@ -84,6 +86,7 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
   onFilePreview: (job: JobRow, file: JobFile) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const labels = resolveTrackerLabels(trackerLabels);
   const columns = resolveTrackerColumns(trackerColumns);
   const columnLabel = (key: TrackerColumn['key']) => columns.find((column) => column.key === key)!.label;
@@ -119,8 +122,8 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
   const exportSelected = () => {
     const safeText = (value: string) => /^[=+@\-\t\r]/.test(value) ? `'${value}` : value;
     const csv = buildCsv([
-      ['Property', columnLabel('service'), 'Location', columnLabel('workers'), columnLabel('status'), columnLabel('priority'), columnLabel('dueDate'), columnLabel('description'), columnLabel('paymentStatus'), columnLabel('laborCost'), columnLabel('materialCost'), 'Total'].map(safeText),
-      ...selectedJobs.map((job) => [safeText(job.propertyName), safeText(job.service),
+      ['Property', columnLabel('area'), columnLabel('service'), 'Location', columnLabel('workers'), columnLabel('status'), columnLabel('priority'), columnLabel('dueDate'), columnLabel('description'), columnLabel('paymentStatus'), columnLabel('laborCost'), columnLabel('materialCost'), 'Total'].map(safeText),
+      ...selectedJobs.map((job) => [safeText(job.propertyName), safeText(job.area), safeText(job.service),
         safeText([job.story, job.unit, job.area].filter(Boolean).join(' · ')),
         safeText(job.workers.map((worker) => worker.name).join(', ')), safeText(labels.find((label) => label.kind === 'status' && label.value === job.status)?.label ?? workLabel(job)),
         safeText(labels.find((label) => label.kind === 'priority' && label.value === (job.priority ?? 'NONE'))?.label ?? ''), job.dueDate?.slice(0, 10),
@@ -176,23 +179,31 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
           <div className="jt-table-scroll" tabIndex={0} role="region" aria-label={`Jobs at ${group.name}`}>
             <table className="jt-table" aria-label={`Jobs at ${group.name}`}>
               <colgroup>
-                {[34, 245, 110, 126, 112, 140, 112, 112, 105, 105, 96, 96, 180, 110, 98].map((width, column) => <col key={column} style={{ width }} />)}
+                {[34, 220, 245, 110, 126, 112, 112, 112, 105, 105, 96, 96, 180, 110, 98].map((width, column) => <col key={column} style={{ width }} />)}
               </colgroup>
               <thead><tr>
                 <th className="jt-select-cell"><BoardCheckbox checked={groupSelected === group.jobs.length}
                   mixed={groupSelected > 0 && groupSelected < group.jobs.length} label={`Select jobs at ${group.name}`}
                   onChange={() => toggleSelected(group.jobs)} /></th>
-                {columns.map((column) => <TrackerColumnHeader key={column.key} column={column} canManage={canManage} onChange={onTrackerColumnChange} />)}
+                {columns.filter((column) => column.key !== 'description').map((column) => <TrackerColumnHeader key={column.key} column={column} canManage={canManage} onChange={onTrackerColumnChange} />)}
               </tr></thead>
               <tbody>
                 {visibleJobs.map((job) => {
-                  return <tr key={job.id} className={selected.has(job.id) ? 'jt-row-selected' : undefined}>
+                  const expanded = expandedJobs.has(job.id);
+                  return <Fragment key={job.id}><tr className={selected.has(job.id) ? 'jt-row-selected' : undefined}>
                     <td className="jt-select-cell"><BoardCheckbox checked={selected.has(job.id)} label={`Select ${job.service}`} onChange={() => toggleSelected([job])} /></td>
-                    <td className="jt-task-cell"><span className="jt-task" title={job.service}>{job.service}</span></td>
+                    <td className="jt-task-cell"><div className="jt-work-cell">
+                      <button type="button" className="jt-expand-subitems" aria-expanded={expanded} aria-controls={`jt-subitems-${job.id}`}
+                        aria-label={`${expanded ? 'Collapse' : 'Expand'} subitems: ${job.service}`} onClick={() => setExpandedJobs((current) => {
+                          const next = new Set(current); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next;
+                        })}><UiIcon name="chevronDown" size={15} className={expanded ? '' : 'jt-collapsed-icon'} /></button>
+                      <span className="jt-task" title={job.area || 'No area'}>{job.area || 'No area'}</span>
+                      {(job.subitems?.length ?? 0) > 0 ? <span className="jt-subitem-count" aria-label={`${job.subitems!.length} subitems`}>{job.subitems!.length}</span> : null}
+                    </div></td>
+                    <TrackerNotesCell job={job} field="service" label={columnLabel('service')} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerOwnerCell job={job} workers={workers} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerLabelCell kind="status" job={job} labels={labels} canManage={canManage} onUpdate={onTrackerUpdate} onLabelsChange={onTrackerLabelsChange} />
                     <TrackerDueCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
-                    <TrackerNotesCell job={job} label={columnLabel('description')} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerLabelCell kind="priority" job={job} labels={labels} canManage={canManage} onUpdate={onTrackerUpdate} onLabelsChange={onTrackerLabelsChange} />
                     <TrackerPaymentCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerTextCell job={job} field="laborCost" canManage={canManage} onUpdate={onTrackerUpdate} />
@@ -208,13 +219,17 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
                         <button type="button" className="jt-delete" aria-label={`Delete ${job.service}`} title="Delete job" onClick={() => onDelete(job.id)}><UiIcon name="trash" size={15} /></button>
                       </> : null}
                     </div></td>
-                  </tr>;
+                  </tr>{expanded ? <tr className="jt-subitems-row"><td /><td colSpan={14}>
+                    <TrackerSubitems job={job} canManage={canManage} workers={workers} labels={labels} columns={columns}
+                      onUpdate={onTrackerUpdate} onColumnChange={onTrackerColumnChange} onLabelsChange={onTrackerLabelsChange} />
+                  </td></tr> : null}</Fragment>;
                 })}
                 {canManage ? <tr className="jt-add-row"><td /><td colSpan={14}><button type="button" onClick={() => onCreate(propertyId)}><UiIcon name="plus" size={15} />Add job</button></td></tr> : null}
               </tbody>
               <tfoot><tr>
-                <td /><td className="jt-summary-label">{completed} of {group.jobs.length} completed</td><td />
-                <TrackerSummaryCell jobs={group.jobs} labels={labels} kind="status" propertyName={group.name} /><td /><td />
+                <td /><td className="jt-summary-label">{completed} of {group.jobs.length} completed</td><td /><td />
+                <TrackerSummaryCell jobs={group.jobs} labels={labels} kind="status" propertyName={group.name} />
+                <TrackerDateSummaryCell jobs={group.jobs} propertyName={group.name} />
                 <TrackerSummaryCell jobs={group.jobs} labels={labels} kind="priority" propertyName={group.name} />
                 <td><StatusSummary jobs={group.jobs} payment /></td>
                 <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.laborCost, 0))}<small>sum</small></td>

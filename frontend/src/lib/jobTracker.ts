@@ -1,9 +1,9 @@
 import type { JobRow, TrackerLabel, TrackerColumn } from '../types';
 
 export const defaultTrackerColumns: TrackerColumn[] = [
-  { key: 'service', label: 'Work' }, { key: 'workers', label: 'Owner' },
+  { key: 'area', label: 'Work' }, { key: 'service', label: 'Services' }, { key: 'workers', label: 'Owner' },
   { key: 'status', label: 'Status' }, { key: 'dueDate', label: 'Due date' },
-  { key: 'description', label: 'Notes' }, { key: 'priority', label: 'Priority' },
+  { key: 'description', label: 'Description' }, { key: 'priority', label: 'Priority' },
   { key: 'paymentStatus', label: 'Payment' }, { key: 'laborCost', label: 'Labor' },
   { key: 'materialCost', label: 'Materials' }, { key: 'before', label: 'Before files' },
   { key: 'after', label: 'After files' }, { key: 'timeline', label: 'Timeline' },
@@ -54,3 +54,17 @@ export const isoCalendarDate = (date: Date) => `${date.getUTCFullYear()}-${Strin
 export const calendarDate = (value: string) => new Date(`${value}T00:00:00Z`);
 export const rangeDayCount = (start: string, end: string) => start && end && end >= start
   ? Math.round((calendarDate(end).getTime() - calendarDate(start).getTime()) / 86400000) + 1 : 0;
+
+export function trackerDueDateRange(jobs: Pick<JobRow, 'dueDate'>[]) {
+  let start = '';
+  let end = '';
+  for (const job of jobs) {
+    if (!job.dueDate) continue;
+    const date = new Date(job.dueDate);
+    if (!Number.isFinite(date.getTime())) continue;
+    const day = isoCalendarDate(date);
+    if (!start || day < start) start = day;
+    if (!end || day > end) end = day;
+  }
+  return start ? { start, end, days: rangeDayCount(start, end) } : null;
+}

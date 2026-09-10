@@ -35,6 +35,9 @@ const sampleJobs = [
 
 async function openTracker(page: Page, jobs = sampleJobs, role: AuthUser['role'] = 'OFFICE') {
   jobs = structuredClone(jobs);
+  for (const item of jobs) item.subitems ??= item.description.split(/\r?\n+/).map((line) => line.trim()).filter(Boolean).map((description, index) => ({
+    id: `${item.id}-subitem-${index}`, description, status: item.status, dueDate: item.dueDate, workerIds: [...item.workerIds], workers: structuredClone(item.workers),
+  }));
   let trackerLabels: TrackerLabel[] = [];
   let trackerColumns: TrackerColumn[] = [];
   await page.route('**/api/**', async (route) => {
@@ -62,6 +65,18 @@ async function openTracker(page: Page, jobs = sampleJobs, role: AuthUser['role']
       const id = path.split('/')[3];
       const job = jobs.find((item) => item.id === id)!;
       const changes = route.request().postDataJSON();
+      if (changes.subitem) {
+        const { action, id, ...fields } = changes.subitem;
+        if (action === 'create') job.subitems!.push({ id: `new-${job.subitems!.length}`, status: 'PENDING', dueDate: null, workerIds: [], workers: [], ...fields });
+        if (action === 'update') {
+          const item = job.subitems!.find((subitem) => subitem.id === id)!;
+          Object.assign(item, fields);
+          if (fields.workerIds) item.workers = bootstrap.workers.filter((worker) => fields.workerIds.includes(worker.id));
+        }
+        if (action === 'delete') job.subitems = job.subitems!.filter((subitem) => subitem.id !== id);
+        await route.fulfill({ json: job });
+        return;
+      }
       Object.assign(job, changes);
       job.totalCost = job.laborCost + job.materialCost;
       if (changes.workerIds) job.workers = bootstrap.workers.filter((worker) => changes.workerIds.includes(worker.id));
@@ -91,6 +106,11 @@ async function openTracker(page: Page, jobs = sampleJobs, role: AuthUser['role']
   await expect(page.getByRole('heading', { name: 'Job Tracker', exact: true })).toBeVisible();
 }
 
+async function expandSubitems(page: Page, service: string) {
+  await page.getByRole('button', { name: `Expand subitems: ${service}`, exact: true }).click();
+  return page.getByRole('table', { name: `Subitems for ${service}`, exact: true });
+}
+
 test('groups, filtered totals, monthly filtering, selection and empty state', async ({ page }) => {
   await openTracker(page);
   const glynn = page.getByRole('table', { name: 'Jobs at Glynn', exact: true });
@@ -112,6 +132,7 @@ test('groups, filtered totals, monthly filtering, selection and empty state', as
   await expect(glynn).toBeVisible();
   await page.getByLabel('Month', { exact: true }).fill('2026-09');
   await expect(glynn.locator('tfoot')).toContainText('$450.00');
+  await expect(glynn.locator('.jt-date-summary-dates')).toHaveText('Sep 19');
   await expect(page.getByRole('button', { name: 'Export selection' })).toHaveCount(0);
   await page.getByPlaceholder('Property, service or worker...').fill('no-matching-job');
   await expect(page.getByText('No jobs match the current filters.')).toBeVisible();
@@ -120,13 +141,15 @@ test('groups, filtered totals, monthly filtering, selection and empty state', as
 });
 
 test('keeps totals for the full group when revealing more jobs', async ({ page }) => {
-  await openTracker(page, Array.from({ length: 12 }, (_, index) => job(`job-${index}`, { service: `Task ${index + 1}`, materialCost: 0, laborCost: 10, totalCost: 10 })));
+  await openTracker(page, Array.from({ length: 12 }, (_, index) => job(`job-${index}`, { service: `Task ${index + 1}`, dueDate: index === 11 ? '2026-09-19T00:00:00Z' : '2026-08-31T00:00:00Z', materialCost: 0, laborCost: 10, totalCost: 10 })));
   const table = page.getByRole('table', { name: 'Jobs at Glynn', exact: true });
   await expect(table.locator('tbody tr')).toHaveCount(11);
   await expect(table.locator('tfoot')).toContainText('$120.00');
+  await expect(table.locator('.jt-date-summary-dates')).toHaveText('Aug 31 – Sep 19');
   await page.getByRole('button', { name: 'Show 2 more' }).click();
   await expect(table.locator('tbody tr')).toHaveCount(13);
   await expect(table.locator('tfoot')).toContainText('$120.00');
+  await expect(table.locator('.jt-date-summary-dates')).toHaveText('Aug 31 – Sep 19');
 });
 
 test('opens all attachments and preserves existing status and create flows', async ({ page }) => {
@@ -172,6 +195,7 @@ test('desktop design preview', async ({ page }) => {
   await openTracker(page);
   await page.getByRole('button', { name: 'Hide menu', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Select Plumbing', exact: true }).check();
+  await expandSubitems(page, 'Plumbing');
   await page.screenshot({ path: 'test-results/job-tracker-desktop.png', fullPage: true });
   expect(errors).toEqual([]);
 });
@@ -289,14 +313,15 @@ test('edits notes in a dialog and USD amounts in the cell, retaining values and 
   await page.setViewportSize({ width: 1920, height: 1000 });
   await openTracker(page);
   await page.getByRole('button', { name: 'Hide menu', exact: true }).click();
-  const notes = page.getByRole('button', { name: 'Edit notes: Plumbing', exact: true });
+  const subitems = await expandSubitems(page, 'Plumbing');
+  const notes = subitems.locator('.jt-note-cell button').first();
   const cell = await notes.locator('..').boundingBox();
   const button = await notes.boundingBox();
   expect(button!.width).toBeGreaterThanOrEqual(cell!.width - 2);
   expect(button!.height).toBeGreaterThanOrEqual(cell!.height - 2);
   await notes.click();
-  await page.getByRole('textbox', { name: 'Notes', exact: true }).fill('First line\nSecond line');
-  await expect(page.getByRole('dialog', { name: 'Notes', exact: true })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('First line\nSecond line');
+  await expect(page.getByRole('dialog', { name: 'Description', exact: true })).toBeVisible();
   await expect(page.locator('.jt-note-cell textarea')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/tracker-notes-dialog.png' });
   await page.getByRole('button', { name: 'Save notes', exact: true }).click();
@@ -318,23 +343,26 @@ test('edits notes in a dialog and USD amounts in the cell, retaining values and 
   await page.getByRole('button', { name: 'Show menu', exact: true }).click();
   await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
   await expect(material).toHaveText('$1,234.56');
+  await expandSubitems(page, 'Plumbing');
   await notes.click();
-  await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue('First line\nSecond line');
-  await page.getByRole('textbox', { name: 'Notes', exact: true }).fill('');
-  await page.getByRole('button', { name: 'Save notes', exact: true }).click();
-  await expect(notes).toHaveText('—');
+  await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue('First line\nSecond line');
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('');
+  await expect(page.getByRole('button', { name: 'Save notes', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(notes).toHaveText('First line Second line');
 });
 
 test('notes dialog cancels drafts, keeps line breaks and allows retry after failed saves', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openTracker(page);
-  const notes = page.getByRole('button', { name: 'Edit notes: Drywall', exact: true });
+  const subitems = await expandSubitems(page, 'Drywall');
+  const notes = subitems.locator('.jt-note-cell button').first();
   await notes.click();
-  const dialog = page.getByRole('dialog', { name: 'Notes', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'Description', exact: true });
   const bounds = await dialog.boundingBox();
   expect(bounds!.width).toBeGreaterThan(300);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
-  const text = dialog.getByRole('textbox', { name: 'Notes', exact: true });
+  const text = dialog.getByRole('textbox', { name: 'Description', exact: true });
   await expect(text).toBeFocused();
   await text.fill('Discard this');
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -364,8 +392,12 @@ test('notes dialog cancels drafts, keeps line breaks and allows retry after fail
 
 test('viewers can read full notes without editing them', async ({ page }) => {
   await openTracker(page, sampleJobs, 'VIEWER');
-  await page.getByRole('button', { name: 'View notes: Plumbing', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveJSProperty('readOnly', true);
+  const subitems = await expandSubitems(page, 'Plumbing');
+  await expect(subitems.getByRole('button', { name: 'Add subitem' })).toHaveCount(0);
+  await expect(subitems.getByRole('button', { name: /^Delete subitem:/ })).toHaveCount(0);
+  await expect(subitems.getByRole('button', { name: /^Change status:/ })).toHaveCount(0);
+  await subitems.getByRole('button', { name: /^View notes:/ }).click();
+  await expect(page.getByRole('textbox', { name: 'Description', exact: true })).toHaveJSProperty('readOnly', true);
   await expect(page.getByRole('button', { name: 'Save notes', exact: true })).toHaveCount(0);
 });
 
@@ -399,7 +431,9 @@ test('summary tooltips show label, count and percentage for each segment', async
 
 test('renames headers across groups, persists them after reload and exports custom names', async ({ page }) => {
   await openTracker(page);
-  const rename = page.getByRole('button', { name: 'Rename column: Notes', exact: true });
+  const subitems = await expandSubitems(page, 'Plumbing');
+  await expandSubitems(page, 'Electrical');
+  const rename = page.getByRole('button', { name: 'Rename column: Description', exact: true });
   await rename.first().click();
   const input = page.getByRole('textbox', { name: 'Column name', exact: true });
   await input.fill('Work notes');
@@ -407,11 +441,13 @@ test('renames headers across groups, persists them after reload and exports cust
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
   expect((await saved).postDataJSON()).toEqual({ label: 'Work notes' });
   await expect(page.getByRole('button', { name: 'Rename column: Work notes', exact: true })).toHaveCount(2);
-  await page.getByRole('button', { name: 'Edit notes: Plumbing', exact: true }).click();
+  await subitems.locator('.jt-note-cell button').first().click();
   await expect(page.getByRole('dialog', { name: 'Work notes', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.reload();
   await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await expandSubitems(page, 'Plumbing');
+  await expandSubitems(page, 'Electrical');
   await expect(page.getByRole('button', { name: 'Rename column: Work notes', exact: true })).toHaveCount(2);
   await page.getByRole('checkbox', { name: 'Select Plumbing', exact: true }).check();
   const downloadPromise = page.waitForEvent('download');
@@ -424,20 +460,22 @@ test('renames headers across groups, persists them after reload and exports cust
   await input.fill('Task');
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Rename column: Task', exact: true })).toHaveCount(2);
-  const taskCell = page.locator('.jt-task-cell').filter({ hasText: 'Plumbing' });
-  await expect(taskCell).toHaveText('Plumbing');
-  await expect(taskCell.getByRole('button')).toHaveCount(0);
-  await taskCell.click();
+  const taskCell = page.locator('.jt-task-cell').filter({ has: page.getByRole('button', { name: 'Collapse subitems: Plumbing', exact: true }) });
+  await expect(taskCell.locator('.jt-task')).toHaveText('Kitchen');
+  await expect(taskCell.getByRole('button')).toHaveCount(1);
+  await taskCell.locator('.jt-task').click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('header editing rejects blank names and retains the draft on a failed save', async ({ page }) => {
   await openTracker(page);
-  await page.getByRole('button', { name: 'Rename column: Notes', exact: true }).first().click();
+  await expandSubitems(page, 'Plumbing');
+  await expandSubitems(page, 'Electrical');
+  await page.getByRole('button', { name: 'Rename column: Description', exact: true }).first().click();
   const input = page.getByRole('textbox', { name: 'Column name', exact: true });
   await input.fill('  ');
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
-  await input.fill('Description');
+  await input.fill('Details');
   let fail = true;
   await page.route('**/api/job-tracker/columns/description', async (route) => {
     if (fail) { fail = false; await route.fulfill({ status: 500, json: { message: 'Try again' } }); }
@@ -445,13 +483,13 @@ test('header editing rejects blank names and retains the draft on a failed save'
   });
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText('Try again');
-  await expect(input).toHaveValue('Description');
-  await expect(page.getByRole('button', { name: 'Rename column: Notes', exact: true })).toHaveCount(2);
+  await expect(input).toHaveValue('Details');
+  await expect(page.getByRole('button', { name: 'Rename column: Description', exact: true })).toHaveCount(2);
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
-  await page.getByRole('button', { name: 'Rename column: Description', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Rename column: Details', exact: true }).first().click();
   await page.getByRole('button', { name: 'Reset', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Rename column: Notes', exact: true })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Rename column: Description', exact: true })).toHaveCount(2);
 });
 
 test('invalid amounts and failed saves keep the draft available for correction', async ({ page }) => {
@@ -528,6 +566,78 @@ test('due dates update timeline duration on hover and can be cleared independent
   await expect(due).toHaveText('—');
   await expect(timeline.locator('.jt-timeline-dates')).toContainText('Aug 27');
   await expect(timeline.locator('.jt-timeline-days')).toHaveCount(0);
+});
+
+test('due date summary shows the full property range and inclusive days, then updates after edits', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-10T12:00:00Z'));
+  await openTracker(page);
+  const glynn = page.getByRole('table', { name: 'Jobs at Glynn', exact: true });
+  const summary = glynn.getByRole('button', { name: /^Due date summary for Glynn:/ });
+  await expect(summary.locator('.jt-date-summary-dates')).toHaveText('Aug 31 – Sep 19');
+  expect(await summary.evaluate((element) => Number.parseFloat((element as HTMLElement).style.getPropertyValue('--jt-date-progress')))).toBeCloseTo(55);
+  const dueColumn = glynn.locator(':scope > thead th').filter({ has: page.getByRole('button', { name: 'Rename column: Due date', exact: true }) });
+  expect((await summary.boundingBox())!.x).toBeGreaterThanOrEqual((await dueColumn.boundingBox())!.x);
+  await summary.hover();
+  await expect(summary.locator('.jt-date-summary-days')).toBeVisible();
+  await expect(summary.locator('.jt-date-summary-days')).toHaveText('20d');
+  await page.screenshot({ path: 'test-results/tracker-due-summary.png' });
+  await page.getByRole('heading', { name: 'Job Tracker', exact: true }).hover();
+  await expect(summary.locator('.jt-date-summary-dates')).toBeVisible();
+  await summary.focus();
+  await summary.press('Enter');
+  await expect(summary.locator('.jt-date-summary-days')).toBeVisible();
+  await summary.press('Enter');
+  await page.getByRole('button', { name: 'Edit due date: Drywall', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear date', exact: true }).click();
+  await expect(summary.locator('.jt-date-summary-dates')).toHaveText('Aug 31');
+  await summary.hover();
+  await expect(summary.locator('.jt-date-summary-days')).toHaveText('1d');
+  await expect(page.getByRole('button', { name: /^Due date summary for Saranac Rd:/ }).locator('.jt-date-summary-dates')).toHaveText('Sep 8');
+});
+
+test('areas, editable services and independent subitems persist without duplicating totals', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await openTracker(page, [job('plumbing', { description: 'Inspect leaking meter.\n\nReplace piping.' })]);
+  await page.getByRole('button', { name: 'Hide menu', exact: true }).click();
+  const table = page.getByRole('table', { name: 'Jobs at Glynn', exact: true });
+  await expect(table.locator('.jt-task')).toHaveText('Kitchen');
+  await expect(table.locator('.jt-subitem-count')).toHaveText('2');
+  await expect(page.getByRole('button', { name: 'Edit service: Plumbing', exact: true })).toHaveText('Plumbing');
+  const subitems = await expandSubitems(page, 'Plumbing');
+  await expect(subitems.locator('.jt-note-cell')).toHaveText(['Inspect leaking meter.', 'Replace piping.']);
+  await subitems.getByRole('button', { name: 'Add subitem', exact: true }).click();
+  await page.getByRole('textbox', { name: 'New subitem', exact: true }).fill('Pressure test water supply.');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add subitem', exact: true }).click();
+  await expect(table.locator('.jt-subitem-count')).toHaveText('3');
+  await subitems.getByRole('button', { name: 'Change status: Pressure test water supply.', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Working on it', exact: true }).click();
+  await expect(subitems.getByRole('button', { name: 'Change status: Pressure test water supply.', exact: true })).toHaveText('Working on it');
+  await subitems.getByRole('button', { name: 'Edit owners: Pressure test water supply.', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Ryan Goertler', exact: true }).check();
+  await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+  await subitems.getByRole('button', { name: 'Edit due date: Pressure test water supply.', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Due date', { exact: true }).fill('2026-09-20');
+  await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(subitems.getByRole('button', { name: 'Edit due date: Pressure test water supply.', exact: true })).toHaveText('Sep 20');
+  await expect(page.getByRole('button', { name: 'Change status: Plumbing', exact: true })).toHaveText('Done');
+  await expect(table.locator('tfoot')).toContainText('$4,350.00');
+  await expect(table.locator('.jt-date-summary-dates')).toHaveText('Aug 31');
+  await page.screenshot({ path: 'test-results/tracker-subitems.png', fullPage: true });
+  await page.reload();
+  await page.getByRole('button', { name: 'Show menu', exact: true }).click();
+  await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await expandSubitems(page, 'Plumbing');
+  await expect(subitems.locator('.jt-note-cell')).toHaveCount(3);
+  await expect(subitems.getByRole('button', { name: 'Edit owners: Pressure test water supply.', exact: true }).getByLabel('Ryan Goertler', { exact: true })).toBeVisible();
+  await subitems.getByRole('button', { name: 'Delete subitem: Pressure test water supply.', exact: true }).click();
+  await subitems.getByRole('button', { name: 'Delete subitem', exact: true }).click();
+  await expect(subitems.locator('.jt-note-cell')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Edit service: Plumbing', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Services', exact: true }).fill('Water supply');
+  await page.getByRole('button', { name: 'Save service', exact: true }).click();
+  await expect(page.getByRole('table', { name: 'Subitems for Water supply', exact: true })).toBeVisible();
+  await expect(table.locator('.jt-task')).toHaveText('Kitchen');
+  await expect(table.locator('tfoot')).toContainText('$4,350.00');
 });
 
 test('adds photos from an empty cell and keeps them after reload', async ({ page }) => {

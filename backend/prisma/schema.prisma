@@ -214,6 +214,7 @@ model Worker {
   user          User?
   driverProfile Driver?
   assignments   JobAssignment[]
+  subitemAssignments JobSubitemAssignment[]
   history       WorkerHistory[]
 }
 
@@ -270,11 +271,37 @@ model Job {
   updatedAt      DateTime        @updatedAt
   property       Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   assignments    JobAssignment[]
+  subitems       JobSubitem[]
   files          JobFile[]
 
   @@index([propertyId])
   @@index([status])
   @@index([paymentStatus])
+}
+
+model JobSubitem {
+  id          String   @id @default(cuid())
+  jobId       String
+  description String
+  status      JobStatus @default(PENDING)
+  dueDate     DateTime?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  assignments JobSubitemAssignment[]
+
+  @@index([jobId, sortOrder])
+}
+
+model JobSubitemAssignment {
+  subitemId String
+  workerId  String
+  subitem   JobSubitem @relation(fields: [subitemId], references: [id], onDelete: Cascade)
+  worker    Worker    @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@id([subitemId, workerId])
+  @@index([workerId])
 }
 
 model JobAssignment {

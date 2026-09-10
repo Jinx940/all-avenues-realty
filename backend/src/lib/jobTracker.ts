@@ -2,6 +2,7 @@ import { JobPriority, JobStatus, PaymentStatus } from '@prisma/client';
 import { z } from 'zod';
 import { parseNullableLocalDate } from './dates.js';
 import { HttpError } from './http.js';
+import { trackerSubitemSchema } from './trackerSubitems.js';
 
 const usdAmount = z.number().finite().min(0).max(9999999999.99).refine(
   (value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.0001,
@@ -9,12 +10,14 @@ const usdAmount = z.number().finite().min(0).max(9999999999.99).refine(
 );
 
 export const trackerColumnKeySchema = z.enum([
-  'service', 'workers', 'status', 'dueDate', 'description', 'priority', 'paymentStatus',
+  'area', 'service', 'workers', 'status', 'dueDate', 'description', 'priority', 'paymentStatus',
   'laborCost', 'materialCost', 'before', 'after', 'timeline', 'updatedAt', 'actions',
 ]);
 export const trackerColumnUpdateSchema = z.object({ label: z.string().trim().min(1).max(40) }).strict();
 
 export const trackerUpdateSchema = z.object({
+  service: z.string().trim().min(1).max(160).optional(),
+  subitem: trackerSubitemSchema.optional(),
   status: z.nativeEnum(JobStatus).optional(),
   priority: z.nativeEnum(JobPriority).nullable().optional(),
   startDate: z.string().nullable().optional(),
@@ -25,7 +28,8 @@ export const trackerUpdateSchema = z.object({
   paymentStatus: z.nativeEnum(PaymentStatus).optional(),
   advanceCashApp: usdAmount.optional(),
   workerIds: z.array(z.string().trim().min(1)).max(100).optional(),
-}).strict().refine((value) => Object.keys(value).length > 0, 'No changes provided.');
+}).strict().refine((value) => Object.keys(value).length > 0, 'No changes provided.')
+  .refine((value) => !value.subitem || Object.keys(value).length === 1, 'Save subitem changes separately.');
 
 export function buildTrackerUpdate(existing: {
   status: JobStatus; completedAt: Date | null; startDate: Date | null; dueDate: Date | null;
@@ -37,6 +41,8 @@ export function buildTrackerUpdate(existing: {
     throw new HttpError(400, 'The end date must be on or after the start date.');
   }
   return {
+    ...(payload.service !== undefined ? { service: payload.service } : {}),
+    ...(payload.subitem !== undefined ? { subitem: payload.subitem } : {}),
     ...(payload.status !== undefined ? {
       status: payload.status,
       completedAt: payload.status === JobStatus.DONE

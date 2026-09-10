@@ -237,12 +237,21 @@ export type TrackerLabel = {
   color: string;
 };
 
-export type TrackerJobUpdate = Partial<Pick<JobRow, 'status' | 'priority' | 'startDate' | 'dueDate' | 'description' | 'laborCost' | 'materialCost' | 'paymentStatus' | 'advanceCashApp' | 'workerIds'>>;
+export type TrackerSubitem = {
+  id: string; description: string; status: string; dueDate: string | null;
+  workers: JobRow['workers']; workerIds: string[];
+};
+export type TrackerSubitemChange =
+  | ({ action: 'create'; description: string } & Partial<Pick<TrackerSubitem, 'status' | 'dueDate' | 'workerIds'>>)
+  | ({ action: 'update'; id: string } & Partial<Pick<TrackerSubitem, 'description' | 'status' | 'dueDate' | 'workerIds'>>)
+  | { action: 'delete'; id: string };
+export type TrackerJobUpdate = Partial<Pick<JobRow, 'service' | 'status' | 'priority' | 'startDate' | 'dueDate' | 'description' | 'laborCost' | 'materialCost' | 'paymentStatus' | 'advanceCashApp' | 'workerIds'>> & { subitem?: TrackerSubitemChange };
 
-export type TrackerColumnKey = 'service' | 'workers' | 'status' | 'dueDate' | 'description' | 'priority' | 'paymentStatus' | 'laborCost' | 'materialCost' | 'before' | 'after' | 'timeline' | 'updatedAt' | 'actions';
+export type TrackerColumnKey = 'area' | 'service' | 'workers' | 'status' | 'dueDate' | 'description' | 'priority' | 'paymentStatus' | 'laborCost' | 'materialCost' | 'before' | 'after' | 'timeline' | 'updatedAt' | 'actions';
 export type TrackerColumn = { key: TrackerColumnKey; label: string };
 
 export type JobRow = {
+  subitems?: TrackerSubitem[];
   priority?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
   id: string;
   propertyId: string;

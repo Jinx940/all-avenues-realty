@@ -37,6 +37,7 @@ import {
 import { env } from './env.js';
 import { buildInfo, buildSummary } from './lib/buildInfo.js';
 import { buildTrackerUpdate, trackerLabelsSchema, trackerColumnKeySchema, trackerColumnUpdateSchema } from './lib/jobTracker.js';
+import { applyTrackerSubitem, descriptionParagraphs } from './lib/trackerSubitems.js';
 import { parseNullableLocalDate } from './lib/dates.js';
 import { recordAuditLog } from './lib/audit.js';
 import {
@@ -525,6 +526,10 @@ const serializeJob = (job: {
   updatedAt: Date;
   property: { id: string; name: string };
   assignments: Array<{ worker: { id: string; name: string; status: WorkerStatus } }>;
+  subitems: Array<{
+    id: string; description: string; status: JobStatus; dueDate: Date | null;
+    assignments: Array<{ worker: { id: string; name: string; status: WorkerStatus } }>;
+  }>;
   files: Array<{
     id: string;
     category: FileCategory;
@@ -546,6 +551,12 @@ const serializeJob = (job: {
   area: job.area,
   service: job.service,
   description: job.description,
+  subitems: job.subitems.map((subitem) => ({
+    id: subitem.id, description: subitem.description, status: subitem.status,
+    dueDate: subitem.dueDate?.toISOString() ?? null,
+    workers: subitem.assignments.map(({ worker }) => ({ ...worker, statusLabel: workerStatusLabels[worker.status] })),
+    workerIds: subitem.assignments.map(({ worker }) => worker.id),
+  })),
   materialCost: numericValue(job.materialCost),
   laborCost: numericValue(job.laborCost),
   totalCost: numericValue(job.materialCost) + numericValue(job.laborCost),
@@ -725,6 +736,7 @@ const loadJob = (jobId: string) =>
   prisma.job.findUniqueOrThrow({
     where: { id: jobId },
     include: {
+      subitems: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }], include: { assignments: { include: { worker: { select: { id: true, name: true, status: true } } } } } },
       property: {
         select: {
           id: true,
@@ -1915,12 +1927,13 @@ app.patch('/api/jobs/:jobId/tracker', asyncRoute(async (request, response) => {
   const jobId = String(request.params.jobId);
   await prisma.$transaction(async (tx) => {
     const existing = await tx.job.findUniqueOrThrow({ where: { id: jobId } });
-    const { workerIds, ...data } = buildTrackerUpdate(existing, request.body);
+    const { workerIds, subitem, ...data } = buildTrackerUpdate(existing, request.body);
+    if (subitem) await applyTrackerSubitem(tx, jobId, subitem);
     const assignments = workerIds === undefined ? undefined : {
       deleteMany: {},
       create: (await ensureWorkerIdsExist(workerIds, tx)).map((workerId) => ({ workerId })),
     };
-    await tx.job.update({ where: { id: jobId }, data: { ...data, ...(assignments ? { assignments } : {}) } });
+    await tx.job.update({ where: { id: jobId }, data: { ...data, ...(subitem ? { updatedAt: new Date() } : {}), ...(assignments ? { assignments } : {}) } });
     await recordAuditLog(tx, request, {
       entityType: 'Job', entityId: jobId, entityLabel: existing.service, action: 'Updated',
       summary: `Updated ${Object.keys(request.body).join(', ')} from Job Tracker.`,
@@ -1971,6 +1984,7 @@ app.get(
       where: roleScopeForJobs(auth),
       orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
       include: {
+        subitems: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }], include: { assignments: { include: { worker: { select: { id: true, name: true, status: true } } } } } },
         property: {
           select: {
             id: true,
@@ -2510,6 +2524,10 @@ app.post(
         area: payload.area,
         service: payload.service,
         description: payload.description || '',
+        subitems: { create: descriptionParagraphs(payload.description || '').map((description, sortOrder) => ({
+          description, sortOrder, status: payload.status, dueDate: parseNullableLocalDate(payload.dueDate, 'dueDate'),
+          assignments: { create: workerIds.map((workerId) => ({ workerId })) },
+        })) },
         materialCost: payload.materialCost,
         laborCost: payload.laborCost,
         status: payload.status,

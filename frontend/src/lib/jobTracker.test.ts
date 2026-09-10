@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultTrackerLabels, labelTextColor, rangeDayCount, resolveTrackerLabels, trackerSummary, trackerSegmentText, resolveTrackerColumns } from './jobTracker';
+import { defaultTrackerLabels, labelTextColor, rangeDayCount, resolveTrackerLabels, trackerSummary, trackerSegmentText, resolveTrackerColumns, trackerDueDateRange } from './jobTracker';
 import type { JobRow } from '../types';
 
 describe('tracker summaries', () => {
@@ -25,9 +25,18 @@ describe('tracker summaries', () => {
 });
 it('renames headers without reordering or changing their data keys', () => {
   const columns = resolveTrackerColumns([{ key: 'description', label: 'Work notes' }]);
-  expect(columns).toHaveLength(14);
-  expect(columns[0]).toEqual({ key: 'service', label: 'Work' });
-  expect(columns[4]).toEqual({ key: 'description', label: 'Work notes' });
+  expect(columns).toHaveLength(15);
+  expect(columns[0]).toEqual({ key: 'area', label: 'Work' });
+  expect(columns[1]).toEqual({ key: 'service', label: 'Services' });
+  expect(columns[5]).toEqual({ key: 'description', label: 'Work notes' });
+});
+it('summarizes all valid due dates inclusively regardless of row order or missing dates', () => {
+  const dates = ['2026-09-19T00:00:00Z', null, 'invalid', '2026-08-31T00:00:00Z', '2026-08-31T00:00:00Z'];
+  expect(trackerDueDateRange(dates.map((dueDate) => ({ dueDate })))).toEqual({ start: '2026-08-31', end: '2026-09-19', days: 20 });
+  expect(trackerDueDateRange([{ dueDate: '2026-12-31' }, { dueDate: '2027-01-02' }])).toEqual({ start: '2026-12-31', end: '2027-01-02', days: 3 });
+  expect(trackerDueDateRange([{ dueDate: '2028-02-29' }])).toEqual({ start: '2028-02-29', end: '2028-02-29', days: 1 });
+  expect(trackerDueDateRange([{ dueDate: null }])).toBeNull();
+  expect(trackerDueDateRange([])).toBeNull();
 });
 it('counts calendar dates inclusively across months and daylight saving changes', () => {
   expect(rangeDayCount('2026-08-27', '2026-08-29')).toBe(3);
