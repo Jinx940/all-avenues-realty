@@ -42,14 +42,10 @@
 .jt-table button.jt-timeline:hover { filter: brightness(.95); }
 .jt-table .jt-summary-button { display: block; width: 100%; padding: 0; border: 0; border-radius: 2px; background: transparent; box-shadow: none; }
 .jt-summary-button .jt-status-summary { width: 100%; }
-.jt-summary-options { display: grid; gap: 12px; padding: 2px 0 10px; }
-.jt-summary-options label { display: flex; align-items: center; gap: 9px; color: #4d5569; cursor: pointer; }
+.jt-popover--summary { width: 216px; padding: 14px 17px; }
+.jt-summary-options { display: grid; gap: 12px; }
+.jt-summary-options label { display: flex; align-items: center; gap: 9px; color: #4d5569; font-size: 12px; font-weight: 400; cursor: pointer; }
 .jt-popover .jt-summary-options input { width: 14px; height: 14px; min-height: 0; margin: 0; accent-color: #0073ea; }
-.jt-summary-description { color: #858b9e; font-size: 11px; }
-.jt-summary-legend { display: grid; gap: 7px; margin: 0; padding: 10px 0 0; border-top: 1px solid #eceef5; list-style: none; }
-.jt-summary-legend li { display: flex; align-items: center; gap: 7px; }
-.jt-summary-legend li > span { width: 9px; height: 9px; border-radius: 2px; }
-.jt-summary-legend strong { margin-left: auto; font-weight: 600; }
 .jt-table .jt-editable-label > button { position: relative; }
 .jt-editable-label > button::after { content: ''; position: absolute; right: 0; top: 0; border-top: 7px solid #ffffff66; border-left: 7px solid transparent; opacity: 0; }
 .jt-editable-label > button:hover::after, .jt-editable-label > button[aria-expanded=true]::after { opacity: 1; }

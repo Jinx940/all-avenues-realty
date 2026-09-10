@@ -209,15 +209,20 @@ test('summary menu switches modes without filtering out jobs', async ({ page }) 
   await openTracker(page);
   const summary = page.getByRole('button', { name: 'Resumen de estado de Glynn', exact: true });
   await summary.click();
-  await page.getByRole('radio', { name: 'Solo completados', exact: true }).check();
+  await expect(page.getByRole('dialog')).toHaveText("All LabelsWhat's Done");
+  await page.getByRole('radio', { name: "What's Done", exact: true }).check();
   await expect(summary.getByRole('img')).toHaveAttribute('aria-label', '2 Completado, 1 Sin completar');
   await expect(page.getByRole('button', { name: 'Cambiar estado: Drywall', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Resumen de prioridad de Glynn', exact: true }).click();
-  await page.getByRole('radio', { name: 'Solo completados', exact: true }).check();
+  await expect(page.getByRole('dialog')).toHaveText("All LabelsWhat's Done");
+  await page.getByRole('radio', { name: "What's Done", exact: true }).check();
   await page.getByRole('button', { name: 'Resumen de prioridad de Glynn', exact: true }).click();
-  await expect(page.getByRole('radio', { name: 'Solo completados', exact: true })).toBeChecked();
-  await page.screenshot({ path: 'test-results/tracker-summary-menu.png', fullPage: true });
+  await expect(page.getByRole('radio', { name: "What's Done", exact: true })).toBeChecked();
+  await page.getByRole('radio', { name: 'All Labels', exact: true }).check();
+  await page.getByRole('dialog').screenshot({ path: 'test-results/tracker-summary-menu.png' });
+  await page.getByRole('heading', { name: 'Job Tracker', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('failed inline saves keep the original value and allow retry', async ({ page }) => {

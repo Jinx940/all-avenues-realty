@@ -8,8 +8,8 @@ import './TrackerCellEditors.css';
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'No se pudo guardar. Inténtalo de nuevo.';
 const labelStyle = (label: TrackerLabel): CSSProperties => ({ '--jt-status-bg': label.color, '--jt-status-ink': labelTextColor(label.color) } as CSSProperties);
 
-function TrackerPopover({ anchor, title, onClose, children }: {
-  anchor: HTMLElement; title: string; onClose: () => void; children: ReactNode;
+function TrackerPopover({ anchor, title, compact = false, onClose, children }: {
+  anchor: HTMLElement; title: string; compact?: boolean; onClose: () => void; children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -55,8 +55,8 @@ function TrackerPopover({ anchor, title, onClose, children }: {
       if (anchor.isConnected) anchor.focus({ preventScroll: true });
     };
   }, [anchor]);
-  return createPortal(<div ref={ref} className="jt-popover" role="dialog" aria-labelledby={titleId}>
-    <div className="jt-popover-title"><strong id={titleId}>{title}</strong><button type="button" aria-label="Cerrar menú" onClick={onClose}><UiIcon name="close" size={15} /></button></div>
+  return createPortal(<div ref={ref} className={`jt-popover${compact ? ' jt-popover--summary' : ''}`} role="dialog" aria-label={compact ? title : undefined} aria-labelledby={compact ? undefined : titleId}>
+    {compact ? null : <div className="jt-popover-title"><strong id={titleId}>{title}</strong><button type="button" aria-label="Cerrar menú" onClick={onClose}><UiIcon name="close" size={15} /></button></div>}
     {children}
   </div>, document.body);
 }
@@ -198,13 +198,11 @@ export function TrackerSummaryCell({ jobs, labels, kind, propertyName }: { jobs:
   return <td><button type="button" className="jt-summary-button" aria-label={title} title={summary} aria-haspopup="dialog" aria-expanded={Boolean(anchor)} onClick={(event) => setAnchor(event.currentTarget)}>
     <span className="jt-status-summary" role="img" aria-label={summary}>{segments.map((segment) => <span key={segment.value} style={{ flex: segment.count, background: segment.color }} />)}</span>
   </button>
-    {anchor ? <TrackerPopover anchor={anchor} title={title} onClose={() => setAnchor(null)}>
+    {anchor ? <TrackerPopover anchor={anchor} title={title} compact onClose={() => setAnchor(null)}>
       <div className="jt-summary-options">{(['all', 'done'] as const).map((value) => <label key={value}><input type="radio" name={title} value={value} checked={mode === value} onChange={() => {
         setMode(value);
         try { localStorage.setItem(storageKey, value); window.dispatchEvent(new Event('tracker-summary-change')); } catch { /* Optional preference. */ }
-      }} />{value === 'all' ? 'Todas las etiquetas' : 'Solo completados'}</label>)}</div>
-      <p className="jt-summary-description">{mode === 'done' ? 'Los trabajos sin completar se muestran en gris.' : 'Distribución de los trabajos del grupo filtrado.'}</p>
-      <ul className="jt-summary-legend">{segments.map((segment) => <li key={segment.value}><span style={{ background: segment.color }} />{segment.label}<strong>{segment.count}</strong></li>)}</ul>
+      }} />{value === 'all' ? 'All Labels' : "What's Done"}</label>)}</div>
     </TrackerPopover> : null}
   </td>;
 }
