@@ -1,9 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { buildAssetUrl } from '../lib/api';
-import { formatDate, formatMoney } from '../lib/format';
+import { formatDate } from '../lib/format';
 import { formatAreaServiceLabel, formatStoryDisplayLabel } from '../lib/jobLocation';
-import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
-import type { BootstrapPayload, JobFile, JobRow, Tone, TrackerJobUpdate, TrackerLabel, TrackerColumn } from '../types';
+import type { BootstrapPayload, JobFile, JobRow, TrackerJobUpdate, TrackerLabel, TrackerColumn } from '../types';
 import { ProtectedAssetFrame } from './ProtectedAssetFrame';
 import { ProtectedAssetImage } from './ProtectedAssetImage';
 import {
@@ -12,24 +11,7 @@ import {
 } from './protectedAssetState';
 import { UiIcon } from './UiIcon';
 import { JobTrackerBoard } from './JobTrackerBoard';
-
-const timelineStateFor = (job: JobRow) => {
-  if (job.status === 'DONE') return 'DONE';
-  if (job.timeline.isLate || job.timeline.tone === 'danger') return 'OVERDUE';
-  if (job.timeline.tone === 'warning') return 'NEAR_DUE';
-  return 'IN_PROGRESS';
-};
-
-const statusToneFor = (job: JobRow): Tone => {
-  return workStatusTone(job.statusLabel || job.status);
-};
-
-const invoiceToneFor = (job: JobRow): Tone =>
-  job.invoiceStatus === 'YES' ? 'success' : 'neutral';
-
-const paymentToneFor = (job: JobRow): Tone => {
-  return paymentStatusTone(job.paymentStatusLabel || job.paymentStatus);
-};
+import { TrackerJobDetailsDialog } from './TrackerJobDetailsDialog';
 
 const getTrackerCompareImageStyle = (
   dimensions: ProtectedAssetDimensions | null,
@@ -50,58 +32,6 @@ const getTrackerCompareImageStyle = (
     display: 'block',
     objectPosition: 'center center',
   };
-};
-
-const timelineVisualFor = (job: JobRow) => {
-  const timelineState = timelineStateFor(job);
-
-  if (timelineState === 'DONE') {
-    return {
-      badge: 'Done',
-      tone: 'success' as Tone,
-      progress: 100,
-      caption: job.completedAt ? `Completed on ${formatDate(job.completedAt)}` : 'Job marked as done',
-    };
-  }
-
-  if (timelineState === 'OVERDUE') {
-    return {
-      badge: 'Overdue',
-      tone: 'danger' as Tone,
-      progress: 100,
-      caption: job.timeline.label,
-    };
-  }
-
-  if (timelineState === 'NEAR_DUE') {
-    return {
-      badge: 'Near Due',
-      tone: 'warning' as Tone,
-      progress: 68,
-      caption: job.timeline.label,
-    };
-  }
-
-  return {
-    badge: 'In Progress',
-    tone: 'neutral' as Tone,
-    progress: 48,
-    caption: job.timeline.label,
-  };
-};
-
-const dateRangeFor = (job: JobRow) => {
-  const start = formatDate(job.startDate);
-  const due = formatDate(job.dueDate);
-
-  if (job.status === 'DONE' && job.completedAt) {
-    const completed = formatDate(job.completedAt);
-    if (start !== 'No date') return `${start} – ${completed}`;
-    return `Completed on ${completed}`;
-  }
-
-  if (start === 'No date' && due === 'No date') return 'No dates';
-  return `${start === 'No date' ? 'No date' : start} – ${due === 'No date' ? 'No date' : due}`;
 };
 
 type TrackerFilterField =
@@ -365,9 +295,11 @@ export function JobTrackerView({
         state={receiptPreview}
         onClose={() => setReceiptPreview(null)}
       />
-      <TrackerCompactJobDialog
+      {compactJob ? <TrackerJobDetailsDialog
         key={compactJob ? `tracker-compact-${compactJob.id}` : 'tracker-compact-closed'}
-        job={compactJob}
+        job={jobs.find((job) => job.id === compactJob.id) ?? compactJob}
+        labels={bootstrap?.trackerLabels}
+        columns={bootstrap?.trackerColumns}
         canManage={canManage}
         onClose={() => setCompactJob(null)}
         onEdit={(job) => {
@@ -394,7 +326,7 @@ export function JobTrackerView({
           setCompactJob(null);
           setMediaDialog({ job, mode });
         }}
-      />
+      /> : null}
     </section>
   );
 }
@@ -579,172 +511,6 @@ function TrackerReceiptPreviewDialog({
               </button>
             </div>
           </aside>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TrackerCompactJobDialog({
-  job,
-  canManage,
-  onClose,
-  onEdit,
-  onDelete,
-  onWorkStatusAction,
-  onPaymentStatusAction,
-  onReceipt,
-  onMedia,
-}: {
-  job: JobRow | null;
-  canManage: boolean;
-  onClose: () => void;
-  onEdit: (job: JobRow) => void;
-  onDelete: (job: JobRow) => void;
-  onWorkStatusAction: (job: JobRow) => void;
-  onPaymentStatusAction: (job: JobRow) => void;
-  onReceipt: (job: JobRow, file: JobFile) => void;
-  onMedia: (job: JobRow, mode: 'compare' | 'progress') => void;
-}) {
-  if (!job) return null;
-
-  const timelineVisual = timelineVisualFor(job);
-  const descriptionLines = splitDescriptionLines(job.description);
-  const locationLabel = [job.propertyName, formatStoryDisplayLabel(job.story), job.unit, job.area]
-    .filter(Boolean)
-    .join(' · ');
-  const workerLabel = job.workers.map((worker) => worker.name).join(', ') || 'Not assigned';
-
-  return (
-    <div className="tracker-media-dialog-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="tracker-media-dialog-card tracker-compact-job-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tracker-compact-job-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="tracker-media-dialog-head tracker-compact-job-head">
-          <div>
-            <p className="eyebrow tracker-compact-job-eyebrow">Job details</p>
-            <h2 id="tracker-compact-job-title">{job.service}</h2>
-            <p className="tracker-media-dialog-copy">{locationLabel}</p>
-          </div>
-          <button type="button" className="ghost-button tracker-compact-close-button" onClick={onClose}>
-            <UiIcon name="close" size={15} />
-            Close
-          </button>
-        </div>
-
-        <div className="tracker-media-dialog-body tracker-compact-job-body">
-          <div className="tracker-compact-job-meta-grid">
-            <article className="tracker-description-meta-card">
-              <span>Worker</span>
-              <strong className="tracker-meta-worker">{workerLabel}</strong>
-            </article>
-            <article className="tracker-description-meta-card">
-              <span>Timeline</span>
-              <strong className="tracker-meta-timeline">{dateRangeFor(job)}</strong>
-              <small>{timelineVisual.caption}</small>
-            </article>
-            <article className="tracker-description-meta-card">
-              <span>Materials</span>
-              <strong className="tracker-meta-money">{formatMoney(job.materialCost)}</strong>
-            </article>
-            <article className="tracker-description-meta-card">
-              <span>Labor</span>
-              <strong className="tracker-meta-money">{formatMoney(job.laborCost)}</strong>
-            </article>
-            <article className="tracker-description-meta-card">
-              <span>Work status</span>
-              <strong className={`pill tone-${statusToneFor(job)}`}>{job.statusLabel}</strong>
-            </article>
-            <article className="tracker-description-meta-card">
-              <span>Payment</span>
-              <strong className={`pill tone-${paymentToneFor(job)}`}>{job.paymentStatusLabel}</strong>
-            </article>
-            <article className="tracker-description-meta-card">
-              <span>Invoice</span>
-              <strong className={`pill tone-${invoiceToneFor(job)}`}>{job.invoiceStatusLabel}</strong>
-            </article>
-            <article className="tracker-description-meta-card">
-              <span>Advance Cash App</span>
-              <strong className="tracker-meta-money">{formatMoney(job.advanceCashApp)}</strong>
-            </article>
-          </div>
-
-          <section className="tracker-compact-detail-section">
-            <h3>Description</h3>
-            <div className="tracker-description-sheet">
-              {descriptionLines.length ? (
-                descriptionLines.map((line, index) => (
-                  <p key={`${job.id}-compact-description-${index}`}>{line}</p>
-                ))
-              ) : (
-                <div className="tracker-description-empty">
-                  <strong>No description yet</strong>
-                  <span>This service does not have a description saved yet.</span>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="tracker-compact-detail-section">
-            <h3>Files and pictures</h3>
-            <div className="tracker-compact-file-actions">
-              {job.files.receipt[0] ? (
-                <button type="button" className="ghost-button" onClick={() => onReceipt(job, job.files.receipt[0])}>
-                  <UiIcon name="receipt" size={15} />
-                  View receipt
-                </button>
-              ) : null}
-              {job.files.before[0] || job.files.after[0] ? (
-                <button type="button" className="ghost-button" onClick={() => onMedia(job, 'compare')}>
-                  <UiIcon name="image" size={15} />
-                  Before / After
-                </button>
-              ) : null}
-              {job.files.progress.length ? (
-                <button type="button" className="ghost-button" onClick={() => onMedia(job, 'progress')}>
-                  <UiIcon name="camera" size={15} />
-                  Progress ({job.files.progress.length})
-                </button>
-              ) : null}
-              {!job.files.receipt[0] && !job.files.before[0] && !job.files.after[0] && !job.files.progress.length ? (
-                <span className="tracker-compact-no-files">
-                  <UiIcon name="paperclip" size={18} />
-                  No files attached to this job.
-                </span>
-              ) : null}
-            </div>
-          </section>
-
-          {canManage ? (
-            <div className="tracker-compact-dialog-actions">
-              <div className="tracker-dialog-secondary-actions">
-                {job.status !== 'DONE' ? (
-                  <button type="button" className="ghost-button" onClick={() => onWorkStatusAction(job)}>
-                    Update status
-                  </button>
-                ) : null}
-                {job.paymentStatus !== 'PAID' ? (
-                  <button type="button" className="ghost-button" onClick={() => onPaymentStatusAction(job)}>
-                    Update payment
-                  </button>
-                ) : null}
-              </div>
-              <div className="tracker-dialog-primary-actions">
-                <button type="button" className="ghost-button tracker-dialog-edit-button" onClick={() => onEdit(job)}>
-                  <UiIcon name="file" size={14} />
-                  Edit job
-                </button>
-                <button type="button" className="records-danger-button tracker-dialog-delete-button" onClick={() => onDelete(job)}>
-                  <UiIcon name="trash" size={14} />
-                  Delete
-                </button>
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>

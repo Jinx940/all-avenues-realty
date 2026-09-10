@@ -160,7 +160,6 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
       const limit = limits[propertyId] ?? pageSize;
       const visibleJobs = group.jobs.slice(0, limit);
       const total = group.jobs.reduce((sum, job) => sum + job.totalCost, 0);
-      const completed = group.jobs.filter((job) => job.status === 'DONE').length;
       return <section className="jt-group" key={propertyId} style={{ '--jt-accent': groupColors[index % groupColors.length] } as CSSProperties}>
         <div className="jt-group-heading">
           <h3><button type="button" aria-expanded={!isCollapsed} aria-controls={`jt-group-${propertyId}`}
@@ -173,7 +172,7 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
             {group.name}
           </button></h3>
           <span>{group.jobs.length} {group.jobs.length === 1 ? 'job' : 'jobs'}</span>
-          {isCollapsed ? <span className="jt-collapsed-summary">{completed} completed · {formatMoney(total)}</span> : null}
+          {isCollapsed ? <span className="jt-collapsed-summary">{formatMoney(total)}</span> : null}
         </div>
         <div id={`jt-group-${propertyId}`} hidden={isCollapsed}>
           <div className="jt-table-scroll" tabIndex={0} role="region" aria-label={`Jobs at ${group.name}`}>
@@ -227,13 +226,13 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
                 {canManage ? <tr className="jt-add-row"><td /><td colSpan={14}><button type="button" onClick={() => onCreate(propertyId)}><UiIcon name="plus" size={15} />Add job</button></td></tr> : null}
               </tbody>
               <tfoot><tr>
-                <td /><td className="jt-summary-label">{completed} of {group.jobs.length} completed</td><td /><td />
+                <td /><td /><td /><td />
                 <TrackerSummaryCell jobs={group.jobs} labels={labels} kind="status" propertyName={group.name} />
                 <TrackerDateSummaryCell jobs={group.jobs} propertyName={group.name} />
                 <TrackerSummaryCell jobs={group.jobs} labels={labels} kind="priority" propertyName={group.name} />
                 <td><StatusSummary jobs={group.jobs} payment /></td>
-                <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.laborCost, 0))}<small>sum</small></td>
-                <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.materialCost, 0))}<small>sum</small></td>
+                <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.laborCost, 0))}</td>
+                <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.materialCost, 0))}</td>
                 <td colSpan={5} className="jt-group-total">Group total <strong>{formatMoney(total)}</strong></td>
               </tr></tfoot>
             </table>

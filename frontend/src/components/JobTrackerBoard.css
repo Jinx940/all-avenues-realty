@@ -98,10 +98,6 @@
 .jt-table .jt-subitems-row > td { padding: 0; background: #f9fbff; }
 .jt-table .jt-subitems-row:hover > td { background: #f9fbff; }
 .jt-subitems { margin: 12px 16px 16px 8px; padding-left: 10px; border-left: 3px solid #abcaff; border-radius: 3px; text-align: left; }
-.jt-subitems-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 938px; padding: 0 0 8px; color: #828ba0; font-size: 11px; }
-.jt-subitems-heading > span:first-child { overflow: hidden; text-overflow: ellipsis; }
-.jt-subitems-heading > span:last-child { flex-shrink: 0; }
-.jt-subitems-heading span span { margin: 0 6px; color: #c5cbd8; }
 .jt-subitems-table { width: 938px; max-width: 100%; table-layout: fixed; border-spacing: 0; border-collapse: separate; }
 .jt-table .jt-subitems-table th, .jt-table .jt-subitems-table td { position: static; left: auto; z-index: auto; box-shadow: none; font-size: 12px; }
 .jt-table .jt-subitems-table th { text-align: center; }
@@ -152,8 +148,6 @@
 .jt-add-row button { display: inline-flex; align-items: center; gap: 7px; padding: 0 4px; border: 0; background: transparent; color: #969bad; font-size: 12px; font-weight: 400; }
 .jt-add-row button:hover { color: #0073ea; }
 .jt-table tfoot td { height: 42px; background: #fafbfe; font-size: 12px; }
-.jt-table tfoot .jt-summary-label { text-align: left; color: #9499ac; font-size: 11px; }
-.jt-table tfoot small { display: block; color: #969aab; font-size: 9px; line-height: 1; }
 .jt-table .jt-date-summary-cell { padding: 0 6px; }
 .jt-table .jt-date-summary { display: block; width: 100%; min-height: 21px; padding: 2px 3px; border: 0; border-radius: 20px; background: linear-gradient(to right, #579bfc 0 var(--jt-date-progress), #333333 var(--jt-date-progress) 100%); color: #fff; font: 500 11px/1.4 'Nunito Sans', sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; box-shadow: none; transform: none; cursor: pointer; }
 .jt-table .jt-date-summary:hover { filter: brightness(.96); }

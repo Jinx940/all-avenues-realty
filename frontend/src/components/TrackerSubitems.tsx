@@ -35,8 +35,6 @@ export function TrackerSubitems({ job, canManage, workers, labels, columns, onUp
     finally { busy.current = false; setSaving(false); }
   };
   return <div className="jt-subitems" id={`jt-subitems-${job.id}`}>
-    <div className="jt-subitems-heading"><span>{job.area || 'No area'} <span aria-hidden="true">/</span> {job.service}</span>
-      <span>{subitems.filter((item) => item.status === 'DONE').length} of {subitems.length} completed</span></div>
     <table className="jt-subitems-table" aria-label={`Subitems for ${job.service}`}>
       <colgroup>{[440, 110, 126, 112, 150].map((width, index) => <col key={index} style={{ width }} />)}</colgroup>
       <thead><tr>{(['description', 'workers', 'status', 'dueDate', 'actions'] as const).map((key) =>

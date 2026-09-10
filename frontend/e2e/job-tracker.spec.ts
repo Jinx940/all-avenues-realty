@@ -111,6 +111,82 @@ async function expandSubitems(page: Page, service: string) {
   return page.getByRole('table', { name: `Subitems for ${service}`, exact: true });
 }
 
+test('job details use current subitems, board labels and dates while keeping totals and edit actions', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openTracker(page, [job('plumbing', { priority: 'HIGH' })]);
+  await page.getByRole('button', { name: 'Hide menu', exact: true }).click();
+  const subitems = await expandSubitems(page, 'Plumbing');
+  await expect(page.locator('.jt-subitems-heading')).toHaveCount(0);
+  await expect(page.locator('tfoot')).not.toContainText('sum');
+  await expect(page.locator('.jt-board')).not.toContainText('of 1 completed');
+  await subitems.getByRole('button', { name: /^Edit notes:/ }).click();
+  await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Inspect the new water meter.\nCheck supply pressure.');
+  await page.getByRole('button', { name: 'Save notes', exact: true }).click();
+  await page.getByRole('button', { name: 'Change status: Plumbing', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit labels', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Name for DONE', exact: true }).fill('Finished');
+  await page.getByLabel('Color for DONE', { exact: true }).fill('#405080');
+  await page.getByRole('button', { name: 'Save labels', exact: true }).click();
+  const trigger = page.getByRole('button', { name: 'View details for Plumbing', exact: true });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Plumbing', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Plumbing', exact: true })).toBeFocused();
+  await expect(dialog.locator('.jt-details-summary')).toContainText('Finished');
+  await expect(dialog.locator('.jt-details-summary')).toContainText('High');
+  await expect(dialog.locator('.jt-details-subitems')).toContainText('Inspect the new water meter.');
+  await expect(dialog).not.toContainText('Replace supply lines and inspect fixtures.');
+  await expect(dialog.locator('.jt-details-range')).toContainText('Aug 31, 2026');
+  await expect(dialog.locator('.jt-details-range')).toContainText('5 days');
+  await expect(dialog.locator('.jt-details-total')).toHaveText('Total$4,350.00');
+  await expect(dialog).toContainText('No files attached.');
+  await page.screenshot({ path: 'test-results/tracker-job-details-desktop.png', fullPage: true });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await dialog.getByRole('button', { name: 'Edit job', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Property *', exact: true })).toHaveValue('glynn');
+});
+
+test('job details include invoice attachments and open their existing preview', async ({ page }) => {
+  const item = job('plumbing', { description: '', subitems: [] });
+  item.files.invoice.push({ id: 'invoice-1', category: 'INVOICE', name: 'Invoice 4012.pdf', url: '/api/invoice.pdf', mimeType: 'application/pdf', size: 200, createdAt: item.createdAt });
+  await openTracker(page, [item]);
+  await page.getByRole('button', { name: 'View details for Plumbing', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Plumbing', exact: true });
+  await expect(dialog).toContainText('No subitems yet.');
+  await expect(dialog).not.toContainText('No files attached.');
+  await dialog.getByRole('button', { name: 'Open file: Invoice 4012.pdf', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Invoice 4012.pdf', exact: true })).toBeVisible();
+});
+
+test('job details fit mobile screens and keep viewer focus and long content inside the dialog', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const description = Array.from({ length: 16 }, (_, i) => `Inspection ${i + 1}: Check every connection and verify the pressure before completing the repair.`).join('\n');
+  await openTracker(page, [job('plumbing', { description })], 'VIEWER');
+  const trigger = page.getByRole('button', { name: 'View details for Plumbing', exact: true });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Plumbing', exact: true });
+  const bounds = await dialog.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await expect(dialog.getByRole('button', { name: 'Edit job', exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
+  const close = dialog.getByRole('button', { name: 'Close', exact: true });
+  await close.focus();
+  await page.keyboard.press('Tab');
+  expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await page.screenshot({ path: 'test-results/tracker-job-details-mobile.png', fullPage: true });
+  await dialog.getByRole('button', { name: 'Close job details', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
 test('groups, filtered totals, monthly filtering, selection and empty state', async ({ page }) => {
   await openTracker(page);
   const glynn = page.getByRole('table', { name: 'Jobs at Glynn', exact: true });
