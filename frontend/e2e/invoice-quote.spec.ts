@@ -150,6 +150,10 @@ test('Crystal Sarich invoice previews and exports with its own owner and USD tot
   await expect(frame.locator('.cs-brand')).toContainText('CRYSTAL SARICH');
   await expect(frame.locator('.cs-meta')).toContainText('Example Property Client');
   await expect(frame.locator('.cs-total')).toContainText('$3,450.00');
+  expect(await frame.locator('.cs-bottom').evaluate((element) => {
+    const table = element.previousElementSibling!;
+    return element.getBoundingClientRect().top - table.getBoundingClientRect().bottom;
+  })).toBeLessThan(2);
   await frame.locator('.page').screenshot({ path: 'test-results/crystal-invoice-preview.png' });
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('button', { name: 'Generate PDF', exact: true }).click();
@@ -174,12 +178,22 @@ test('Crystal continuation pages preserve long descriptions and fit above the fo
   const frame = page.getByRole('dialog').locator('iframe').contentFrame();
   await expect(frame.locator('body')).toContainText('Inspection 22:');
   const pages = frame.locator('.page');
-  expect(await pages.count()).toBeGreaterThan(1);
+  // This fixture previously wasted four pages. Compact rows must fit in two.
+  await expect(pages).toHaveCount(2);
   const fits = await pages.evaluateAll((elements) => elements.every((element) => {
     const footerTop = element.querySelector('.cs-footer')!.getBoundingClientRect().top;
     return [...element.querySelectorAll('tbody tr, .cs-bottom')].every((row) => row.getBoundingClientRect().bottom < footerTop);
   }));
   expect(fits).toBe(true);
+  const firstPageGap = await pages.first().evaluate((element) => {
+    const footer = element.querySelector('.cs-footer')!.getBoundingClientRect();
+    const table = element.querySelector('.cs-table')!.getBoundingClientRect();
+    return footer.top - table.bottom;
+  });
+  expect(firstPageGap).toBeLessThan(90);
+  // A service title appears once per page, not before every paragraph.
+  await expect(frame.locator('tbody strong').filter({ hasText: 'Water Meter Piping Repair' })).toHaveCount(2);
+  expect(await frame.locator('.cs-bottom').evaluate((element) => element.getBoundingClientRect().top - element.previousElementSibling!.getBoundingClientRect().bottom)).toBeLessThan(2);
   await expect(frame.locator('.cs-total')).toHaveCount(1);
   await expect(frame.locator('.cs-money').filter({ hasText: '$2,650.00' })).toHaveCount(1);
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
@@ -187,4 +201,29 @@ test('Crystal continuation pages preserve long descriptions and fit above the fo
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Issue and download PDF', exact: true }).click();
   await (await downloadPromise).saveAs('test-results/crystal-invoice-long.pdf');
+});
+
+test('Crystal fills intermediate pages with a tall billing address without clipping text', async ({ page }) => {
+  await openGenerator(page);
+  const setup = page.locator('.iq-setup');
+  await setup.getByRole('combobox', { name: 'Property', exact: true }).selectOption('glynn');
+  await setup.getByRole('combobox', { name: 'Header / Owner', exact: true }).selectOption('Crystal Sarich');
+  await setup.getByPlaceholder('Enter number').fill('4014');
+  await setup.getByPlaceholder('Customer name and address').fill('Example Client\nProperty Management\nAccounts Payable\nBuilding A\nSuite 200\n4256 E 119th St\nCleveland, OH\nUnited States');
+  const descriptions = Array.from({ length: 75 }, (_, i) => `Inspection ${i + 1}: Verify the water connections, test pressure and document the completed repair.`);
+  await page.getByLabel('Description for Water Meter Piping Repair', { exact: true }).fill(descriptions.join('\n'));
+  await page.getByRole('button', { name: 'Preview document', exact: true }).click();
+  const frame = page.getByRole('dialog').locator('iframe').contentFrame();
+  const pages = frame.locator('.page');
+  expect(await pages.count()).toBeGreaterThan(2);
+  const geometry = await pages.evaluateAll((elements) => elements.map((element) => {
+    const footer = element.querySelector('.cs-footer')!.getBoundingClientRect();
+    const table = element.querySelector('.cs-table')!.getBoundingClientRect();
+    const summary = element.querySelector('.cs-bottom');
+    return { gap: footer.top - table.bottom, fits: (summary ?? element.querySelector('.cs-table'))!.getBoundingClientRect().bottom < footer.top };
+  }));
+  expect(geometry.every((page) => page.fits)).toBe(true);
+  expect(geometry.slice(0, -1).every((page) => page.gap < 100)).toBe(true);
+  expect((await frame.locator('.cs-description').allTextContents()).slice(0, 75)).toEqual(descriptions);
+  await expect(frame.locator('.cs-total')).toHaveCount(1);
 });
