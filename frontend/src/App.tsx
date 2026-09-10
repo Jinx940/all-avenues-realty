@@ -33,6 +33,8 @@ import type {
   JobFileField,
   JobFileMap,
   JobRow,
+  TrackerJobUpdate,
+  TrackerLabel,
   LoginPayload,
   ManagedUser,
   PhotoStorageAuditPayload,
@@ -1064,6 +1066,22 @@ export default function App() {
     syncOpenJobForm(updated);
     await refreshAll({ type: 'success', text: successText });
     return updated;
+  };
+
+  const updateTrackerJob = async (job: JobRow, update: TrackerJobUpdate) => {
+    const updated = await requestJson<JobRow>(`/api/jobs/${job.id}/tracker`, {
+      method: 'PATCH', body: JSON.stringify(update),
+    });
+    setJobs((current) => current.map((item) => item.id === updated.id ? updated : item));
+    syncOpenJobForm(updated);
+    await refreshAll();
+  };
+
+  const updateTrackerLabels = async (labels: TrackerLabel[]) => {
+    const updated = await requestJson<TrackerLabel[]>('/api/job-tracker/labels', {
+      method: 'PUT', body: JSON.stringify(labels),
+    });
+    setBootstrap((current) => current ? { ...current, trackerLabels: updated } : current);
   };
 
   const requestMarkJobDone = (job: JobRow) => {
@@ -2242,6 +2260,8 @@ export default function App() {
             onFilterChange={updateJobTrackerFilter}
             canManage={canManageJobs(currentUser)}
             onCreate={(propertyId) => void handleCreateTrackerJob(propertyId)}
+            onTrackerUpdate={updateTrackerJob}
+            onTrackerLabelsChange={updateTrackerLabels}
             onEdit={(job) => void handleEditJob(job)}
             onDelete={(jobId) => void deleteJob(jobId)}
             onWorkStatusAction={requestMarkJobDone}

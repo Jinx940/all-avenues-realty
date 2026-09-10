@@ -9,7 +9,7 @@ export function workStatusTone(value: string): Tone {
 
   if (normalized.includes('done')) return 'success';
   if (normalized.includes('review')) return 'sky';
-  if (normalized.includes('delay') || normalized.includes('overdue')) return 'danger';
+  if (normalized.includes('delay') || normalized.includes('overdue') || normalized.includes('stuck')) return 'danger';
   if (normalized.includes('in progress') || normalized.includes('progress')) return 'warning';
   if (normalized.includes('pending') || normalized.includes('planning')) return 'orange';
   return 'neutral';

@@ -230,7 +230,17 @@ export type JobFile = {
 
 export type JobFileMap = Record<JobFileField, JobFile[]>;
 
+export type TrackerLabel = {
+  kind: 'status' | 'priority';
+  value: string;
+  label: string;
+  color: string;
+};
+
+export type TrackerJobUpdate = Partial<Pick<JobRow, 'status' | 'priority' | 'startDate' | 'dueDate'>>;
+
 export type JobRow = {
+  priority?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
   id: string;
   propertyId: string;
   propertyName: string;
@@ -308,6 +318,7 @@ export type GeneratedDocumentHistoryItem = {
 };
 
 export type BootstrapPayload = {
+  trackerLabels?: TrackerLabel[];
   statuses: Option[];
   invoiceStatuses: Option[];
   paymentStatuses: Option[];

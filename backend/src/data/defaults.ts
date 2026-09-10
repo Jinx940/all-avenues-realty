@@ -100,6 +100,7 @@ export const defaultPropertySpecifications: Record<string, PropertySpecification
 export const jobStatusLabels: Record<JobStatus, string> = {
   [JobStatus.DONE]: 'Done',
   [JobStatus.IN_PROGRESS]: 'In progress',
+  [JobStatus.STUCK]: 'Stuck',
   [JobStatus.PENDING]: 'Pending',
   [JobStatus.PLANNING]: 'Planning',
 };

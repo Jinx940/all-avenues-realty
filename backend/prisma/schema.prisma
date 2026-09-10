@@ -9,8 +9,25 @@ datasource db {
 enum JobStatus {
   DONE
   IN_PROGRESS
+  STUCK
   PENDING
   PLANNING
+}
+
+enum JobPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model TrackerLabel {
+  kind      String
+  value     String
+  label     String
+  color     String
+  updatedAt DateTime @updatedAt
+
+  @@id([kind, value])
 }
 
 enum PaymentStatus {
@@ -236,6 +253,7 @@ model Job {
   materialCost   Decimal         @default(0) @db.Decimal(12, 2)
   laborCost      Decimal         @default(0) @db.Decimal(12, 2)
   status         JobStatus       @default(PENDING)
+  priority       JobPriority?
   invoiceStatus  InvoiceStatus   @default(NO)
   paymentStatus  PaymentStatus   @default(NOT_INVOICED_YET)
   advanceCashApp Decimal         @default(0) @db.Decimal(12, 2)

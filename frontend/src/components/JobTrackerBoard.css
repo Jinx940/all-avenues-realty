@@ -71,7 +71,7 @@
 .jt-group-heading .jt-collapsed-summary { margin-left: auto; }
 
 .jt-table-scroll { max-width: 100%; overflow-x: auto; border-left: 5px solid var(--jt-accent); border-radius: 5px 0 0 5px; scrollbar-width: thin; scrollbar-color: #c3cadb #f6f7fb; }
-.jt-table { width: 100%; min-width: 1729px; table-layout: fixed; border-collapse: separate; border-spacing: 0; color: #3b4056; font-size: 12px; font-weight: 400; }
+.jt-table { width: 100%; min-width: 1841px; table-layout: fixed; border-collapse: separate; border-spacing: 0; color: #3b4056; font-size: 12px; font-weight: 400; }
 .jt-table th,
 .jt-table td { height: 39px; padding: 0 9px; border: 0; border-right: 1px solid #d7dbe8; border-bottom: 1px solid #d7dbe8; background: #fff; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jt-table th { height: 34px; border-top: 1px solid #d7dbe8; font-weight: 500; font-size: 12px; }
@@ -164,5 +164,5 @@
   .jt-group-heading { flex-wrap: wrap; gap: 6px 10px; }
   .jt-group-heading .jt-collapsed-summary { width: 100%; margin-left: 27px; }
   .jt-table col:nth-child(2) { width: 190px !important; }
-  .jt-table { min-width: 1674px; }
+  .jt-table { min-width: 1786px; }
 }

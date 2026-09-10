@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { AuthUser, BootstrapPayload, JobRow, PropertySummary } from '../src/types';
+import type { AuthUser, BootstrapPayload, JobRow, PropertySummary, TrackerLabel } from '../src/types';
 
 const property = (id: string, name: string): PropertySummary => ({
   id, name, address: null, cityLine: null, notes: null, coverImageUrl: null, stories: [],
@@ -34,11 +34,28 @@ const sampleJobs = [
 ];
 
 async function openTracker(page: Page, jobs = sampleJobs, role: AuthUser['role'] = 'OFFICE') {
+  jobs = structuredClone(jobs);
+  let trackerLabels: TrackerLabel[] = [];
   await page.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (route.request().method() === 'PATCH' && path.endsWith('/tracker')) {
+      const id = path.split('/')[3];
+      const job = jobs.find((item) => item.id === id)!;
+      const changes = route.request().postDataJSON();
+      Object.assign(job, changes);
+      if (changes.status) job.completedAt = changes.status === 'DONE' ? '2026-09-10T14:00:00Z' : null;
+      await route.fulfill({ json: job });
+      return;
+    }
+    if (route.request().method() === 'PUT' && path === '/api/job-tracker/labels') {
+      const changes: TrackerLabel[] = route.request().postDataJSON();
+      trackerLabels = [...trackerLabels.filter((item) => !changes.some((label) => item.kind === label.kind && item.value === label.value)), ...changes];
+      await route.fulfill({ json: trackerLabels });
+      return;
+    }
     if (route.request().method() !== 'GET') throw new Error(`Unexpected mutation: ${path}`);
     const payload = path === '/api/auth/session' ? { user: { id: 'test', username: 'test', displayName: 'Preview User', role, status: 'ACTIVE', workerId: null } }
-      : path === '/api/bootstrap' ? bootstrap
+      : path === '/api/bootstrap' ? { ...bootstrap, trackerLabels }
       : path === '/api/jobs' ? jobs
       : path === '/api/health' ? { status: 'ok', database: 'up', timestamp: '2026-09-10T14:00:00Z' }
       : [];
@@ -96,9 +113,9 @@ test('opens all attachments and preserves existing status and create flows', asy
   await expect(page.getByRole('dialog')).toContainText('Inspection 4.pdf');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Marcar como completado: Drywall', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('Change Work Status');
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Cambiar estado: Drywall', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Bloqueado');
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Marcar como pagado: Drywall', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Change Payment Status');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -112,7 +129,9 @@ test('viewer has read-only actions and the mobile board scrolls within the page'
   await expect(page.getByRole('button', { name: 'Nuevo trabajo' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Añadir trabajo' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Editar Plumbing', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Marcar como completado: Drywall' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cambiar estado: Drywall' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cambiar prioridad: Drywall' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Editar cronograma: Drywall' })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   const scroll = page.getByRole('region', { name: 'Trabajos de Glynn', exact: true });
   expect(await scroll.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
@@ -128,4 +147,108 @@ test('desktop design preview', async ({ page }) => {
   await page.getByRole('checkbox', { name: 'Seleccionar Plumbing', exact: true }).check();
   await page.screenshot({ path: 'test-results/job-tracker-desktop.png', fullPage: true });
   expect(errors).toEqual([]);
+});
+
+test('edits status and priority, renames labels and retains changes after reload', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await openTracker(page);
+  await page.getByRole('button', { name: 'Hide menu', exact: true }).click();
+  const state = page.getByRole('button', { name: 'Cambiar estado: Plumbing', exact: true });
+  await state.click();
+  await page.screenshot({ path: 'test-results/tracker-status-menu.png' });
+  await page.getByRole('dialog').getByRole('button', { name: 'Bloqueado', exact: true }).click();
+  await expect(state).toHaveText('Bloqueado');
+  await state.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Completado', exact: true }).click();
+  await expect(state).toHaveText('Completado');
+  const priority = page.getByRole('button', { name: 'Cambiar prioridad: Plumbing', exact: true });
+  await priority.click();
+  await page.screenshot({ path: 'test-results/tracker-priority-menu.png' });
+  await page.getByRole('dialog').getByRole('button', { name: 'Alta', exact: true }).click();
+  await expect(priority).toHaveText('Alta');
+  await priority.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Editar etiquetas' }).click();
+  await page.getByRole('textbox', { name: 'Nombre de HIGH' }).fill('Urgente');
+  await page.getByLabel('Color de HIGH', { exact: true }).fill('#542090');
+  await page.getByRole('button', { name: 'Guardar etiquetas' }).click();
+  await expect(priority).toHaveText('Urgente');
+  await page.reload();
+  await page.getByRole('button', { name: 'Show menu', exact: true }).click();
+  await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await expect(priority).toHaveText('Urgente');
+  await expect(state).toHaveText('Completado');
+  await priority.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Sin prioridad', exact: true }).click();
+  await expect(priority).toHaveText('Sin prioridad');
+});
+
+test('calendar selects a range, validates input and persists dates', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await openTracker(page);
+  await page.getByRole('button', { name: 'Hide menu', exact: true }).click();
+  const timeline = page.getByRole('button', { name: 'Editar cronograma: Plumbing', exact: true });
+  await timeline.click();
+  await page.getByRole('button', { name: '2026-08-27', exact: true }).click();
+  await page.getByRole('button', { name: '2026-08-29', exact: true }).click();
+  await expect(page.getByText('3 días seleccionados', { exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/tracker-calendar.png' });
+  await page.getByRole('button', { name: 'Guardar fechas' }).click();
+  await expect(timeline).toHaveText('Aug 27 – Aug 29');
+  await timeline.click();
+  await page.getByLabel('Fecha final', { exact: true }).fill('2026-08-20');
+  await expect(page.getByRole('button', { name: 'Guardar fechas' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(timeline).toHaveText('Aug 27 – Aug 29');
+  await timeline.click();
+  await page.getByRole('button', { name: 'Quitar fechas' }).click();
+  await page.getByRole('button', { name: 'Guardar fechas' }).click();
+  await expect(timeline).toHaveText('Sin fechas');
+});
+
+test('summary menu switches modes without filtering out jobs', async ({ page }) => {
+  await openTracker(page);
+  const summary = page.getByRole('button', { name: 'Resumen de estado de Glynn', exact: true });
+  await summary.click();
+  await page.getByRole('radio', { name: 'Solo completados', exact: true }).check();
+  await expect(summary.getByRole('img')).toHaveAttribute('aria-label', '2 Completado, 1 Sin completar');
+  await expect(page.getByRole('button', { name: 'Cambiar estado: Drywall', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Resumen de prioridad de Glynn', exact: true }).click();
+  await page.getByRole('radio', { name: 'Solo completados', exact: true }).check();
+  await page.getByRole('button', { name: 'Resumen de prioridad de Glynn', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Solo completados', exact: true })).toBeChecked();
+  await page.screenshot({ path: 'test-results/tracker-summary-menu.png', fullPage: true });
+});
+
+test('failed inline saves keep the original value and allow retry', async ({ page }) => {
+  await openTracker(page);
+  let fail = true;
+  await page.route('**/api/jobs/drywall/tracker', async (route) => {
+    if (fail) { fail = false; await route.fulfill({ status: 500, json: { message: 'No se pudo guardar. Reintenta.' } }); }
+    else await route.fallback();
+  });
+  const state = page.getByRole('button', { name: 'Cambiar estado: Drywall', exact: true });
+  await state.click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Bloqueado', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText('No se pudo guardar. Reintenta.');
+  await expect(state).toHaveText('En proceso');
+  await page.getByRole('dialog').getByRole('button', { name: 'Bloqueado', exact: true }).click();
+  await expect(state).toHaveText('Bloqueado');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('inline editors remain usable inside the horizontally scrolling mobile board', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openTracker(page);
+  await page.getByRole('button', { name: 'Cambiar prioridad: Plumbing', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const bounds = await dialog.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  await dialog.getByRole('button', { name: 'Alta', exact: true }).click();
+  await page.getByRole('button', { name: 'Editar cronograma: Plumbing', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Guardar fechas' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/tracker-mobile-calendar.png' });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
 });

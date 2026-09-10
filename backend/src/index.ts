@@ -13,6 +13,7 @@ import {
   GeneratedDocumentType,
   InvoiceStatus,
   JobStatus,
+  JobPriority,
   PaymentStatus,
   UserRole,
   UserStatus,
@@ -35,6 +36,7 @@ import {
 } from './data/defaults.js';
 import { env } from './env.js';
 import { buildInfo, buildSummary } from './lib/buildInfo.js';
+import { buildTrackerUpdate, trackerLabelsSchema } from './lib/jobTracker.js';
 import { parseNullableLocalDate } from './lib/dates.js';
 import { recordAuditLog } from './lib/audit.js';
 import {
@@ -512,6 +514,7 @@ const serializeJob = (job: {
   materialCost: number | Prisma.Decimal;
   laborCost: number | Prisma.Decimal;
   status: JobStatus;
+  priority: JobPriority | null;
   invoiceStatus: InvoiceStatus;
   paymentStatus: PaymentStatus;
   advanceCashApp: number | Prisma.Decimal;
@@ -547,6 +550,7 @@ const serializeJob = (job: {
   laborCost: numericValue(job.laborCost),
   totalCost: numericValue(job.materialCost) + numericValue(job.laborCost),
   status: job.status,
+  priority: job.priority,
   statusLabel: jobStatusLabels[job.status],
   invoiceStatus: job.invoiceStatus,
   invoiceStatusLabel: invoiceStatusLabels[job.invoiceStatus],
@@ -1810,7 +1814,7 @@ app.get(
       return;
     }
 
-    const [properties, propertyJobs, workers] = await Promise.all([
+    const [properties, propertyJobs, workers, trackerLabels] = await Promise.all([
       prisma.property.findMany({
         where: roleScopeForProperties(auth),
         orderBy: { name: 'asc' },
@@ -1841,6 +1845,7 @@ app.get(
           },
         },
       }),
+      prisma.trackerLabel.findMany(),
     ]);
 
     const propertyJobStats = summarizePropertyJobs(propertyJobs);
@@ -1848,6 +1853,7 @@ app.get(
 
     response.json({
       statuses: jobStatusOptions,
+      trackerLabels,
       invoiceStatuses: invoiceStatusOptions,
       paymentStatuses: visiblePaymentStatusOptions,
       properties: properties.map((property) =>
@@ -1867,6 +1873,41 @@ app.get(
     });
   }),
 );
+
+app.put('/api/job-tracker/labels', asyncRoute(async (request, response) => {
+  if (!requireJobManager(request, response)) return;
+  const labels = trackerLabelsSchema.parse(request.body);
+  await prisma.$transaction(async (tx) => {
+    for (const label of labels) {
+      await tx.trackerLabel.upsert({
+        where: { kind_value: { kind: label.kind, value: label.value } },
+        create: label,
+        update: { label: label.label, color: label.color },
+      });
+    }
+    await recordAuditLog(tx, request, {
+      entityType: 'JobTracker', entityId: 'labels', action: 'Updated',
+      summary: 'Updated Job Tracker labels.', metadata: { labels },
+    });
+  });
+  response.json(await prisma.trackerLabel.findMany());
+}));
+
+app.patch('/api/jobs/:jobId/tracker', asyncRoute(async (request, response) => {
+  if (!requireJobManager(request, response)) return;
+  const jobId = String(request.params.jobId);
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.job.findUniqueOrThrow({ where: { id: jobId } });
+    const data = buildTrackerUpdate(existing, request.body);
+    await tx.job.update({ where: { id: jobId }, data });
+    await recordAuditLog(tx, request, {
+      entityType: 'Job', entityId: jobId, entityLabel: existing.service, action: 'Updated',
+      summary: `Updated ${Object.keys(request.body).join(', ')} from Job Tracker.`,
+      metadata: { changes: request.body },
+    });
+  });
+  response.json(serializeJob(await loadJob(jobId)));
+}));
 
 registerUserRoutes(app);
 

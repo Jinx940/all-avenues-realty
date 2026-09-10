@@ -3,7 +3,7 @@ import { buildAssetUrl } from '../lib/api';
 import { formatDate, formatMoney } from '../lib/format';
 import { formatAreaServiceLabel, formatStoryDisplayLabel } from '../lib/jobLocation';
 import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
-import type { BootstrapPayload, JobFile, JobRow, Tone } from '../types';
+import type { BootstrapPayload, JobFile, JobRow, Tone, TrackerJobUpdate, TrackerLabel } from '../types';
 import { ProtectedAssetFrame } from './ProtectedAssetFrame';
 import { ProtectedAssetImage } from './ProtectedAssetImage';
 import {
@@ -210,6 +210,8 @@ export function JobTrackerView({
   onResetFilters,
   canManage,
   onCreate,
+  onTrackerUpdate,
+  onTrackerLabelsChange,
   onEdit,
   onDelete,
   onWorkStatusAction,
@@ -222,6 +224,8 @@ export function JobTrackerView({
   onRefresh: () => void;
   onResetFilters: () => void;
   canManage: boolean;
+  onTrackerUpdate: (job: JobRow, update: TrackerJobUpdate) => Promise<void>;
+  onTrackerLabelsChange: (labels: TrackerLabel[]) => Promise<void>;
   onCreate: (propertyId?: string) => void;
   onEdit: (job: JobRow) => void;
   onDelete: (jobId: string) => void;
@@ -326,7 +330,9 @@ export function JobTrackerView({
               onDetails={setCompactJob}
               onEdit={onEdit}
               onDelete={onDelete}
-              onWorkStatusAction={onWorkStatusAction}
+              trackerLabels={bootstrap?.trackerLabels}
+              onTrackerUpdate={onTrackerUpdate}
+              onTrackerLabelsChange={onTrackerLabelsChange}
               onPaymentStatusAction={onPaymentStatusAction}
               onFilePreview={(job, file) => setReceiptPreview({ job, file })}
             />

@@ -3,7 +3,9 @@ import { buildCsv } from '../lib/csv';
 import { formatDate, formatMoney } from '../lib/format';
 import { formatStoryDisplayLabel } from '../lib/jobLocation';
 import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
-import type { JobFile, JobRow, Tone } from '../types';
+import type { JobFile, JobRow, Tone, TrackerJobUpdate, TrackerLabel } from '../types';
+import { resolveTrackerLabels } from '../lib/jobTracker';
+import { TrackerLabelCell, TrackerTimelineCell, TrackerSummaryCell } from './TrackerCellEditors';
 import { ProtectedAssetImage } from './ProtectedAssetImage';
 import { UiIcon } from './UiIcon';
 import './JobTrackerBoard.css';
@@ -75,18 +77,21 @@ function StatusSummary({ jobs, payment = false }: { jobs: JobRow[]; payment?: bo
   </div>;
 }
 
-export function JobTrackerBoard({ jobs, canManage, onCreate, onDetails, onEdit, onDelete, onWorkStatusAction, onPaymentStatusAction, onFilePreview }: {
+export function JobTrackerBoard({ jobs, canManage, trackerLabels, onTrackerUpdate, onTrackerLabelsChange, onCreate, onDetails, onEdit, onDelete, onPaymentStatusAction, onFilePreview }: {
   jobs: JobRow[];
   canManage: boolean;
   onCreate: (propertyId?: string) => void;
   onDetails: (job: JobRow) => void;
   onEdit: (job: JobRow) => void;
   onDelete: (jobId: string) => void;
-  onWorkStatusAction: (job: JobRow) => void;
+  trackerLabels?: TrackerLabel[];
+  onTrackerUpdate: (job: JobRow, update: TrackerJobUpdate) => Promise<void>;
+  onTrackerLabelsChange: (labels: TrackerLabel[]) => Promise<void>;
   onPaymentStatusAction: (job: JobRow) => void;
   onFilePreview: (job: JobRow, file: JobFile) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const labels = resolveTrackerLabels(trackerLabels);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [gallery, setGallery] = useState<{ job: JobRow; category: 'before' | 'after' } | null>(null);
@@ -115,10 +120,11 @@ export function JobTrackerBoard({ jobs, canManage, onCreate, onDetails, onEdit, 
   const exportSelected = () => {
     const safeText = (value: string) => /^[=+@\-\t\r]/.test(value) ? `'${value}` : value;
     const csv = buildCsv([
-      ['Propiedad', 'Trabajo', 'Ubicación', 'Responsables', 'Estado', 'Vencimiento', 'Notas', 'Pago', 'Mano de obra', 'Material', 'Total'],
+      ['Propiedad', 'Trabajo', 'Ubicación', 'Responsables', 'Estado', 'Prioridad', 'Vencimiento', 'Notas', 'Pago', 'Mano de obra', 'Material', 'Total'],
       ...selectedJobs.map((job) => [safeText(job.propertyName), safeText(job.service),
         safeText([job.story, job.unit, job.area].filter(Boolean).join(' · ')),
-        safeText(job.workers.map((worker) => worker.name).join(', ')), safeText(workLabel(job)), job.dueDate?.slice(0, 10),
+        safeText(job.workers.map((worker) => worker.name).join(', ')), safeText(labels.find((label) => label.kind === 'status' && label.value === job.status)?.label ?? workLabel(job)),
+        safeText(labels.find((label) => label.kind === 'priority' && label.value === (job.priority ?? 'NONE'))?.label ?? ''), job.dueDate?.slice(0, 10),
         safeText(job.description), safeText(paymentLabel(job)), job.laborCost, job.materialCost, job.totalCost]),
     ]);
     const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' }));
@@ -171,18 +177,17 @@ export function JobTrackerBoard({ jobs, canManage, onCreate, onDetails, onEdit, 
           <div className="jt-table-scroll" tabIndex={0} role="region" aria-label={`Trabajos de ${group.name}`}>
             <table className="jt-table" aria-label={`Trabajos de ${group.name}`}>
               <colgroup>
-                {[34, 245, 110, 126, 112, 140, 112, 105, 105, 96, 96, 180, 110, 98].map((width, column) => <col key={column} style={{ width }} />)}
+                {[34, 245, 110, 126, 112, 140, 112, 112, 105, 105, 96, 96, 180, 110, 98].map((width, column) => <col key={column} style={{ width }} />)}
               </colgroup>
               <thead><tr>
                 <th className="jt-select-cell"><BoardCheckbox checked={groupSelected === group.jobs.length}
                   mixed={groupSelected > 0 && groupSelected < group.jobs.length} label={`Seleccionar trabajos de ${group.name}`}
                   onChange={() => toggleSelected(group.jobs)} /></th>
-                {['Trabajo', 'Responsable', 'Estado', 'Vencimiento', 'Notas', 'Pago', 'Mano de obra', 'Material', 'Antes', 'Después', 'Cronograma', 'Actualizado', 'Acciones'].map((label) => <th scope="col" key={label}>{label}</th>)}
+                {['Trabajo', 'Responsable', 'Estado', 'Vencimiento', 'Notas', 'Prioridad', 'Pago', 'Mano de obra', 'Material', 'Antes', 'Después', 'Cronograma', 'Actualizado', 'Acciones'].map((label) => <th scope="col" key={label}>{label}</th>)}
               </tr></thead>
               <tbody>
                 {visibleJobs.map((job) => {
                   const location = [formatStoryDisplayLabel(job.story), job.unit, job.area].filter(Boolean).join(' · ');
-                  const end = job.status === 'DONE' && job.completedAt ? job.completedAt : job.dueDate;
                   const isLate = job.status !== 'DONE' && job.timeline.isLate;
                   return <tr key={job.id} className={selected.has(job.id) ? 'jt-row-selected' : undefined}>
                     <td className="jt-select-cell"><BoardCheckbox checked={selected.has(job.id)} label={`Seleccionar ${job.service}`} onChange={() => toggleSelected([job])} /></td>
@@ -195,14 +200,13 @@ export function JobTrackerBoard({ jobs, canManage, onCreate, onDetails, onEdit, 
                       {job.workers.length > 2 ? <span className="jt-avatar jt-avatar-more">+{job.workers.length - 2}</span> : null}
                       {!job.workers.length ? <span className="jt-avatar jt-avatar-empty" aria-label="Sin asignar"><UiIcon name="users" size={17} /></span> : null}
                     </div></td>
-                    <StatusCell label={workLabel(job)} tone={workStatusTone(job.status)}
-                      onClick={canManage && job.status !== 'DONE' ? () => onWorkStatusAction(job) : undefined}
-                      actionLabel={`Marcar como completado: ${job.service}`} />
+                    <TrackerLabelCell kind="status" job={job} labels={labels} canManage={canManage} onUpdate={onTrackerUpdate} onLabelsChange={onTrackerLabelsChange} />
                     <td><span className={`jt-due ${isLate ? 'jt-due--late' : ''} ${job.status === 'DONE' ? 'jt-due--done' : ''}`}
                       title={job.dueDate ? formatDate(job.dueDate) : 'Sin fecha de vencimiento'}>
                       {isLate ? <span aria-label="Vencido">!</span> : null}{shortDate(job.dueDate)}
                     </span></td>
                     <td><button type="button" className="jt-notes" onClick={() => onDetails(job)} title={job.description || 'Ver detalles'}>{job.description || '—'}</button></td>
+                    <TrackerLabelCell kind="priority" job={job} labels={labels} canManage={canManage} onUpdate={onTrackerUpdate} onLabelsChange={onTrackerLabelsChange} />
                     <StatusCell label={paymentLabel(job)} tone={paymentStatusTone(job.paymentStatus)}
                       onClick={canManage && job.paymentStatus !== 'PAID' ? () => onPaymentStatusAction(job) : undefined}
                       actionLabel={`Marcar como pagado: ${job.service}`} />
@@ -210,10 +214,7 @@ export function JobTrackerBoard({ jobs, canManage, onCreate, onDetails, onEdit, 
                     <td className="jt-money">{formatMoney(job.materialCost)}</td>
                     <FileCell files={job.files.before} label={`Antes de ${job.service}`} onOpen={() => setGallery({ job, category: 'before' })} />
                     <FileCell files={job.files.after} label={`Después de ${job.service}`} onOpen={() => setGallery({ job, category: 'after' })} />
-                    <td><span className={`jt-timeline ${job.status === 'DONE' ? 'jt-timeline--done' : isLate ? 'jt-timeline--late' : ''}`}
-                      title={`${formatDate(job.startDate)} – ${formatDate(end)} · ${job.timeline.label}`}>
-                      {!job.startDate && !end ? 'Sin fechas' : `${shortDate(job.startDate)} – ${shortDate(end)}`}
-                    </span></td>
+                    <TrackerTimelineCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <td className="jt-updated" title={new Date(job.updatedAt).toLocaleString('es-PE')}>{formatDate(job.updatedAt)}</td>
                     <td><div className="jt-actions">
                       <button type="button" aria-label={`Ver detalles de ${job.service}`} title="Ver detalles" onClick={() => onDetails(job)}><UiIcon name="eye" size={15} /></button>
@@ -224,11 +225,12 @@ export function JobTrackerBoard({ jobs, canManage, onCreate, onDetails, onEdit, 
                     </div></td>
                   </tr>;
                 })}
-                {canManage ? <tr className="jt-add-row"><td /><td colSpan={13}><button type="button" onClick={() => onCreate(propertyId)}><UiIcon name="plus" size={15} />Añadir trabajo</button></td></tr> : null}
+                {canManage ? <tr className="jt-add-row"><td /><td colSpan={14}><button type="button" onClick={() => onCreate(propertyId)}><UiIcon name="plus" size={15} />Añadir trabajo</button></td></tr> : null}
               </tbody>
               <tfoot><tr>
                 <td /><td className="jt-summary-label">{completed} de {group.jobs.length} completados</td><td />
-                <td><StatusSummary jobs={group.jobs} /></td><td /><td />
+                <TrackerSummaryCell jobs={group.jobs} labels={labels} kind="status" propertyName={group.name} /><td /><td />
+                <TrackerSummaryCell jobs={group.jobs} labels={labels} kind="priority" propertyName={group.name} />
                 <td><StatusSummary jobs={group.jobs} payment /></td>
                 <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.laborCost, 0))}<small>suma</small></td>
                 <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.materialCost, 0))}<small>suma</small></td>
