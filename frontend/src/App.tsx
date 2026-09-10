@@ -301,6 +301,7 @@ const readClientPortalPropertyId = () => {
 export default function App() {
   const clientPortalPropertyId = readClientPortalPropertyId();
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+  const [initialDocumentType, setInitialDocumentType] = useState<'Invoice' | 'Quote'>('Invoice');
   const [openNavGroupId, setOpenNavGroupId] = useState<string | null>('operations');
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isDesktopSidebarExpanded, setIsDesktopSidebarExpanded] = useState(readStoredSidebarPreference);
@@ -893,7 +894,7 @@ export default function App() {
     }
   };
 
-  const handleTabSelection = async (tabId: TabId) => {
+  const handleTabSelection = async (tabId: TabId, documentType: 'Invoice' | 'Quote' = 'Invoice') => {
     if (tabId !== activeTab && !(await confirmDiscardUnsavedChanges(pageMeta[tabId].title))) {
       return;
     }
@@ -902,6 +903,7 @@ export default function App() {
       syncPropertyTabMode(tabId);
     }
 
+    if (tabId === 'generate-invoice-quote') setInitialDocumentType(documentType);
     setActiveTab(tabId);
     if (isCompactViewport) {
       setIsMobileSidebarOpen(false);
@@ -1156,6 +1158,13 @@ export default function App() {
       ...createJobForm(bootstrap, currentUser),
       ...(propertyId ? { propertyId, story: '', unit: '' } : {}),
     });
+    setActiveTab('new-job');
+  };
+
+  const handleCreateDashboardJob = async (date?: string) => {
+    if (!requireRole(canCreateJobs, 'Your account cannot create jobs.')) return;
+    if (!(await confirmDiscardUnsavedChanges('create a new job'))) return;
+    setJobForm({ ...createJobForm(bootstrap, currentUser), ...(date ? { startDate: date, dueDate: date } : {}) });
     setActiveTab('new-job');
   };
 
@@ -2123,12 +2132,11 @@ export default function App() {
           <DashboardView
             dashboard={dashboard}
             jobs={jobs}
-            onCreateJob={() => void handleTabSelection('new-job')}
-            onOpenSettings={() => void handleTabSelection('settings')}
-            onOpenSchedule={() => void handleTabSelection('schedule')}
-            onOpenAlerts={() => void handleTabSelection('alerts-center')}
-            canCreateJob={canCreateJobs(currentUser)}
-            canOpenSettings={Boolean(currentUser)}
+            bootstrap={bootstrap}
+            allowedTabs={roleTabs[currentUser.role]}
+            onCreateJob={(date) => void handleCreateDashboardJob(date)}
+            onOpenJob={(job) => void openJobForReview(job)}
+            onNavigate={(tab, documentType) => void handleTabSelection(tab, documentType)}
           />
         ) : null}
 
@@ -2293,6 +2301,7 @@ export default function App() {
 
         {activeTab === 'generate-invoice-quote' ? (
           <InvoiceQuoteView
+            initialDocumentType={initialDocumentType}
             properties={bootstrap?.properties ?? []}
             jobs={jobs}
             documents={generatedDocuments}

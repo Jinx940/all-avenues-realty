@@ -6129,6 +6129,7 @@ const buildLegacySterlingPdfHtml = (data: LegacyPdfData) => {
 };
 
 export function InvoiceQuoteView({
+  initialDocumentType = 'Invoice',
   properties,
   jobs,
   documents,
@@ -6137,6 +6138,7 @@ export function InvoiceQuoteView({
   onDocumentSaved,
   onDocumentError,
 }: {
+  initialDocumentType?: DocumentType;
   properties: PropertySummary[];
   jobs: JobRow[];
   documents: GeneratedDocumentHistoryItem[];
@@ -6150,7 +6152,7 @@ export function InvoiceQuoteView({
 }) {
   const [propertyId, setPropertyId] = useState('');
   const [headerOwner, setHeaderOwner] = useState<(typeof headerOwnerOptions)[number]>(headerOwnerOptions[0]);
-  const [documentType, setDocumentType] = useState<DocumentType>('Invoice');
+  const [documentType, setDocumentType] = useState<DocumentType>(initialDocumentType);
   const [documentNumber, setDocumentNumber] = useState('');
   const [billTo, setBillTo] = useState('');
   const [issueDate, setIssueDate] = useState(getLocalTodayIso);

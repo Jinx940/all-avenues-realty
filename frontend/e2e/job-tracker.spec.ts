@@ -102,7 +102,7 @@ async function openTracker(page: Page, jobs = sampleJobs, role: AuthUser['role']
   if ((page.viewportSize()?.width ?? 1920) < 650) {
     await page.getByRole('button', { name: 'Show menu', exact: true }).click();
   }
-  await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await page.getByLabel('Workspace sections').getByRole('button', { name: 'Job Tracker', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Job Tracker', exact: true })).toBeVisible();
 }
 
@@ -301,7 +301,7 @@ test('edits status and priority, renames labels and retains changes after reload
   await expect(priority).toHaveText('Urgent');
   await page.reload();
   await page.getByRole('button', { name: 'Show menu', exact: true }).click();
-  await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await page.getByLabel('Workspace sections').getByRole('button', { name: 'Job Tracker', exact: true }).click();
   await expect(priority).toHaveText('Urgent');
   await expect(state).toHaveText('Done');
   await priority.click();
@@ -417,7 +417,7 @@ test('edits notes in a dialog and USD amounts in the cell, retaining values and 
   await expect(material).toHaveText('$1,234.56');
   await page.reload();
   await page.getByRole('button', { name: 'Show menu', exact: true }).click();
-  await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await page.getByLabel('Workspace sections').getByRole('button', { name: 'Job Tracker', exact: true }).click();
   await expect(material).toHaveText('$1,234.56');
   await expandSubitems(page, 'Plumbing');
   await notes.click();
@@ -521,7 +521,7 @@ test('renames headers across groups, persists them after reload and exports cust
   await expect(page.getByRole('dialog', { name: 'Work notes', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.reload();
-  await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await page.getByLabel('Workspace sections').getByRole('button', { name: 'Job Tracker', exact: true }).click();
   await expandSubitems(page, 'Plumbing');
   await expandSubitems(page, 'Electrical');
   await expect(page.getByRole('button', { name: 'Rename column: Work notes', exact: true })).toHaveCount(2);
@@ -608,7 +608,7 @@ test('changes owners and any payment status without opening the job form', async
   expect((await saved).postDataJSON()).toEqual({ paymentStatus: 'PARTIAL_PAYMENT', advanceCashApp: 25.5 });
   await expect(payment).toHaveText('Partial payment');
   await page.reload();
-  await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await page.getByLabel('Workspace sections').getByRole('button', { name: 'Job Tracker', exact: true }).click();
   await expect(owner.getByLabel('Ryan Goertler', { exact: true })).toBeVisible();
   await expect(payment).toHaveText('Partial payment');
   await owner.click();
@@ -701,7 +701,7 @@ test('areas, editable services and independent subitems persist without duplicat
   await page.screenshot({ path: 'test-results/tracker-subitems.png', fullPage: true });
   await page.reload();
   await page.getByRole('button', { name: 'Show menu', exact: true }).click();
-  await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await page.getByLabel('Workspace sections').getByRole('button', { name: 'Job Tracker', exact: true }).click();
   await expandSubitems(page, 'Plumbing');
   await expect(subitems.locator('.jt-note-cell')).toHaveCount(3);
   await expect(subitems.getByRole('button', { name: 'Edit owners: Pressure test water supply.', exact: true }).getByLabel('Ryan Goertler', { exact: true })).toBeVisible();
@@ -725,7 +725,7 @@ test('adds photos from an empty cell and keeps them after reload', async ({ page
   await page.getByRole('button', { name: 'Close files', exact: true }).click();
   await expect(page.getByRole('button', { name: 'After Drywall: 1 files', exact: true })).toBeVisible();
   await page.reload();
-  await page.getByRole('button', { name: 'Job Tracker', exact: true }).click();
+  await page.getByLabel('Workspace sections').getByRole('button', { name: 'Job Tracker', exact: true }).click();
   await page.getByRole('button', { name: 'After Drywall: 1 files', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('repair.png');
 });
