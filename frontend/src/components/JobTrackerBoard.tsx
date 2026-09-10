@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { buildCsv } from '../lib/csv';
 import { formatDate, formatMoney } from '../lib/format';
-import { formatStoryDisplayLabel } from '../lib/jobLocation';
 import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
 import type { JobFile, JobRow, Tone, TrackerJobUpdate, TrackerLabel, WorkerSummary, TrackerColumn } from '../types';
 import { resolveTrackerLabels, resolveTrackerColumns } from '../lib/jobTracker';
@@ -17,11 +16,11 @@ import './JobTrackerBoard.css';
 const pageSize = 10;
 const groupColors = ['#579bfc', '#9b6bdb', '#00a68a', '#df8b36', '#e2698e'];
 const workLabels: Record<string, string> = {
-  DONE: 'Completado', IN_PROGRESS: 'En proceso', PENDING: 'Pendiente',
-  PLANNING: 'Planificación', CANCELED: 'Cancelado', CANCELLED: 'Cancelado',
+  DONE: 'Done', IN_PROGRESS: 'Working on it', PENDING: 'Not started',
+  PLANNING: 'Planning', CANCELED: 'Canceled', CANCELLED: 'Canceled',
 };
 const paymentLabels: Record<string, string> = {
-  PAID: 'Pagado', PARTIAL_PAYMENT: 'Pago parcial', UNPAID: 'Pendiente', NOT_INVOICED_YET: 'Sin facturar',
+  PAID: 'Paid', PARTIAL_PAYMENT: 'Partial payment', UNPAID: 'Unpaid', NOT_INVOICED_YET: 'Not invoiced',
 };
 const workLabel = (job: JobRow) => workLabels[job.status] ?? job.statusLabel;
 const paymentLabel = (job: JobRow) => paymentLabels[job.paymentStatus] ?? job.paymentStatusLabel;
@@ -44,11 +43,11 @@ function FileThumbnail({ file }: { file: JobFile }) {
 
 function FileCell({ files, label, canManage, onOpen }: { files: JobFile[]; label: string; canManage: boolean; onOpen: () => void }) {
   return <td className="jt-data-cell jt-files-cell">
-    {files.length || canManage ? <button type="button" className="jt-cell-button jt-files" onClick={onOpen} aria-label={`${label}: ${files.length} archivos`}>
+    {files.length || canManage ? <button type="button" className="jt-cell-button jt-files" onClick={onOpen} aria-label={`${label}: ${files.length} files`}>
       {files.slice(0, 2).map((file) => <FileThumbnail key={file.id} file={file} />)}
       {files.length > 2 ? <span className="jt-file-count">+{files.length - 2}</span> : null}
       {!files.length ? <UiIcon name="plus" size={15} /> : null}
-    </button> : <span className="jt-empty-value" aria-label="Sin archivos">—</span>}
+    </button> : <span className="jt-empty-value" aria-label="No files">—</span>}
   </td>;
 }
 
@@ -63,7 +62,7 @@ function StatusSummary({ jobs, payment = false }: { jobs: JobRow[]; payment?: bo
   }
   return <TrackerSummaryBar segments={[...segments.entries()].map(([value, segment]) => ({
     value, label: segment.label, count: segment.count, className: `jt-status--${segment.tone}`,
-  }))} total={jobs.length} actionLabel={`Resumen de ${payment ? 'pago' : 'estado'} de ${jobs[0]?.propertyName ?? ''}`} />;
+  }))} total={jobs.length} actionLabel={`${payment ? 'Payment' : 'Status'} summary for ${jobs[0]?.propertyName ?? ''}`} />;
 }
 
 export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUploadFiles, onFileDelete, trackerLabels, trackerColumns, onTrackerColumnChange, onTrackerUpdate, onTrackerLabelsChange, onCreate, onDetails, onEdit, onDelete, onFilePreview }: {
@@ -120,7 +119,7 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
   const exportSelected = () => {
     const safeText = (value: string) => /^[=+@\-\t\r]/.test(value) ? `'${value}` : value;
     const csv = buildCsv([
-      ['Propiedad', columnLabel('service'), 'Ubicación', columnLabel('workers'), columnLabel('status'), columnLabel('priority'), columnLabel('dueDate'), columnLabel('description'), columnLabel('paymentStatus'), columnLabel('laborCost'), columnLabel('materialCost'), 'Total'].map(safeText),
+      ['Property', columnLabel('service'), 'Location', columnLabel('workers'), columnLabel('status'), columnLabel('priority'), columnLabel('dueDate'), columnLabel('description'), columnLabel('paymentStatus'), columnLabel('laborCost'), columnLabel('materialCost'), 'Total'].map(safeText),
       ...selectedJobs.map((job) => [safeText(job.propertyName), safeText(job.service),
         safeText([job.story, job.unit, job.area].filter(Boolean).join(' · ')),
         safeText(job.workers.map((worker) => worker.name).join(', ')), safeText(labels.find((label) => label.kind === 'status' && label.value === job.status)?.label ?? workLabel(job)),
@@ -139,15 +138,15 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
 
   return <div className="jt-board">
     <div className="jt-board-toolbar">
-      <span><strong>{jobs.length}</strong> trabajos <span className="jt-toolbar-divider">/</span> {grouped.size} propiedades</span>
+      <span><strong>{jobs.length}</strong> {jobs.length === 1 ? 'job' : 'jobs'} <span className="jt-toolbar-divider">/</span> {grouped.size} {grouped.size === 1 ? 'property' : 'properties'}</span>
       <div>
         {selectedJobs.length ? <>
-          <span role="status">{selectedJobs.length} seleccionados</span>
-          <button type="button" onClick={exportSelected}><UiIcon name="download" size={15} />Exportar selección</button>
-          <button type="button" onClick={() => setSelected(new Set())}>Deseleccionar</button>
+          <span role="status">{selectedJobs.length} selected</span>
+          <button type="button" onClick={exportSelected}><UiIcon name="download" size={15} />Export selection</button>
+          <button type="button" onClick={() => setSelected(new Set())}>Deselect</button>
         </> : null}
         <button type="button" onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(grouped.keys()))}>
-          <UiIcon name="chevronDown" size={15} />{allCollapsed ? 'Expandir grupos' : 'Contraer grupos'}
+          <UiIcon name="chevronDown" size={15} />{allCollapsed ? 'Expand groups' : 'Collapse groups'}
         </button>
       </div>
     </div>
@@ -170,30 +169,26 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
             <UiIcon name="chevronDown" size={19} className={isCollapsed ? 'jt-collapsed-icon' : ''} />
             {group.name}
           </button></h3>
-          <span>{group.jobs.length} trabajos</span>
-          {isCollapsed ? <span className="jt-collapsed-summary">{completed} completados · {formatMoney(total)}</span> : null}
+          <span>{group.jobs.length} {group.jobs.length === 1 ? 'job' : 'jobs'}</span>
+          {isCollapsed ? <span className="jt-collapsed-summary">{completed} completed · {formatMoney(total)}</span> : null}
         </div>
         <div id={`jt-group-${propertyId}`} hidden={isCollapsed}>
-          <div className="jt-table-scroll" tabIndex={0} role="region" aria-label={`Trabajos de ${group.name}`}>
-            <table className="jt-table" aria-label={`Trabajos de ${group.name}`}>
+          <div className="jt-table-scroll" tabIndex={0} role="region" aria-label={`Jobs at ${group.name}`}>
+            <table className="jt-table" aria-label={`Jobs at ${group.name}`}>
               <colgroup>
                 {[34, 245, 110, 126, 112, 140, 112, 112, 105, 105, 96, 96, 180, 110, 98].map((width, column) => <col key={column} style={{ width }} />)}
               </colgroup>
               <thead><tr>
                 <th className="jt-select-cell"><BoardCheckbox checked={groupSelected === group.jobs.length}
-                  mixed={groupSelected > 0 && groupSelected < group.jobs.length} label={`Seleccionar trabajos de ${group.name}`}
+                  mixed={groupSelected > 0 && groupSelected < group.jobs.length} label={`Select jobs at ${group.name}`}
                   onChange={() => toggleSelected(group.jobs)} /></th>
                 {columns.map((column) => <TrackerColumnHeader key={column.key} column={column} canManage={canManage} onChange={onTrackerColumnChange} />)}
               </tr></thead>
               <tbody>
                 {visibleJobs.map((job) => {
-                  const location = [formatStoryDisplayLabel(job.story), job.unit, job.area].filter(Boolean).join(' · ');
                   return <tr key={job.id} className={selected.has(job.id) ? 'jt-row-selected' : undefined}>
-                    <td className="jt-select-cell"><BoardCheckbox checked={selected.has(job.id)} label={`Seleccionar ${job.service}`} onChange={() => toggleSelected([job])} /></td>
-                    <td className="jt-task-cell"><button type="button" className="jt-task" onClick={() => onDetails(job)} title={[job.service, location].filter(Boolean).join('\n')}>
-                      <span><strong>{job.service}</strong>{location ? <small>{location}</small> : null}</span>
-                      <UiIcon name="eye" size={15} />
-                    </button></td>
+                    <td className="jt-select-cell"><BoardCheckbox checked={selected.has(job.id)} label={`Select ${job.service}`} onChange={() => toggleSelected([job])} /></td>
+                    <td className="jt-task-cell"><span className="jt-task" title={job.service}>{job.service}</span></td>
                     <TrackerOwnerCell job={job} workers={workers} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerLabelCell kind="status" job={job} labels={labels} canManage={canManage} onUpdate={onTrackerUpdate} onLabelsChange={onTrackerLabelsChange} />
                     <TrackerDueCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
@@ -202,36 +197,36 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
                     <TrackerPaymentCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerTextCell job={job} field="laborCost" canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerTextCell job={job} field="materialCost" canManage={canManage} onUpdate={onTrackerUpdate} />
-                    <FileCell files={job.files.before} canManage={canManage} label={`Antes de ${job.service}`} onOpen={() => openGallery(job, 'before')} />
-                    <FileCell files={job.files.after} canManage={canManage} label={`Después de ${job.service}`} onOpen={() => openGallery(job, 'after')} />
+                    <FileCell files={job.files.before} canManage={canManage} label={`Before ${job.service}`} onOpen={() => openGallery(job, 'before')} />
+                    <FileCell files={job.files.after} canManage={canManage} label={`After ${job.service}`} onOpen={() => openGallery(job, 'after')} />
                     <TrackerTimelineCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
-                    <td className="jt-updated" title={new Date(job.updatedAt).toLocaleString('es-PE')}>{formatDate(job.updatedAt)}</td>
+                    <td className="jt-updated" title={new Date(job.updatedAt).toLocaleString('en-US')}>{formatDate(job.updatedAt)}</td>
                     <td><div className="jt-actions">
-                      <button type="button" aria-label={`Ver detalles de ${job.service}`} title="Ver detalles" onClick={() => onDetails(job)}><UiIcon name="eye" size={15} /></button>
+                      <button type="button" aria-label={`View details for ${job.service}`} title="View details" onClick={() => onDetails(job)}><UiIcon name="eye" size={15} /></button>
                       {canManage ? <>
-                        <button type="button" aria-label={`Editar ${job.service}`} title="Editar trabajo" onClick={() => onEdit(job)}><UiIcon name="file" size={15} /></button>
-                        <button type="button" className="jt-delete" aria-label={`Eliminar ${job.service}`} title="Eliminar trabajo" onClick={() => onDelete(job.id)}><UiIcon name="trash" size={15} /></button>
+                        <button type="button" aria-label={`Edit ${job.service}`} title="Edit job" onClick={() => onEdit(job)}><UiIcon name="file" size={15} /></button>
+                        <button type="button" className="jt-delete" aria-label={`Delete ${job.service}`} title="Delete job" onClick={() => onDelete(job.id)}><UiIcon name="trash" size={15} /></button>
                       </> : null}
                     </div></td>
                   </tr>;
                 })}
-                {canManage ? <tr className="jt-add-row"><td /><td colSpan={14}><button type="button" onClick={() => onCreate(propertyId)}><UiIcon name="plus" size={15} />Añadir trabajo</button></td></tr> : null}
+                {canManage ? <tr className="jt-add-row"><td /><td colSpan={14}><button type="button" onClick={() => onCreate(propertyId)}><UiIcon name="plus" size={15} />Add job</button></td></tr> : null}
               </tbody>
               <tfoot><tr>
-                <td /><td className="jt-summary-label">{completed} de {group.jobs.length} completados</td><td />
+                <td /><td className="jt-summary-label">{completed} of {group.jobs.length} completed</td><td />
                 <TrackerSummaryCell jobs={group.jobs} labels={labels} kind="status" propertyName={group.name} /><td /><td />
                 <TrackerSummaryCell jobs={group.jobs} labels={labels} kind="priority" propertyName={group.name} />
                 <td><StatusSummary jobs={group.jobs} payment /></td>
-                <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.laborCost, 0))}<small>suma</small></td>
-                <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.materialCost, 0))}<small>suma</small></td>
-                <td colSpan={5} className="jt-group-total">Total del grupo <strong>{formatMoney(total)}</strong></td>
+                <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.laborCost, 0))}<small>sum</small></td>
+                <td className="jt-money">{formatMoney(group.jobs.reduce((sum, job) => sum + job.materialCost, 0))}<small>sum</small></td>
+                <td colSpan={5} className="jt-group-total">Group total <strong>{formatMoney(total)}</strong></td>
               </tr></tfoot>
             </table>
           </div>
           {group.jobs.length > pageSize ? <div className="jt-group-pagination">
-            <span>{visibleJobs.length} de {group.jobs.length} trabajos · Los totales incluyen todo el grupo filtrado</span>
-            {limit < group.jobs.length ? <button type="button" onClick={() => setLimits((current) => ({ ...current, [propertyId]: limit + pageSize }))}>Mostrar {Math.min(pageSize, group.jobs.length - limit)} más</button> : null}
-            {limit > pageSize ? <button type="button" onClick={() => setLimits((current) => ({ ...current, [propertyId]: pageSize }))}>Mostrar menos</button> : null}
+            <span>{visibleJobs.length} of {group.jobs.length} jobs · Totals include the entire filtered group</span>
+            {limit < group.jobs.length ? <button type="button" onClick={() => setLimits((current) => ({ ...current, [propertyId]: limit + pageSize }))}>Show {Math.min(pageSize, group.jobs.length - limit)} more</button> : null}
+            {limit > pageSize ? <button type="button" onClick={() => setLimits((current) => ({ ...current, [propertyId]: pageSize }))}>Show less</button> : null}
           </div> : null}
         </div>
       </section>;
@@ -239,23 +234,23 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
 
     <dialog ref={galleryRef} className="jt-gallery" aria-labelledby="jt-gallery-title" onCancel={(event) => { if (uploading) event.preventDefault(); else setGallery(null); }} onClose={() => setGallery(null)}>
       {gallery && galleryJob ? <>
-        <div className="jt-gallery-head"><div><p>{gallery.job.propertyName} · {gallery.job.service}</p><h2 id="jt-gallery-title">Archivos: {gallery.category === 'before' ? 'antes' : 'después'}</h2></div>
-          <button type="button" aria-label="Cerrar archivos" disabled={uploading} onClick={() => setGallery(null)}><UiIcon name="close" size={20} /></button></div>
-        {canManage ? <label className="jt-upload-label">Añadir fotos<input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={uploading} aria-label="Añadir fotos" onChange={(event) => {
+        <div className="jt-gallery-head"><div><p>{gallery.job.propertyName} · {gallery.job.service}</p><h2 id="jt-gallery-title">{gallery.category === 'before' ? 'Before files' : 'After files'}</h2></div>
+          <button type="button" aria-label="Close files" disabled={uploading} onClick={() => setGallery(null)}><UiIcon name="close" size={20} /></button></div>
+        {canManage ? <label className="jt-upload-label">Add photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={uploading} aria-label="Add photos" onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
           event.target.value = '';
           if (!files.length) return;
-          if (files.length > 12) { setUploadError('Selecciona un máximo de 12 fotos.'); return; }
+          if (files.length > 12) { setUploadError('Select up to 12 photos.'); return; }
           setUploading(true); setUploadError('');
-          void onUploadFiles(galleryJob, gallery.category, files).catch((error: unknown) => setUploadError(error instanceof Error ? error.message : 'No se pudo subir las fotos.')).finally(() => setUploading(false));
+          void onUploadFiles(galleryJob, gallery.category, files).catch((error: unknown) => setUploadError(error instanceof Error ? error.message : 'Could not upload the photos.')).finally(() => setUploading(false));
         }} /></label> : null}
-        {uploading ? <p role="status">Subiendo fotos…</p> : null}
+        {uploading ? <p role="status">Uploading photos…</p> : null}
         {uploadError ? <p className="jt-editor-error" role="alert">{uploadError}</p> : null}
         <div className="jt-gallery-files">{galleryJob.files[gallery.category].map((file) => <div className="jt-gallery-file" key={file.id}><button type="button" disabled={uploading} onClick={() => {
           galleryRef.current?.close();
           setGallery(null);
           onFilePreview(galleryJob, file);
-        }}><FileThumbnail file={file} /><span>{file.name}</span><UiIcon name="eye" size={17} /></button>{canDeleteFiles ? <button type="button" disabled={uploading} aria-label={`Eliminar archivo ${file.name}`} onClick={() => { setGallery(null); onFileDelete(galleryJob.id, file.id); }}><UiIcon name="trash" size={17} /></button> : null}</div>)}</div>
+        }}><FileThumbnail file={file} /><span>{file.name}</span><UiIcon name="eye" size={17} /></button>{canDeleteFiles ? <button type="button" disabled={uploading} aria-label={`Delete file ${file.name}`} onClick={() => { setGallery(null); onFileDelete(galleryJob.id, file.id); }}><UiIcon name="trash" size={17} /></button> : null}</div>)}</div>
       </> : null}
     </dialog>
   </div>;

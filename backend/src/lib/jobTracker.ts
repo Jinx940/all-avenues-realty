@@ -34,7 +34,7 @@ export function buildTrackerUpdate(existing: {
   const startDate = payload.startDate === undefined ? existing.startDate : parseNullableLocalDate(payload.startDate, 'startDate');
   const dueDate = payload.dueDate === undefined ? existing.dueDate : parseNullableLocalDate(payload.dueDate, 'dueDate');
   if ((payload.startDate !== undefined || payload.dueDate !== undefined) && startDate && dueDate && startDate > dueDate) {
-    throw new HttpError(400, 'La fecha final debe ser igual o posterior a la fecha inicial.');
+    throw new HttpError(400, 'The end date must be on or after the start date.');
   }
   return {
     ...(payload.status !== undefined ? {

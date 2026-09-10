@@ -6,7 +6,7 @@ import { TrackerPopover } from './TrackerCellEditors';
 import { UiIcon } from './UiIcon';
 
 type CellProps = { job: JobRow; canManage: boolean; onUpdate: (job: JobRow, update: TrackerJobUpdate) => Promise<void> };
-const errorText = (error: unknown) => error instanceof Error ? error.message : 'No se pudo guardar. Inténtalo de nuevo.';
+const errorText = (error: unknown) => error instanceof Error ? error.message : 'Could not save. Please try again.';
 
 function parseTrackerMoney(input: string) {
   const value = input.trim().replace(/^\$\s*/, '');
@@ -18,7 +18,7 @@ function parseTrackerMoney(input: string) {
 }
 
 export function TrackerTextCell({ job, field, canManage, onUpdate }: CellProps & { field: 'laborCost' | 'materialCost' }) {
-  const label = field === 'laborCost' ? 'Mano de obra' : 'Material';
+  const label = field === 'laborCost' ? 'Labor' : 'Materials';
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -50,7 +50,7 @@ export function TrackerTextCell({ job, field, canManage, onUpdate }: CellProps &
           }} />
       </div>
       {error ? <span className="jt-inline-error" role="alert">{error}</span> : null}
-    </div> : canManage ? <button type="button" className="jt-cell-button" aria-label={`Editar ${label.toLowerCase()}: ${job.service}`} title={display}
+    </div> : canManage ? <button type="button" className="jt-cell-button" aria-label={`Edit ${label.toLowerCase()}: ${job.service}`} title={display}
       onClick={() => { canceled.current = false; setDraft(String(job[field])); setError(''); setEditing(true); }}>{display}</button> : <span className="jt-cell-value" title={display}>{display}</span>}
   </td>;
 }
@@ -80,11 +80,11 @@ function EditablePopoverCell({ job, canManage, onUpdate, title, action, classNam
 
 export function TrackerOwnerCell(props: CellProps & { workers: WorkerSummary[] }) {
   const { job, workers } = props;
-  return <EditablePopoverCell {...props} title="Responsables" action="Editar responsables" editor={(save, saving) => <OwnerEditor job={job} workers={workers} save={save} saving={saving} />}>
-    <span className="jt-owners" title={job.workers.map((worker) => worker.name).join(', ') || 'Sin asignar'}>
+  return <EditablePopoverCell {...props} title="Owners" action="Edit owners" editor={(save, saving) => <OwnerEditor job={job} workers={workers} save={save} saving={saving} />}>
+    <span className="jt-owners" title={job.workers.map((worker) => worker.name).join(', ') || 'Unassigned'}>
       {job.workers.slice(0, 2).map((worker) => <span key={worker.id} className="jt-avatar" aria-label={worker.name}>{worker.name.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join('')}</span>)}
       {job.workers.length > 2 ? <span className="jt-avatar jt-avatar-more">+{job.workers.length - 2}</span> : null}
-      {!job.workers.length ? <span className="jt-avatar jt-avatar-empty" aria-label="Sin asignar"><UiIcon name="users" size={17} /></span> : null}
+      {!job.workers.length ? <span className="jt-avatar jt-avatar-empty" aria-label="Unassigned"><UiIcon name="users" size={17} /></span> : null}
     </span>
   </EditablePopoverCell>;
 }
@@ -94,20 +94,20 @@ function OwnerEditor({ job, workers, save, saving }: { job: JobRow; workers: Wor
   const [search, setSearch] = useState('');
   const options = [...new Map([...workers, ...job.workers].map((worker) => [worker.id, worker])).values()];
   return <form onSubmit={(event) => { event.preventDefault(); void save({ workerIds: ids }); }}>
-    <input aria-label="Buscar responsable" placeholder="Buscar responsable" value={search} onChange={(event) => setSearch(event.target.value)} />
+    <input aria-label="Search owners" placeholder="Search owners" value={search} onChange={(event) => setSearch(event.target.value)} />
     <div className="jt-worker-options">{options.filter((worker) => worker.name.toLowerCase().includes(search.toLowerCase())).map((worker) => <label key={worker.id}>
       <input type="checkbox" checked={ids.includes(worker.id)} disabled={saving || (worker.status === 'INACTIVE' && !job.workerIds.includes(worker.id))}
         onChange={(event) => setIds((current) => event.target.checked ? [...current, worker.id] : current.filter((id) => id !== worker.id))} />
       {worker.name}{worker.status === 'INACTIVE' ? ' (Inactive)' : ''}
     </label>)}</div>
-    <div className="jt-editor-actions"><button type="button" disabled={saving} onClick={() => setIds([])}>Sin asignar</button><button type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</button></div>
+    <div className="jt-editor-actions"><button type="button" disabled={saving} onClick={() => setIds([])}>Unassigned</button><button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button></div>
   </form>;
 }
 
 export function TrackerDueCell(props: CellProps) {
   const { job } = props;
   const short = job.dueDate ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(job.dueDate)) : '—';
-  return <EditablePopoverCell {...props} title="Vencimiento" action="Editar vencimiento" editor={(save, saving) => <DueEditor job={job} save={save} saving={saving} />}>
+  return <EditablePopoverCell {...props} title="Due date" action="Edit due date" editor={(save, saving) => <DueEditor job={job} save={save} saving={saving} />}>
     <span className={`jt-due ${job.status === 'DONE' ? 'jt-due--done' : job.timeline.isLate ? 'jt-due--late' : ''}`}>{short}</span>
   </EditablePopoverCell>;
 }
@@ -115,15 +115,15 @@ export function TrackerDueCell(props: CellProps) {
 function DueEditor({ job, save, saving }: { job: JobRow; save: (update: TrackerJobUpdate) => Promise<void>; saving: boolean }) {
   const [date, setDate] = useState(job.dueDate?.slice(0, 10) ?? '');
   return <form onSubmit={(event) => { event.preventDefault(); void save({ dueDate: date || null }); }}>
-    <input type="date" aria-label="Fecha de vencimiento" value={date} min={job.startDate?.slice(0, 10)} disabled={saving} onChange={(event) => setDate(event.target.value)} />
-    <div className="jt-editor-actions"><button type="button" disabled={saving} onClick={() => { void save({ dueDate: null }); }}>Quitar fecha</button><button type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</button></div>
+    <input type="date" aria-label="Due date" value={date} min={job.startDate?.slice(0, 10)} disabled={saving} onChange={(event) => setDate(event.target.value)} />
+    <div className="jt-editor-actions"><button type="button" disabled={saving} onClick={() => { void save({ dueDate: null }); }}>Clear date</button><button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button></div>
   </form>;
 }
 
-const payments = [{ value: 'PAID', label: 'Pagado' }, { value: 'PARTIAL_PAYMENT', label: 'Pago parcial' }, { value: 'UNPAID', label: 'Pendiente' }, { value: 'NOT_INVOICED_YET', label: 'Sin facturar' }];
+const payments = [{ value: 'PAID', label: 'Paid' }, { value: 'PARTIAL_PAYMENT', label: 'Partial payment' }, { value: 'UNPAID', label: 'Unpaid' }, { value: 'NOT_INVOICED_YET', label: 'Not invoiced' }];
 export function TrackerPaymentCell(props: CellProps) {
   const { job } = props;
-  return <EditablePopoverCell {...props} title="Pago" action="Editar pago" className={`jt-status jt-status--${paymentStatusTone(job.paymentStatus)}`}
+  return <EditablePopoverCell {...props} title="Payment" action="Edit payment" className={`jt-status jt-status--${paymentStatusTone(job.paymentStatus)}`}
     editor={(save, saving) => <PaymentEditor job={job} save={save} saving={saving} />}>
     {payments.find((option) => option.value === job.paymentStatus)?.label ?? job.paymentStatusLabel}
   </EditablePopoverCell>;
@@ -144,8 +144,8 @@ function PaymentEditor({ job, save, saving }: { job: JobRow; save: (update: Trac
       try { const amount = parseTrackerMoney(advance); setError(''); void save({ paymentStatus: 'PARTIAL_PAYMENT', advanceCashApp: amount }); }
       catch (failure) { setError(errorText(failure)); }
     }}>
-      <label>Adelanto (USD $)<input aria-label="Adelanto (USD $)" inputMode="decimal" value={advance} disabled={saving} onChange={(event) => setAdvance(event.target.value)} /></label>
-      <div className="jt-editor-actions"><button type="submit" disabled={saving}>Guardar</button></div>
+      <label>Advance (USD $)<input aria-label="Advance (USD $)" inputMode="decimal" value={advance} disabled={saving} onChange={(event) => setAdvance(event.target.value)} /></label>
+      <div className="jt-editor-actions"><button type="submit" disabled={saving}>Save</button></div>
       {error ? <p className="jt-editor-error" role="alert">{error}</p> : null}
     </form> : null}
   </>;

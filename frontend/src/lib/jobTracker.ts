@@ -1,13 +1,13 @@
 import type { JobRow, TrackerLabel, TrackerColumn } from '../types';
 
 export const defaultTrackerColumns: TrackerColumn[] = [
-  { key: 'service', label: 'Trabajo' }, { key: 'workers', label: 'Responsable' },
-  { key: 'status', label: 'Estado' }, { key: 'dueDate', label: 'Vencimiento' },
-  { key: 'description', label: 'Notas' }, { key: 'priority', label: 'Prioridad' },
-  { key: 'paymentStatus', label: 'Pago' }, { key: 'laborCost', label: 'Mano de obra' },
-  { key: 'materialCost', label: 'Material' }, { key: 'before', label: 'Antes' },
-  { key: 'after', label: 'Después' }, { key: 'timeline', label: 'Cronograma' },
-  { key: 'updatedAt', label: 'Actualizado' }, { key: 'actions', label: 'Acciones' },
+  { key: 'service', label: 'Work' }, { key: 'workers', label: 'Owner' },
+  { key: 'status', label: 'Status' }, { key: 'dueDate', label: 'Due date' },
+  { key: 'description', label: 'Notes' }, { key: 'priority', label: 'Priority' },
+  { key: 'paymentStatus', label: 'Payment' }, { key: 'laborCost', label: 'Labor' },
+  { key: 'materialCost', label: 'Materials' }, { key: 'before', label: 'Before files' },
+  { key: 'after', label: 'After files' }, { key: 'timeline', label: 'Timeline' },
+  { key: 'updatedAt', label: 'Last updated' }, { key: 'actions', label: 'Actions' },
 ];
 
 export const resolveTrackerColumns = (overrides: TrackerColumn[] = []) => defaultTrackerColumns.map(
@@ -18,15 +18,15 @@ export const trackerSegmentText = (label: string, count: number, total: number) 
   `${label} ${count}/${total}  ${((total ? count / total : 0) * 100).toFixed(1)}%`;
 
 export const defaultTrackerLabels: TrackerLabel[] = [
-  { kind: 'status', value: 'DONE', label: 'Completado', color: '#008c60' },
-  { kind: 'status', value: 'IN_PROGRESS', label: 'En proceso', color: '#ffb332' },
-  { kind: 'status', value: 'STUCK', label: 'Bloqueado', color: '#df2f58' },
-  { kind: 'status', value: 'PENDING', label: 'Sin iniciar', color: '#c4c4c4' },
-  { kind: 'status', value: 'PLANNING', label: 'Planificación', color: '#8c91a8' },
-  { kind: 'priority', value: 'HIGH', label: 'Alta', color: '#401694' },
-  { kind: 'priority', value: 'MEDIUM', label: 'Media', color: '#5954d9' },
-  { kind: 'priority', value: 'LOW', label: 'Baja', color: '#579bfc' },
-  { kind: 'priority', value: 'NONE', label: 'Sin prioridad', color: '#c4c4c4' },
+  { kind: 'status', value: 'DONE', label: 'Done', color: '#008c60' },
+  { kind: 'status', value: 'IN_PROGRESS', label: 'Working on it', color: '#ffb332' },
+  { kind: 'status', value: 'STUCK', label: 'Stuck', color: '#df2f58' },
+  { kind: 'status', value: 'PENDING', label: 'Not started', color: '#c4c4c4' },
+  { kind: 'status', value: 'PLANNING', label: 'Planning', color: '#8c91a8' },
+  { kind: 'priority', value: 'HIGH', label: 'High', color: '#401694' },
+  { kind: 'priority', value: 'MEDIUM', label: 'Medium', color: '#5954d9' },
+  { kind: 'priority', value: 'LOW', label: 'Low', color: '#579bfc' },
+  { kind: 'priority', value: 'NONE', label: 'No priority', color: '#c4c4c4' },
 ];
 
 export const resolveTrackerLabels = (overrides: TrackerLabel[] = []) => defaultTrackerLabels.map(
@@ -46,7 +46,7 @@ export function trackerSummary(jobs: JobRow[], labels: TrackerLabel[], kind: Tra
     (job) => (mode === 'all' || job.status === 'DONE') && (kind === 'status' ? job.status : job.priority ?? 'NONE') === label.value,
   ).length })).filter((segment) => segment.count > 0);
   const remaining = jobs.length - segments.reduce((sum, segment) => sum + segment.count, 0);
-  if (remaining) segments.push({ kind, value: 'REMAINING', label: mode === 'done' ? 'Sin completar' : 'Sin etiqueta', color: '#e7e9ef', count: remaining });
+  if (remaining) segments.push({ kind, value: 'REMAINING', label: mode === 'done' ? 'Not done' : 'No label', color: '#e7e9ef', count: remaining });
   return segments;
 }
 

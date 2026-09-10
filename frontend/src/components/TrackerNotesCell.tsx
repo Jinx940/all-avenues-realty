@@ -11,7 +11,7 @@ export function TrackerNotesCell({ job, canManage, onUpdate, label }: {
   const trigger = useRef<HTMLButtonElement>(null);
   return <td className="jt-data-cell jt-note-cell">
     <button ref={trigger} type="button" className="jt-cell-button" title={job.description || label}
-      aria-label={`${canManage ? 'Editar' : 'Ver'} notas: ${job.service}`} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+      aria-label={`${canManage ? 'Edit' : 'View'} notes: ${job.service}`} aria-haspopup="dialog" onClick={() => setOpen(true)}>
       {job.description || '—'}
     </button>
     {open ? <NotesEditor job={job} label={label} canManage={canManage} onUpdate={onUpdate}
@@ -42,22 +42,22 @@ function NotesEditor({ job, label, canManage, onUpdate, onClose }: {
     if (draft === job.description) { close(); return; }
     busy.current = true; setSaving(true); setError('');
     try { await onUpdate(job, { description: draft }); onClose(); }
-    catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo guardar. Inténtalo de nuevo.'); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not save. Please try again.'); }
     finally { busy.current = false; setSaving(false); }
   };
   return createPortal(<dialog ref={dialog} className="jt-notes-dialog" aria-labelledby={titleId}
     onCancel={(event) => { event.preventDefault(); close(); }}>
     <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <div className="jt-notes-heading"><div><h2 id={titleId}>{label}</h2><p>{job.propertyName} · {job.service}</p></div>
-        <button type="button" className="jt-notes-close" aria-label="Cerrar notas" disabled={saving} onClick={close}><UiIcon name="close" size={20} /></button>
+        <button type="button" className="jt-notes-close" aria-label="Close notes" disabled={saving} onClick={close}><UiIcon name="close" size={20} /></button>
       </div>
       <textarea ref={textarea} aria-label={label} value={draft} maxLength={3000} readOnly={!canManage} disabled={saving}
         onChange={(event) => { setDraft(event.target.value); setError(''); }} onKeyDown={(event) => {
           if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); void save(); }
         }} />
       <div className="jt-notes-footer"><span>{draft.length}/3000</span><div>
-        <button type="button" disabled={saving} onClick={close}>{canManage ? 'Cancelar' : 'Cerrar'}</button>
-        {canManage ? <button type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar notas'}</button> : null}
+        <button type="button" disabled={saving} onClick={close}>{canManage ? 'Cancel' : 'Close'}</button>
+        {canManage ? <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save notes'}</button> : null}
       </div></div>
       {error ? <p className="jt-editor-error" role="alert">{error}</p> : null}
     </form>

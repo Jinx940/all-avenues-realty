@@ -88,11 +88,7 @@
 .jt-table tbody tr:hover > td { background: #f1f5ff; }
 .jt-table tbody .jt-row-selected > td { background: #dcecff; }
 .jt-table .jt-task-cell { padding: 0; }
-.jt-task { display: flex; width: 100%; min-height: 39px; align-items: center; gap: 10px; padding: 4px 12px; border: 0; border-radius: 0; background: transparent; color: inherit; text-align: left; }
-.jt-task > span { min-width: 0; flex: 1; }
-.jt-task strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; }
-.jt-task small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #85899b; font-size: 10px; line-height: 1.25; font-weight: 400; }
-.jt-task > svg { color: #969bb0; flex-shrink: 0; }
+.jt-task { display: block; width: 100%; padding: 10px 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; font-size: 12px; font-weight: 600; text-align: left; }
 .jt-owners { display: flex; align-items: center; justify-content: center; padding-left: 5px; }
 .jt-avatar { display: grid; place-items: center; width: 27px; height: 27px; margin-left: -5px; border: 2px solid white; border-radius: 50%; background: #25344b; color: white; font-size: 10px; font-weight: 700; }
 .jt-avatar:nth-child(2) { background: #7564ad; }

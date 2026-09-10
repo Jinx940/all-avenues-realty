@@ -97,11 +97,11 @@ const dateRangeFor = (job: JobRow) => {
   if (job.status === 'DONE' && job.completedAt) {
     const completed = formatDate(job.completedAt);
     if (start !== 'No date') return `${start} – ${completed}`;
-    return `Completado el ${completed}`;
+    return `Completed on ${completed}`;
   }
 
-  if (start === 'No date' && due === 'No date') return 'Sin fechas';
-  return `${start === 'No date' ? 'Sin fecha' : start} – ${due === 'No date' ? 'Sin fecha' : due}`;
+  if (start === 'No date' && due === 'No date') return 'No dates';
+  return `${start === 'No date' ? 'No date' : start} – ${due === 'No date' ? 'No date' : due}`;
 };
 
 type TrackerFilterField =
@@ -128,20 +128,20 @@ type TrackerFilters = {
 };
 
 const trackerTimelineOptions = [
-  { value: 'IN_PROGRESS', label: 'En proceso' },
-  { value: 'NEAR_DUE', label: 'Próximo a vencer' },
-  { value: 'OVERDUE', label: 'Vencido' },
-  { value: 'DONE', label: 'Completado' },
+  { value: 'IN_PROGRESS', label: 'Working on it' },
+  { value: 'NEAR_DUE', label: 'Due soon' },
+  { value: 'OVERDUE', label: 'Overdue' },
+  { value: 'DONE', label: 'Done' },
 ];
 
 
 
 const trackerPaymentStatusLabel = (value: string, fallback: string) => {
   const labels: Record<string, string> = {
-    PAID: 'Pagado',
-    PARTIAL_PAYMENT: 'Pago parcial',
-    UNPAID: 'Pendiente',
-    NOT_INVOICED_YET: 'Sin facturar',
+    PAID: 'Paid',
+    PARTIAL_PAYMENT: 'Partial payment',
+    UNPAID: 'Unpaid',
+    NOT_INVOICED_YET: 'Not invoiced',
   };
   return labels[value] ?? fallback;
 };
@@ -249,28 +249,28 @@ export function JobTrackerView({
     <section className="tab-panel">
       <div className="jt-workspace">
         <div className="jt-workspace-head">
-          <div><h2>Job Tracker</h2><p>Todos tus trabajos, organizados por propiedad.</p></div>
-          {canManage ? <button type="button" className="jt-create-button" onClick={() => onCreate(filters.propertyId || undefined)}><UiIcon name="plus" size={16} />Nuevo trabajo</button> : null}
+          <div><h2>Job Tracker</h2><p>All your jobs, organized by property.</p></div>
+          {canManage ? <button type="button" className="jt-create-button" onClick={() => onCreate(filters.propertyId || undefined)}><UiIcon name="plus" size={16} />New job</button> : null}
         </div>
-        <div className="jt-view-tab"><UiIcon name="dashboard" size={16} />Tabla principal</div>
+        <div className="jt-view-tab"><UiIcon name="dashboard" size={16} />Main table</div>
         <div className="tracker-filter-toolbar">
           <div className="job-tracker-filters job-tracker-filters--essential">
             <label>
-              Buscar
+              Search
               <span className="tracker-search-control">
                 <UiIcon name="search" size={15} />
                 <input
                   value={filters.search}
                   onChange={(event) => handleTrackerFilterChange('search', event.target.value)}
-                  placeholder="Propiedad, servicio o trabajador..."
+                  placeholder="Property, service or worker..."
                 />
               </span>
             </label>
 
             <label>
-              Propiedad
+              Property
               <select value={filters.propertyId} onChange={(event) => handleTrackerFilterChange('propertyId', event.target.value)}>
-                <option value="">Todas las propiedades</option>
+                <option value="">All properties</option>
                 {bootstrap?.properties.map((property) => (
                   <option key={property.id} value={property.id}>
                     {property.name}
@@ -280,7 +280,7 @@ export function JobTrackerView({
             </label>
 
             <label>
-              Mes
+              Month
               <input
                 type="month"
                 value={filters.date}
@@ -289,9 +289,9 @@ export function JobTrackerView({
             </label>
 
             <label>
-              Estado del trabajo
+              Work status
               <select value={filters.timeline} onChange={(event) => handleTrackerFilterChange('timeline', event.target.value)}>
-                <option value="">Todos los estados</option>
+                <option value="">All statuses</option>
                 {trackerTimelineOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -301,12 +301,12 @@ export function JobTrackerView({
             </label>
 
             <label>
-              Estado de pago
+              Payment status
               <select
                 value={filters.paymentStatus}
                 onChange={(event) => handleTrackerFilterChange('paymentStatus', event.target.value)}
               >
-                <option value="">Todos los pagos</option>
+                <option value="">All payments</option>
                 {bootstrap?.paymentStatuses.map((status) => (
                   <option key={status.value} value={status.value}>
                     {trackerPaymentStatusLabel(status.value, status.label)}
@@ -318,13 +318,13 @@ export function JobTrackerView({
 
           <div className="tracker-toolbar-actions">
             <button type="button" className="ghost-button tracker-clear-button" onClick={handleResetFilters}>
-              Limpiar
+              Clear
             </button>
             <button type="button" className="tracker-refresh-button" onClick={onRefresh}>
               <UiIcon name="refresh" size={15} />
-              Actualizar
+              Refresh
             </button>
-            <span className="result-chip tracker-count-chip">{jobs.length} trabajos</span>
+            <span className="result-chip tracker-count-chip">{jobs.length} jobs</span>
           </div>
         </div>
 
@@ -350,7 +350,7 @@ export function JobTrackerView({
               onFilePreview={(job, file) => setReceiptPreview({ job, file })}
             />
           ) : (
-            <div className="empty-box">No hay trabajos que coincidan con los filtros activos.</div>
+            <div className="empty-box">No jobs match the current filters.</div>
           )}
         </div>
       </div>
@@ -648,7 +648,7 @@ function TrackerCompactJobDialog({
               <small>{timelineVisual.caption}</small>
             </article>
             <article className="tracker-description-meta-card">
-              <span>Material</span>
+              <span>Materials</span>
               <strong className="tracker-meta-money">{formatMoney(job.materialCost)}</strong>
             </article>
             <article className="tracker-description-meta-card">

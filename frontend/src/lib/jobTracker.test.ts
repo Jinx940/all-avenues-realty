@@ -20,13 +20,13 @@ describe('tracker summaries', () => {
     expect(trackerSegmentText('Done', 2, 3)).toBe('Done 2/3  66.7%');
     expect(trackerSegmentText('Empty', 0, 0)).toBe('Empty 0/0  0.0%');
     const segments = trackerSummary(jobs, defaultTrackerLabels, 'priority', 'done');
-    expect(trackerSegmentText(segments[0].label, segments[0].count, jobs.length)).toBe('Alta 1/3  33.3%');
+    expect(trackerSegmentText(segments[0].label, segments[0].count, jobs.length)).toBe('High 1/3  33.3%');
   });
 });
 it('renames headers without reordering or changing their data keys', () => {
   const columns = resolveTrackerColumns([{ key: 'description', label: 'Work notes' }]);
   expect(columns).toHaveLength(14);
-  expect(columns[0]).toEqual({ key: 'service', label: 'Trabajo' });
+  expect(columns[0]).toEqual({ key: 'service', label: 'Work' });
   expect(columns[4]).toEqual({ key: 'description', label: 'Work notes' });
 });
 it('counts calendar dates inclusively across months and daylight saving changes', () => {
