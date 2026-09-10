@@ -1,13 +1,24 @@
-import { JobPriority, JobStatus } from '@prisma/client';
+import { JobPriority, JobStatus, PaymentStatus } from '@prisma/client';
 import { z } from 'zod';
 import { parseNullableLocalDate } from './dates.js';
 import { HttpError } from './http.js';
+
+const usdAmount = z.number().finite().min(0).max(9999999999.99).refine(
+  (value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.0001,
+  'Use at most two decimal places.',
+);
 
 export const trackerUpdateSchema = z.object({
   status: z.nativeEnum(JobStatus).optional(),
   priority: z.nativeEnum(JobPriority).nullable().optional(),
   startDate: z.string().nullable().optional(),
   dueDate: z.string().nullable().optional(),
+  description: z.string().max(3000).optional(),
+  laborCost: usdAmount.optional(),
+  materialCost: usdAmount.optional(),
+  paymentStatus: z.nativeEnum(PaymentStatus).optional(),
+  advanceCashApp: usdAmount.optional(),
+  workerIds: z.array(z.string().trim().min(1)).max(100).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, 'No changes provided.');
 
 export function buildTrackerUpdate(existing: {
@@ -29,6 +40,12 @@ export function buildTrackerUpdate(existing: {
     ...(payload.priority !== undefined ? { priority: payload.priority } : {}),
     ...(payload.startDate !== undefined ? { startDate } : {}),
     ...(payload.dueDate !== undefined ? { dueDate } : {}),
+    ...(payload.description !== undefined ? { description: payload.description } : {}),
+    ...(payload.laborCost !== undefined ? { laborCost: payload.laborCost } : {}),
+    ...(payload.materialCost !== undefined ? { materialCost: payload.materialCost } : {}),
+    ...(payload.paymentStatus !== undefined ? { paymentStatus: payload.paymentStatus } : {}),
+    ...(payload.advanceCashApp !== undefined ? { advanceCashApp: payload.advanceCashApp } : {}),
+    ...(payload.workerIds !== undefined ? { workerIds: [...new Set(payload.workerIds)] } : {}),
   };
 }
 

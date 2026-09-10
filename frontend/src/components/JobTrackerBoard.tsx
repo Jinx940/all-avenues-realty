@@ -3,9 +3,10 @@ import { buildCsv } from '../lib/csv';
 import { formatDate, formatMoney } from '../lib/format';
 import { formatStoryDisplayLabel } from '../lib/jobLocation';
 import { paymentStatusTone, workStatusTone } from '../lib/statusVisuals';
-import type { JobFile, JobRow, Tone, TrackerJobUpdate, TrackerLabel } from '../types';
+import type { JobFile, JobRow, Tone, TrackerJobUpdate, TrackerLabel, WorkerSummary } from '../types';
 import { resolveTrackerLabels } from '../lib/jobTracker';
 import { TrackerLabelCell, TrackerTimelineCell, TrackerSummaryCell } from './TrackerCellEditors';
+import { TrackerOwnerCell, TrackerDueCell, TrackerTextCell, TrackerPaymentCell } from './TrackerDataCells';
 import { ProtectedAssetImage } from './ProtectedAssetImage';
 import { UiIcon } from './UiIcon';
 import './JobTrackerBoard.css';
@@ -21,10 +22,6 @@ const paymentLabels: Record<string, string> = {
 };
 const workLabel = (job: JobRow) => workLabels[job.status] ?? job.statusLabel;
 const paymentLabel = (job: JobRow) => paymentLabels[job.paymentStatus] ?? job.paymentStatusLabel;
-const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join('');
-const shortDate = (value: string | null) => value
-  ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(value))
-  : 'Sin fecha';
 
 function BoardCheckbox({ checked, mixed = false, label, onChange }: {
   checked: boolean; mixed?: boolean; label: string; onChange: () => void;
@@ -32,16 +29,6 @@ function BoardCheckbox({ checked, mixed = false, label, onChange }: {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (ref.current) ref.current.indeterminate = mixed; }, [mixed]);
   return <input ref={ref} type="checkbox" checked={checked} aria-label={label} onChange={onChange} />;
-}
-
-function StatusCell({ label, tone, onClick, actionLabel }: {
-  label: string; tone: Tone; onClick?: () => void; actionLabel?: string;
-}) {
-  return <td className={`jt-status jt-status--${tone}`}>
-    {onClick
-      ? <button type="button" onClick={onClick} aria-label={actionLabel} title={actionLabel}>{label}</button>
-      : <span>{label}</span>}
-  </td>;
 }
 
 function FileThumbnail({ file }: { file: JobFile }) {
@@ -52,11 +39,12 @@ function FileThumbnail({ file }: { file: JobFile }) {
     : fallback;
 }
 
-function FileCell({ files, label, onOpen }: { files: JobFile[]; label: string; onOpen: () => void }) {
-  return <td className="jt-files-cell">
-    {files.length ? <button type="button" className="jt-files" onClick={onOpen} aria-label={`${label}: ${files.length} archivos`}>
+function FileCell({ files, label, canManage, onOpen }: { files: JobFile[]; label: string; canManage: boolean; onOpen: () => void }) {
+  return <td className="jt-data-cell jt-files-cell">
+    {files.length || canManage ? <button type="button" className="jt-cell-button jt-files" onClick={onOpen} aria-label={`${label}: ${files.length} archivos`}>
       {files.slice(0, 2).map((file) => <FileThumbnail key={file.id} file={file} />)}
       {files.length > 2 ? <span className="jt-file-count">+{files.length - 2}</span> : null}
+      {!files.length ? <UiIcon name="plus" size={15} /> : null}
     </button> : <span className="jt-empty-value" aria-label="Sin archivos">—</span>}
   </td>;
 }
@@ -77,9 +65,13 @@ function StatusSummary({ jobs, payment = false }: { jobs: JobRow[]; payment?: bo
   </div>;
 }
 
-export function JobTrackerBoard({ jobs, canManage, trackerLabels, onTrackerUpdate, onTrackerLabelsChange, onCreate, onDetails, onEdit, onDelete, onPaymentStatusAction, onFilePreview }: {
+export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUploadFiles, onFileDelete, trackerLabels, onTrackerUpdate, onTrackerLabelsChange, onCreate, onDetails, onEdit, onDelete, onFilePreview }: {
   jobs: JobRow[];
   canManage: boolean;
+  workers: WorkerSummary[];
+  canDeleteFiles: boolean;
+  onUploadFiles: (job: JobRow, category: 'before' | 'after', files: File[]) => Promise<void>;
+  onFileDelete: (jobId: string, fileId: string) => void;
   onCreate: (propertyId?: string) => void;
   onDetails: (job: JobRow) => void;
   onEdit: (job: JobRow) => void;
@@ -87,7 +79,6 @@ export function JobTrackerBoard({ jobs, canManage, trackerLabels, onTrackerUpdat
   trackerLabels?: TrackerLabel[];
   onTrackerUpdate: (job: JobRow, update: TrackerJobUpdate) => Promise<void>;
   onTrackerLabelsChange: (labels: TrackerLabel[]) => Promise<void>;
-  onPaymentStatusAction: (job: JobRow) => void;
   onFilePreview: (job: JobRow, file: JobFile) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -96,6 +87,10 @@ export function JobTrackerBoard({ jobs, canManage, trackerLabels, onTrackerUpdat
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [gallery, setGallery] = useState<{ job: JobRow; category: 'before' | 'after' } | null>(null);
   const galleryRef = useRef<HTMLDialogElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const galleryJob = gallery ? jobs.find((job) => job.id === gallery.job.id) ?? gallery.job : null;
+  const openGallery = (job: JobRow, category: 'before' | 'after') => { setUploadError(''); setGallery({ job, category }); };
   const grouped = new Map<string, { name: string; jobs: JobRow[] }>();
   for (const job of jobs) {
     const group = grouped.get(job.propertyId);
@@ -188,32 +183,22 @@ export function JobTrackerBoard({ jobs, canManage, trackerLabels, onTrackerUpdat
               <tbody>
                 {visibleJobs.map((job) => {
                   const location = [formatStoryDisplayLabel(job.story), job.unit, job.area].filter(Boolean).join(' · ');
-                  const isLate = job.status !== 'DONE' && job.timeline.isLate;
                   return <tr key={job.id} className={selected.has(job.id) ? 'jt-row-selected' : undefined}>
                     <td className="jt-select-cell"><BoardCheckbox checked={selected.has(job.id)} label={`Seleccionar ${job.service}`} onChange={() => toggleSelected([job])} /></td>
                     <td className="jt-task-cell"><button type="button" className="jt-task" onClick={() => onDetails(job)} title={[job.service, location].filter(Boolean).join('\n')}>
                       <span><strong>{job.service}</strong>{location ? <small>{location}</small> : null}</span>
                       <UiIcon name="eye" size={15} />
                     </button></td>
-                    <td><div className="jt-owners" title={job.workers.map((worker) => worker.name).join(', ') || 'Sin asignar'}>
-                      {job.workers.slice(0, 2).map((worker) => <span key={worker.id} className="jt-avatar" aria-label={worker.name}>{initials(worker.name)}</span>)}
-                      {job.workers.length > 2 ? <span className="jt-avatar jt-avatar-more">+{job.workers.length - 2}</span> : null}
-                      {!job.workers.length ? <span className="jt-avatar jt-avatar-empty" aria-label="Sin asignar"><UiIcon name="users" size={17} /></span> : null}
-                    </div></td>
+                    <TrackerOwnerCell job={job} workers={workers} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerLabelCell kind="status" job={job} labels={labels} canManage={canManage} onUpdate={onTrackerUpdate} onLabelsChange={onTrackerLabelsChange} />
-                    <td><span className={`jt-due ${isLate ? 'jt-due--late' : ''} ${job.status === 'DONE' ? 'jt-due--done' : ''}`}
-                      title={job.dueDate ? formatDate(job.dueDate) : 'Sin fecha de vencimiento'}>
-                      {isLate ? <span aria-label="Vencido">!</span> : null}{shortDate(job.dueDate)}
-                    </span></td>
-                    <td><button type="button" className="jt-notes" onClick={() => onDetails(job)} title={job.description || 'Ver detalles'}>{job.description || '—'}</button></td>
+                    <TrackerDueCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
+                    <TrackerTextCell job={job} field="description" canManage={canManage} onUpdate={onTrackerUpdate} />
                     <TrackerLabelCell kind="priority" job={job} labels={labels} canManage={canManage} onUpdate={onTrackerUpdate} onLabelsChange={onTrackerLabelsChange} />
-                    <StatusCell label={paymentLabel(job)} tone={paymentStatusTone(job.paymentStatus)}
-                      onClick={canManage && job.paymentStatus !== 'PAID' ? () => onPaymentStatusAction(job) : undefined}
-                      actionLabel={`Marcar como pagado: ${job.service}`} />
-                    <td className="jt-money">{formatMoney(job.laborCost)}</td>
-                    <td className="jt-money">{formatMoney(job.materialCost)}</td>
-                    <FileCell files={job.files.before} label={`Antes de ${job.service}`} onOpen={() => setGallery({ job, category: 'before' })} />
-                    <FileCell files={job.files.after} label={`Después de ${job.service}`} onOpen={() => setGallery({ job, category: 'after' })} />
+                    <TrackerPaymentCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
+                    <TrackerTextCell job={job} field="laborCost" canManage={canManage} onUpdate={onTrackerUpdate} />
+                    <TrackerTextCell job={job} field="materialCost" canManage={canManage} onUpdate={onTrackerUpdate} />
+                    <FileCell files={job.files.before} canManage={canManage} label={`Antes de ${job.service}`} onOpen={() => openGallery(job, 'before')} />
+                    <FileCell files={job.files.after} canManage={canManage} label={`Después de ${job.service}`} onOpen={() => openGallery(job, 'after')} />
                     <TrackerTimelineCell job={job} canManage={canManage} onUpdate={onTrackerUpdate} />
                     <td className="jt-updated" title={new Date(job.updatedAt).toLocaleString('es-PE')}>{formatDate(job.updatedAt)}</td>
                     <td><div className="jt-actions">
@@ -247,15 +232,25 @@ export function JobTrackerBoard({ jobs, canManage, trackerLabels, onTrackerUpdat
       </section>;
     })}
 
-    <dialog ref={galleryRef} className="jt-gallery" aria-labelledby="jt-gallery-title" onCancel={() => setGallery(null)} onClose={() => setGallery(null)}>
-      {gallery ? <>
+    <dialog ref={galleryRef} className="jt-gallery" aria-labelledby="jt-gallery-title" onCancel={(event) => { if (uploading) event.preventDefault(); else setGallery(null); }} onClose={() => setGallery(null)}>
+      {gallery && galleryJob ? <>
         <div className="jt-gallery-head"><div><p>{gallery.job.propertyName} · {gallery.job.service}</p><h2 id="jt-gallery-title">Archivos: {gallery.category === 'before' ? 'antes' : 'después'}</h2></div>
-          <button type="button" aria-label="Cerrar archivos" onClick={() => setGallery(null)}><UiIcon name="close" size={20} /></button></div>
-        <div className="jt-gallery-files">{gallery.job.files[gallery.category].map((file) => <button key={file.id} type="button" onClick={() => {
+          <button type="button" aria-label="Cerrar archivos" disabled={uploading} onClick={() => setGallery(null)}><UiIcon name="close" size={20} /></button></div>
+        {canManage ? <label className="jt-upload-label">Añadir fotos<input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={uploading} aria-label="Añadir fotos" onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          event.target.value = '';
+          if (!files.length) return;
+          if (files.length > 12) { setUploadError('Selecciona un máximo de 12 fotos.'); return; }
+          setUploading(true); setUploadError('');
+          void onUploadFiles(galleryJob, gallery.category, files).catch((error: unknown) => setUploadError(error instanceof Error ? error.message : 'No se pudo subir las fotos.')).finally(() => setUploading(false));
+        }} /></label> : null}
+        {uploading ? <p role="status">Subiendo fotos…</p> : null}
+        {uploadError ? <p className="jt-editor-error" role="alert">{uploadError}</p> : null}
+        <div className="jt-gallery-files">{galleryJob.files[gallery.category].map((file) => <div className="jt-gallery-file" key={file.id}><button type="button" disabled={uploading} onClick={() => {
           galleryRef.current?.close();
           setGallery(null);
-          onFilePreview(gallery.job, file);
-        }}><FileThumbnail file={file} /><span>{file.name}</span><UiIcon name="eye" size={17} /></button>)}</div>
+          onFilePreview(galleryJob, file);
+        }}><FileThumbnail file={file} /><span>{file.name}</span><UiIcon name="eye" size={17} /></button>{canDeleteFiles ? <button type="button" disabled={uploading} aria-label={`Eliminar archivo ${file.name}`} onClick={() => { setGallery(null); onFileDelete(galleryJob.id, file.id); }}><UiIcon name="trash" size={17} /></button> : null}</div>)}</div>
       </> : null}
     </dialog>
   </div>;

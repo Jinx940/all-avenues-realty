@@ -16,9 +16,33 @@ test('completion is timestamped once and preserved on repeated updates', () => {
 test('priority updates and clearing never overwrite status, dates or costs', () => {
   assert.deepEqual(buildTrackerUpdate(existing, { priority: 'HIGH' }), { priority: 'HIGH' });
   assert.deepEqual(buildTrackerUpdate(existing, { priority: null }), { priority: null });
-  assert.throws(() => buildTrackerUpdate(existing, { materialCost: 1 }));
+  assert.throws(() => buildTrackerUpdate(existing, { service: 'Renamed task' }));
   assert.throws(() => buildTrackerUpdate(existing, { priority: 'URGENT' }));
   assert.throws(() => buildTrackerUpdate(existing, {}));
+});
+
+test('editing business cells changes only provided fields and supports clearing', () => {
+  assert.deepEqual(buildTrackerUpdate(existing, { description: '' }), { description: '' });
+  assert.deepEqual(buildTrackerUpdate(existing, { laborCost: 1234.56 }), { laborCost: 1234.56 });
+  assert.deepEqual(buildTrackerUpdate(existing, { materialCost: 0 }), { materialCost: 0 });
+  assert.deepEqual(buildTrackerUpdate(existing, { workerIds: [] }), { workerIds: [] });
+  assert.deepEqual(buildTrackerUpdate(existing, { workerIds: ['a', 'a', 'b'] }), { workerIds: ['a', 'b'] });
+  assert.deepEqual(buildTrackerUpdate(existing, { paymentStatus: 'UNPAID' }), { paymentStatus: 'UNPAID' });
+  assert.deepEqual(buildTrackerUpdate(existing, { paymentStatus: 'PARTIAL_PAYMENT', advanceCashApp: 10.25 }), { paymentStatus: 'PARTIAL_PAYMENT', advanceCashApp: 10.25 });
+});
+
+test('business cells reject invalid money, notes, workers and audit timestamps', () => {
+  for (const amount of [-1, NaN, Infinity, 0.001, 1e10, '1,000.00', null]) {
+    assert.throws(() => buildTrackerUpdate(existing, { laborCost: amount }));
+    assert.throws(() => buildTrackerUpdate(existing, { materialCost: amount }));
+    assert.throws(() => buildTrackerUpdate(existing, { advanceCashApp: amount }));
+  }
+  for (const amount of [0, 0.01, 93.83, 1234.56, 9999999999.99]) assert.equal(buildTrackerUpdate(existing, { laborCost: amount }).laborCost, amount);
+  assert.throws(() => buildTrackerUpdate(existing, { description: 'a'.repeat(3001) }));
+  assert.throws(() => buildTrackerUpdate(existing, { workerIds: [''] }));
+  assert.throws(() => buildTrackerUpdate(existing, { workerIds: 'a' }));
+  assert.throws(() => buildTrackerUpdate(existing, { paymentStatus: 'INVALID' }));
+  assert.throws(() => buildTrackerUpdate(existing, { updatedAt: '2020-01-01' }));
 });
 test('calendar accepts same day ranges, clears dates and preserves completion', () => {
   const updated = buildTrackerUpdate(existing, { startDate: '2026-09-10', dueDate: '2026-09-10' });

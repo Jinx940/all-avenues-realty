@@ -144,9 +144,33 @@
 .jt-gallery-head h2 { margin: 0; font-size: 20px; }
 .jt-gallery-head button { border: 0; background: transparent; color: #676c80; }
 .jt-gallery-files { display: grid; gap: 7px; }
-.jt-gallery-files > button { display: flex; align-items: center; gap: 14px; padding: 12px; background: #f8f9fc; border: 1px solid #e3e6ef; border-radius: 7px; color: #555d75; text-align: left; }
-.jt-gallery-files > button > span:not(.jt-file-placeholder) { flex: 1; overflow-wrap: anywhere; }
+.jt-gallery-file { display: flex; gap: 5px; min-width: 0; }
+.jt-gallery-file > button { display: flex; align-items: center; gap: 14px; padding: 12px; background: #f8f9fc; border: 1px solid #e3e6ef; border-radius: 7px; color: #555d75; text-align: left; }
+.jt-gallery-file > button:first-child { flex: 1; min-width: 0; }
+.jt-gallery-file > button > span:not(.jt-file-placeholder) { flex: 1; overflow-wrap: anywhere; }
+.jt-upload-label { display: grid; gap: 8px; margin-bottom: 18px; color: #555d75; font-size: 12px; }
+.jt-upload-label input { width: 100%; min-width: 0; font: inherit; }
 .jt-gallery-files .jt-file-thumbnail, .jt-gallery-files .jt-file-placeholder { width: 45px; height: 45px; flex-shrink: 0; }
+
+.jt-table .jt-data-cell, .jt-table .jt-status { position: relative; padding: 0; }
+.jt-table .jt-cell-button, .jt-table .jt-cell-value { display: block; width: 100%; min-height: 39px; padding: 8px; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jt-table .jt-cell-button:hover { box-shadow: inset 0 0 0 1px #9ac6ff; }
+.jt-table .jt-cell-button, .jt-table .jt-status > button { position: absolute; inset: 0; height: 100%; }
+.jt-table .jt-cell-button:focus-visible { outline-offset: -2px; }
+.jt-table .jt-note-cell .jt-cell-button, .jt-table .jt-note-cell .jt-cell-value { text-align: left; color: #6c7185; }
+.jt-table .jt-cell-button.jt-files { display: flex; align-items: center; justify-content: center; }
+.jt-table .jt-inline-editor { min-width: 0; padding: 0; }
+.jt-inline-field { display: flex; align-items: center; min-height: 39px; box-shadow: inset 0 0 0 1px #0073ea; background: #fff; }
+.jt-currency-sign { padding-left: 6px; color: #596077; }
+.jt-table .jt-inline-field input, .jt-table .jt-inline-field textarea { min-width: 0; width: 100%; height: 37px; min-height: 0; padding: 4px 6px; border: 0; border-radius: 0; background: transparent; color: #343950; font: inherit; box-shadow: none; outline: none; }
+.jt-table .jt-inline-field textarea { height: 75px; resize: vertical; white-space: pre-wrap; }
+.jt-table .jt-inline-field:focus-within { box-shadow: inset 0 0 0 2px #0073ea; }
+.jt-table .jt-inline-error { display: block; padding: 4px; color: #a52d4e; white-space: normal; font-size: 10px; }
+.jt-timeline-days { display: none; }
+.jt-has-duration:hover .jt-timeline-dates, .jt-has-duration:focus-within .jt-timeline-dates { display: none; }
+.jt-has-duration:hover .jt-timeline-days, .jt-has-duration:focus-within .jt-timeline-days { display: inline; }
+.jt-has-duration:hover .jt-timeline, .jt-has-duration:focus-within .jt-timeline { background: #323338; }
+.jt-table .jt-timeline-cell > .jt-timeline { margin: 8px; }
 
 @media (max-width: 1100px) {
   .jt-workspace .job-tracker-filters--essential { grid-template-columns: repeat(3, minmax(0, 1fr)); }

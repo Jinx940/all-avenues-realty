@@ -1084,6 +1084,14 @@ export default function App() {
     setBootstrap((current) => current ? { ...current, trackerLabels: updated } : current);
   };
 
+  const uploadTrackerFiles = async (job: JobRow, category: 'before' | 'after', files: File[]) => {
+    const body = new FormData();
+    for (const file of files) body.append(category, file);
+    const updated = await requestJson<JobRow>(`/api/jobs/${job.id}/tracker/files`, { method: 'POST', body });
+    setJobs((current) => current.map((item) => item.id === updated.id ? updated : item));
+    await refreshAll();
+  };
+
   const requestMarkJobDone = (job: JobRow) => {
     if (!requireRole(canManageJobs, 'Only admins and office users can update job status.')) return;
     if (job.status === 'DONE') return;
@@ -2262,6 +2270,9 @@ export default function App() {
             onCreate={(propertyId) => void handleCreateTrackerJob(propertyId)}
             onTrackerUpdate={updateTrackerJob}
             onTrackerLabelsChange={updateTrackerLabels}
+            canDeleteFiles={currentUser.role === 'ADMIN'}
+            onUploadFiles={uploadTrackerFiles}
+            onFileDelete={deleteJobFile}
             onEdit={(job) => void handleEditJob(job)}
             onDelete={(jobId) => void deleteJob(jobId)}
             onWorkStatusAction={requestMarkJobDone}

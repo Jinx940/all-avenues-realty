@@ -212,6 +212,9 @@ export function JobTrackerView({
   onCreate,
   onTrackerUpdate,
   onTrackerLabelsChange,
+  canDeleteFiles,
+  onUploadFiles,
+  onFileDelete,
   onEdit,
   onDelete,
   onWorkStatusAction,
@@ -226,6 +229,9 @@ export function JobTrackerView({
   canManage: boolean;
   onTrackerUpdate: (job: JobRow, update: TrackerJobUpdate) => Promise<void>;
   onTrackerLabelsChange: (labels: TrackerLabel[]) => Promise<void>;
+  canDeleteFiles: boolean;
+  onUploadFiles: (job: JobRow, category: 'before' | 'after', files: File[]) => Promise<void>;
+  onFileDelete: (jobId: string, fileId: string) => void;
   onCreate: (propertyId?: string) => void;
   onEdit: (job: JobRow) => void;
   onDelete: (jobId: string) => void;
@@ -333,7 +339,10 @@ export function JobTrackerView({
               trackerLabels={bootstrap?.trackerLabels}
               onTrackerUpdate={onTrackerUpdate}
               onTrackerLabelsChange={onTrackerLabelsChange}
-              onPaymentStatusAction={onPaymentStatusAction}
+              workers={[...(bootstrap?.workers ?? []), ...(bootstrap?.inactiveWorkers ?? [])]}
+              canDeleteFiles={canDeleteFiles}
+              onUploadFiles={onUploadFiles}
+              onFileDelete={onFileDelete}
               onFilePreview={(job, file) => setReceiptPreview({ job, file })}
             />
           ) : (

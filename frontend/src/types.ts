@@ -237,7 +237,7 @@ export type TrackerLabel = {
   color: string;
 };
 
-export type TrackerJobUpdate = Partial<Pick<JobRow, 'status' | 'priority' | 'startDate' | 'dueDate'>>;
+export type TrackerJobUpdate = Partial<Pick<JobRow, 'status' | 'priority' | 'startDate' | 'dueDate' | 'description' | 'laborCost' | 'materialCost' | 'paymentStatus' | 'advanceCashApp' | 'workerIds'>>;
 
 export type JobRow = {
   priority?: 'HIGH' | 'MEDIUM' | 'LOW' | null;

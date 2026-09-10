@@ -1898,8 +1898,12 @@ app.patch('/api/jobs/:jobId/tracker', asyncRoute(async (request, response) => {
   const jobId = String(request.params.jobId);
   await prisma.$transaction(async (tx) => {
     const existing = await tx.job.findUniqueOrThrow({ where: { id: jobId } });
-    const data = buildTrackerUpdate(existing, request.body);
-    await tx.job.update({ where: { id: jobId }, data });
+    const { workerIds, ...data } = buildTrackerUpdate(existing, request.body);
+    const assignments = workerIds === undefined ? undefined : {
+      deleteMany: {},
+      create: (await ensureWorkerIdsExist(workerIds, tx)).map((workerId) => ({ workerId })),
+    };
+    await tx.job.update({ where: { id: jobId }, data: { ...data, ...(assignments ? { assignments } : {}) } });
     await recordAuditLog(tx, request, {
       entityType: 'Job', entityId: jobId, entityLabel: existing.service, action: 'Updated',
       summary: `Updated ${Object.keys(request.body).join(', ')} from Job Tracker.`,
@@ -1908,6 +1912,32 @@ app.patch('/api/jobs/:jobId/tracker', asyncRoute(async (request, response) => {
   });
   response.json(serializeJob(await loadJob(jobId)));
 }));
+
+app.post('/api/jobs/:jobId/tracker/files',
+  (request, response, next) => { if (requireJobManager(request, response)) next(); },
+  upload.fields([{ name: 'before', maxCount: 12 }, { name: 'after', maxCount: 12 }]),
+  asyncRoute(async (request, response) => {
+    const jobId = String(request.params.jobId);
+    const existing = await prisma.job.findUniqueOrThrow({ where: { id: jobId } });
+    const filesMap = ((request as Request & { files?: UploadedFilesMap }).files ?? {}) as UploadedFilesMap;
+    if (!Object.values(filesMap).some((files) => files?.length)) throw new HttpError(400, 'Select at least one photo.');
+    const uploadedFiles = await uploadIncomingJobFiles(jobId, filesMap);
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.job.update({ where: { id: jobId }, data: { files: { create: uploadedFiles }, updatedAt: new Date() } });
+        await recordAuditLog(tx, request, {
+          entityType: 'Job', entityId: jobId, entityLabel: existing.service, action: 'Updated',
+          summary: `Added ${uploadedFiles.length} photos from Job Tracker.`,
+          metadata: { uploadedFileCount: uploadedFiles.length },
+        });
+      });
+    } catch (error) {
+      await Promise.all(uploadedFiles.map((file) => deleteManagedFile(file.storedName)));
+      throw error;
+    }
+    response.json(serializeJob(await loadJob(jobId)));
+  }),
+);
 
 registerUserRoutes(app);
 
@@ -2764,6 +2794,7 @@ app.delete(
       await transaction.jobFile.delete({
         where: { id: targetFile.id },
       });
+      await transaction.job.update({ where: { id: jobId }, data: { updatedAt: new Date() } });
 
       if (targetFile.generatedDocumentId) {
         const remainingLinks = await transaction.jobFile.count({

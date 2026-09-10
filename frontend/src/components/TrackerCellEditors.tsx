@@ -8,7 +8,7 @@ import './TrackerCellEditors.css';
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'No se pudo guardar. Inténtalo de nuevo.';
 const labelStyle = (label: TrackerLabel): CSSProperties => ({ '--jt-status-bg': label.color, '--jt-status-ink': labelTextColor(label.color) } as CSSProperties);
 
-function TrackerPopover({ anchor, title, compact = false, onClose, children }: {
+export function TrackerPopover({ anchor, title, compact = false, onClose, children }: {
   anchor: HTMLElement; title: string; compact?: boolean; onClose: () => void; children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -119,10 +119,12 @@ export function TrackerTimelineCell({ job, canManage, onUpdate }: {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const short = (date: string | null) => date ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(date)) : 'Sin fecha';
   const text = !job.startDate && !job.dueDate ? 'Sin fechas' : `${short(job.startDate)} – ${short(job.dueDate)}`;
+  const days = rangeDayCount(job.startDate?.slice(0, 10) ?? '', job.dueDate?.slice(0, 10) ?? '');
   const className = `jt-timeline ${job.status === 'DONE' ? 'jt-timeline--done' : job.timeline.isLate ? 'jt-timeline--late' : ''}`;
-  return <td>
-    {canManage ? <button type="button" className={className} aria-haspopup="dialog" aria-expanded={Boolean(anchor)} aria-label={`Editar cronograma: ${job.service}`} onClick={(event) => setAnchor(event.currentTarget)}>{text}</button>
-      : <span className={className}>{text}</span>}
+  const content = <span className={className}><span className="jt-timeline-dates">{text}</span>{days > 0 ? <span className="jt-timeline-days">{days}d</span> : null}</span>;
+  return <td className={`jt-data-cell jt-timeline-cell${days > 0 ? ' jt-has-duration' : ''}`} title={days > 0 ? `${days} ${days === 1 ? 'day' : 'days'}` : text}>
+    {canManage ? <button type="button" className="jt-cell-button" aria-haspopup="dialog" aria-expanded={Boolean(anchor)} aria-label={`Editar cronograma: ${job.service}`} onClick={(event) => setAnchor(event.currentTarget)}>{content}</button>
+      : content}
     {anchor ? <TrackerDateEditor anchor={anchor} job={job} onClose={() => setAnchor(null)} onUpdate={onUpdate} /> : null}
   </td>;
 }
