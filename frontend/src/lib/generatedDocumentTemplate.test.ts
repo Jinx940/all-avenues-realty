@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { azeDocumentBrandLinesFor, generatedDocumentTemplateFor } from './generatedDocumentTemplate';
 
 describe('generated document template selection', () => {
+  it('selects the Crystal Sarich template for invoices and quotes', () => {
+    expect(generatedDocumentTemplateFor('crystal', 'Invoice')).toBe('crystal-classic');
+    expect(generatedDocumentTemplateFor('crystal', 'Quote')).toBe('crystal-classic');
+  });
   it('uses the Juan AZE design for both invoices and quotes', () => {
     expect(generatedDocumentTemplateFor('aze', 'Invoice')).toBe('aze-modern');
     expect(generatedDocumentTemplateFor('aze', 'Quote')).toBe('aze-modern');

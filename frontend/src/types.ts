@@ -307,8 +307,8 @@ export type GeneratedDocumentHistoryItem = {
   id: string;
   documentType: 'INVOICE' | 'QUOTE';
   documentTypeLabel: 'Invoice' | 'Quote';
-  owner: 'AZE' | 'RYAN' | 'TODD' | 'MORALES';
-  ownerLabel: 'AZE' | 'Ryan Goertler' | 'Todd Goertler' | 'Morales Home Improvement';
+  owner: 'AZE' | 'RYAN' | 'TODD' | 'MORALES' | 'CRYSTAL';
+  ownerLabel: 'AZE' | 'Ryan Goertler' | 'Todd Goertler' | 'Morales Home Improvement' | 'Crystal Sarich';
   documentNumber: string;
   fileName: string;
   propertyId: string;

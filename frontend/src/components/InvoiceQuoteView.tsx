@@ -4,6 +4,7 @@ import { buildGeneratedPdfBlob, downloadPdfBlob, type GeneratedPdfReceiptAppendi
 import { azeDocumentBrandLinesFor, generatedDocumentTemplateFor } from '../lib/generatedDocumentTemplate';
 import { formatAreaServiceLabel } from '../lib/jobLocation';
 import { formatMoney } from '../lib/format';
+import { buildCrystalInvoiceHtml } from '../lib/crystalInvoice';
 import type { GeneratedDocumentHistoryItem, JobRow, PropertySummary } from '../types';
 import homeEnvyLogoUrl from '../assets/Home_envy_logo.png';
 import moralesLogoUrl from '../assets/Morales-full-transparent.png';
@@ -13,10 +14,10 @@ import { UiIcon } from './UiIcon';
 import './InvoiceQuoteView.css';
 
 type DocumentType = 'Invoice' | 'Quote';
-type OwnerKey = 'aze' | 'ryan' | 'todd' | 'morales';
-type DocumentOwnerCode = 'AZE' | 'RYAN' | 'TODD' | 'MORALES';
+type OwnerKey = 'aze' | 'ryan' | 'todd' | 'morales' | 'crystal';
+type DocumentOwnerCode = 'AZE' | 'RYAN' | 'TODD' | 'MORALES' | 'CRYSTAL';
 type DocumentOwnerFilter = 'ALL' | DocumentOwnerCode;
-type DocumentOwnerLabel = 'AZE' | 'Ryan Goertler' | 'Todd Goertler' | 'Morales Home Improvement';
+type DocumentOwnerLabel = 'AZE' | 'Ryan Goertler' | 'Todd Goertler' | 'Morales Home Improvement' | 'Crystal Sarich';
 
 const pdfTypewriterFontFamily = '"Courier New", Courier, "Liberation Mono", monospace';
 const azeInvoiceFontFamily = '"Segoe UI", Arial, Helvetica, sans-serif';
@@ -248,7 +249,7 @@ type InvoiceJobGroup = InvoiceServiceGroupKeySource & {
   jobs: JobRow[];
 };
 
-const headerOwnerOptions = ['Juan Azabache (AZE)', 'Ryan Goertler', 'Todd Goertler', 'Morales'] as const;
+const headerOwnerOptions = ['Juan Azabache (AZE)', 'Ryan Goertler', 'Todd Goertler', 'Morales', 'Crystal Sarich'] as const;
 
 const formatUsd = (value: number) => `$${value.toFixed(2)}`;
 const formatPdfNumber = (value: number) =>
@@ -388,6 +389,7 @@ const escapeHtml = (value: string) =>
     .replaceAll("'", '&#39;');
 
 const ownerKeyFor = (owner: (typeof headerOwnerOptions)[number]): OwnerKey => {
+  if (owner === 'Crystal Sarich') return 'crystal';
   if (owner.includes('Morales')) return 'morales';
   if (owner.includes('Todd')) return 'todd';
   if (owner.includes('Ryan')) return 'ryan';
@@ -395,6 +397,7 @@ const ownerKeyFor = (owner: (typeof headerOwnerOptions)[number]): OwnerKey => {
 };
 
 const ownerLabelFor = (ownerKey: OwnerKey): DocumentOwnerLabel => {
+  if (ownerKey === 'crystal') return 'Crystal Sarich';
   if (ownerKey === 'morales') return 'Morales Home Improvement';
   if (ownerKey === 'ryan') return 'Ryan Goertler';
   if (ownerKey === 'todd') return 'Todd Goertler';
@@ -6225,7 +6228,8 @@ export function InvoiceQuoteView({
   const usesLineItemInvoice = usesSterlingInvoice || usesMoralesInvoice;
   const usesAzeInvoice = ownerKey === 'aze' && documentType === 'Invoice';
   const usesToddInvoice = ownerKey === 'todd' && documentType === 'Invoice';
-  const usesLaborColumn = usesLineItemInvoice || usesAzeInvoice || usesToddInvoice;
+  const usesCrystalInvoice = ownerKey === 'crystal' && documentType === 'Invoice';
+  const usesLaborColumn = usesLineItemInvoice || usesAzeInvoice || usesToddInvoice || usesCrystalInvoice;
   const effectiveDocumentNumber = documentNumber.trim();
   const documentNumberExists = documents.some((document) => {
     const targetType = documentType === 'Invoice' ? 'INVOICE' : 'QUOTE';
@@ -6347,11 +6351,11 @@ export function InvoiceQuoteView({
     selectedRyanReceiptAttachments.length === propertyReceiptAttachments.length;
   const includeInlineInvoicePhotosInPdf =
     documentType === 'Invoice' &&
-    (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd' || ownerKey === 'morales') &&
+    (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd' || ownerKey === 'morales' || ownerKey === 'crystal') &&
     selectedInvoicePhotoAttachments.length > 0;
   const includeReceiptAppendicesInPdf =
     documentType === 'Invoice' &&
-    (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd' || ownerKey === 'morales') &&
+    (ownerKey === 'aze' || ownerKey === 'ryan' || ownerKey === 'todd' || ownerKey === 'morales' || ownerKey === 'crystal') &&
     selectedReceiptAttachments.length > 0;
   const selectedAttachmentSummary = availableAttachmentKinds
     .map((kind) => {
@@ -6366,8 +6370,8 @@ export function InvoiceQuoteView({
     .filter(Boolean)
     .join(', ');
 
-  const usesManualAmounts = ownerKey !== 'todd' && !usesLaborColumn;
-  const usesAzeInvoiceDeductions = usesAzeInvoice;
+  const usesManualAmounts = ownerKey !== 'todd' && ownerKey !== 'crystal' && !usesLaborColumn;
+  const usesAzeInvoiceDeductions = usesAzeInvoice || usesCrystalInvoice;
   const servicesTotal = selectedItems.reduce((sum, item) => sum + item.unitPrice, 0);
   const sterlingLaborTotal = selectedItems.reduce((sum, item) => sum + Number(item.labor || 0), 0);
   const sterlingJobTotal = selectedItems.reduce((sum, item) => {
@@ -6628,7 +6632,14 @@ export function InvoiceQuoteView({
       .replace(/\s+/g, '_')}_${safeDocumentNumber}`;
     const pdfFileName = `${safeBaseName}.pdf`;
 
-    const html = useSterlingMechanicalInvoice
+    const html = generatedDocumentTemplate === 'crystal-classic'
+      ? buildCrystalInvoiceHtml({
+          documentType, invoiceNumber: safeDocumentNumber, docDate: issueDate, billTo,
+          propertyName: activeProperty?.name || propertyAddress, propertyAddress, propertyCityLine,
+          selectedItems, jobTotal, materialExpense: materialExpenseValue, advancePayment: advancePaymentValue, totalDue,
+          attachments: includeInlineInvoicePhotosInPdf ? attachmentsOverride ?? selectedInvoicePhotoAttachments : [],
+        })
+      : useSterlingMechanicalInvoice
       ? buildSterlingMechanicalInvoiceHtml({
           invoiceNumber: safeDocumentNumber,
           docDate: issueDate,
@@ -6719,6 +6730,7 @@ export function InvoiceQuoteView({
       safeDocumentNumber,
     };
   }, [
+    advancePaymentValue,
     activeProperty?.name,
     billTo,
     clientCompany,
@@ -7394,7 +7406,7 @@ export function InvoiceQuoteView({
                 <p className="eyebrow">Invoice Adjustments</p>
                 <h3 className="title-with-icon title-with-icon--sm">
                   <UiIcon name="dollar" />
-                  <span>AZE totals</span>
+                  <span>{usesCrystalInvoice ? 'Crystal Sarich totals' : 'AZE totals'}</span>
                 </h3>
               </div>
             </div>
@@ -7605,6 +7617,7 @@ export function InvoiceQuoteView({
                 <option value="RYAN">Ryan Goertler</option>
                 <option value="TODD">Todd Goertler</option>
                 <option value="MORALES">Morales Home Improvement</option>
+                <option value="CRYSTAL">Crystal Sarich</option>
               </select>
             </label>
 

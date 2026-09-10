@@ -82,7 +82,7 @@ test('all owner templates open previews for invoices and quotes with selected de
   await setup.getByRole('combobox', { name: 'Property', exact: true }).selectOption('glynn');
   await setup.getByPlaceholder('Enter number').fill('4010');
   await page.getByLabel('Description for Water Meter Piping Repair', { exact: true }).fill('Replace the water meter and verify pressure.');
-  for (const owner of ['Juan Azabache (AZE)', 'Ryan Goertler', 'Todd Goertler', 'Morales']) {
+  for (const owner of ['Juan Azabache (AZE)', 'Ryan Goertler', 'Todd Goertler', 'Morales', 'Crystal Sarich']) {
     await setup.getByRole('combobox', { name: 'Header / Owner', exact: true }).selectOption(owner);
     for (const type of ['Invoice', 'Quote']) {
       await setup.getByRole('combobox', { name: 'Document', exact: true }).selectOption(type);
@@ -131,4 +131,60 @@ test('history filters and duplicate number feedback remain available on mobile',
   await history.getByPlaceholder('Search by No., file or property').fill('4001');
   await expect(history.locator('.invoice-history-row:not(.invoice-history-row--header)')).toHaveCount(1);
   await expect(history.getByRole('button', { name: 'Open', exact: true })).toBeVisible();
+});
+
+test('Crystal Sarich invoice previews and exports with its own owner and USD totals', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  const getIssued = await openGenerator(page);
+  const setup = page.locator('.iq-setup');
+  await setup.getByRole('combobox', { name: 'Property', exact: true }).selectOption('glynn');
+  await setup.getByRole('combobox', { name: 'Header / Owner', exact: true }).selectOption('Crystal Sarich');
+  await setup.getByPlaceholder('Enter number').fill('4012');
+  await setup.getByPlaceholder('Customer name and address').fill('Example Property Client\nCleveland, OH');
+  await page.getByLabel('Advance Payment (optional)', { exact: true }).fill('200');
+  await expect(page.locator('.iq-total')).toContainText('$3,450.00');
+  await page.getByRole('button', { name: 'Preview document', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Invoice 4012', exact: true });
+  const frame = dialog.locator('iframe').contentFrame();
+  await expect(frame.locator('.cs-brand')).toContainText('CRYSTAL SARICH');
+  await expect(frame.locator('.cs-meta')).toContainText('Example Property Client');
+  await expect(frame.locator('.cs-total')).toContainText('$3,450.00');
+  await frame.locator('.page').screenshot({ path: 'test-results/crystal-invoice-preview.png' });
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate PDF', exact: true }).click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Issue and download PDF', exact: true }).click();
+  const download = await downloadPromise;
+  await download.saveAs('test-results/crystal-invoice.pdf');
+  expect(getIssued()).toMatchObject({ ownerKey: 'crystal', documentType: 'Invoice', documentNumber: '4012', jobIds: ['plumbing', 'drywall'] });
+  expect(Buffer.from(getIssued()!.content as string, 'base64').subarray(0, 5).toString()).toBe('%PDF-');
+});
+
+test('Crystal continuation pages preserve long descriptions and fit above the footer', async ({ page }) => {
+  test.setTimeout(60000);
+  await openGenerator(page);
+  const setup = page.locator('.iq-setup');
+  await setup.getByRole('combobox', { name: 'Property', exact: true }).selectOption('glynn');
+  await setup.getByRole('combobox', { name: 'Header / Owner', exact: true }).selectOption('Crystal Sarich');
+  await setup.getByPlaceholder('Enter number').fill('4013');
+  const description = Array.from({ length: 22 }, (_, i) => `Inspection ${i + 1}: Verify the water connections, test pressure and document the completed repair.`).join('\n');
+  await page.getByLabel('Description for Water Meter Piping Repair', { exact: true }).fill(description);
+  await page.getByRole('button', { name: 'Preview document', exact: true }).click();
+  const frame = page.getByRole('dialog').locator('iframe').contentFrame();
+  await expect(frame.locator('body')).toContainText('Inspection 22:');
+  const pages = frame.locator('.page');
+  expect(await pages.count()).toBeGreaterThan(1);
+  const fits = await pages.evaluateAll((elements) => elements.every((element) => {
+    const footerTop = element.querySelector('.cs-footer')!.getBoundingClientRect().top;
+    return [...element.querySelectorAll('tbody tr, .cs-bottom')].every((row) => row.getBoundingClientRect().bottom < footerTop);
+  }));
+  expect(fits).toBe(true);
+  await expect(frame.locator('.cs-total')).toHaveCount(1);
+  await expect(frame.locator('.cs-money').filter({ hasText: '$2,650.00' })).toHaveCount(1);
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate PDF', exact: true }).click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Issue and download PDF', exact: true }).click();
+  await (await downloadPromise).saveAs('test-results/crystal-invoice-long.pdf');
 });

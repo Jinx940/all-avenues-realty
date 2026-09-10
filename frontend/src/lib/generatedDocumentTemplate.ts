@@ -1,4 +1,4 @@
-export type GeneratedDocumentOwner = 'aze' | 'ryan' | 'todd' | 'morales';
+export type GeneratedDocumentOwner = 'aze' | 'ryan' | 'todd' | 'morales' | 'crystal';
 export type GeneratedDocumentKind = 'Invoice' | 'Quote';
 
 export type GeneratedDocumentTemplate =
@@ -6,12 +6,14 @@ export type GeneratedDocumentTemplate =
   | 'ryan-invoice'
   | 'todd-modern'
   | 'morales-invoice'
+  | 'crystal-classic'
   | 'legacy-quote';
 
 export const generatedDocumentTemplateFor = (
   owner: GeneratedDocumentOwner,
   documentType: GeneratedDocumentKind,
 ): GeneratedDocumentTemplate => {
+  if (owner === 'crystal') return 'crystal-classic';
   if (owner === 'aze') return 'aze-modern';
   if (owner === 'todd') return 'todd-modern';
   if (owner === 'ryan' && documentType === 'Invoice') return 'ryan-invoice';
