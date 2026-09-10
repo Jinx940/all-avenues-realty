@@ -11,6 +11,7 @@ import {
   useProtectedAssetRenderState,
 } from './protectedAssetState';
 import { UiIcon } from './UiIcon';
+import { JobTrackerBoard } from './JobTrackerBoard';
 
 const timelineStateFor = (job: JobRow) => {
   if (job.status === 'DONE') return 'DONE';
@@ -133,19 +134,7 @@ const trackerTimelineOptions = [
   { value: 'DONE', label: 'Completado' },
 ];
 
-const trackerPageSize = 10;
 
-const trackerWorkStatusLabel = (job: JobRow) => {
-  const labels: Record<string, string> = {
-    DONE: 'Completado',
-    IN_PROGRESS: 'En proceso',
-    PENDING: 'Pendiente',
-    PLANNING: 'Planificación',
-    CANCELED: 'Cancelado',
-    CANCELLED: 'Cancelado',
-  };
-  return labels[job.status] ?? job.statusLabel;
-};
 
 const trackerPaymentStatusLabel = (value: string, fallback: string) => {
   const labels: Record<string, string> = {
@@ -156,11 +145,6 @@ const trackerPaymentStatusLabel = (value: string, fallback: string) => {
   };
   return labels[value] ?? fallback;
 };
-
-const trackerWeekdayFor = (value: string | null) =>
-  value
-    ? new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(new Date(value))
-    : '';
 
 const triggerDownload = (url: string, fileName: string) => {
   const anchor = document.createElement('a');
@@ -225,6 +209,7 @@ export function JobTrackerView({
   onRefresh,
   onResetFilters,
   canManage,
+  onCreate,
   onEdit,
   onDelete,
   onWorkStatusAction,
@@ -237,6 +222,7 @@ export function JobTrackerView({
   onRefresh: () => void;
   onResetFilters: () => void;
   canManage: boolean;
+  onCreate: (propertyId?: string) => void;
   onEdit: (job: JobRow) => void;
   onDelete: (jobId: string) => void;
   onWorkStatusAction: (job: JobRow) => void;
@@ -245,151 +231,16 @@ export function JobTrackerView({
   const [mediaDialog, setMediaDialog] = useState<TrackerMediaDialogState>(null);
   const [receiptPreview, setReceiptPreview] = useState<TrackerReceiptPreviewState>(null);
   const [compactJob, setCompactJob] = useState<JobRow | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(jobs.length / trackerPageSize));
-  const visiblePage = Math.min(currentPage, totalPages);
-  const pageStart = (visiblePage - 1) * trackerPageSize;
-  const paginatedJobs = jobs.slice(pageStart, pageStart + trackerPageSize);
-  const handleTrackerFilterChange = (field: TrackerFilterField, value: string) => {
-    setCurrentPage(1);
-    onFilterChange(field, value);
-  };
-  const handleResetFilters = () => {
-    setCurrentPage(1);
-    onResetFilters();
-  };
-
-  const renderTrackerFlatJobRow = (job: JobRow) => {
-    const timelineVisual = timelineVisualFor(job);
-    const primaryWorker = job.workers[0];
-    const displayDate = job.startDate ?? job.dueDate;
-    const propertyDetail = job.area || formatStoryDisplayLabel(job.story) || 'Propiedad';
-
-    return (
-      <div
-        key={job.id}
-        className={`tracker-compact-row tracker-unit-job-row--tone-${timelineVisual.tone}`}
-      >
-        <div className="tracker-unified-property" title={job.propertyName}>
-          <span className="tracker-property-icon" aria-hidden="true">
-            <UiIcon name="home" size={14} />
-          </span>
-          <span className="tracker-property-copy">
-            <strong>{job.propertyName}</strong>
-            <small>{propertyDetail}</small>
-          </span>
-        </div>
-        <div className="tracker-compact-date">
-          <UiIcon name="calendar" size={14} />
-          <span>
-            <strong>{displayDate ? formatDate(displayDate) : 'Sin fecha'}</strong>
-            {displayDate ? <small>{trackerWeekdayFor(displayDate)}</small> : null}
-          </span>
-        </div>
-        <button type="button" className="tracker-compact-service" onClick={() => setCompactJob(job)}>
-          <span className="tracker-compact-service-name">{job.service}</span>
-        </button>
-        {job.story || job.unit || job.area ? (
-          <div className="tracker-compact-location">
-            <span>{formatStoryDisplayLabel(job.story) || '-'}</span>
-            <span>{job.unit || '-'}</span>
-            {job.area ? <small>{job.area}</small> : null}
-          </div>
-        ) : (
-          <span className="tracker-compact-location tracker-location-empty">-</span>
-        )}
-        <div className="tracker-compact-worker">
-          {primaryWorker ? (
-            <>
-              <span>{primaryWorker.name}</span>
-              {job.workers.length > 1 ? <small>+{job.workers.length - 1}</small> : null}
-            </>
-          ) : (
-            <span className="tracker-empty-mark">-</span>
-          )}
-        </div>
-        <span className="tracker-compact-money">{formatMoney(job.materialCost)}</span>
-        <span className="tracker-compact-money">{formatMoney(job.laborCost)}</span>
-        <strong className="tracker-compact-total">{formatMoney(job.totalCost)}</strong>
-        <div className="tracker-compact-timeline">
-          <span title={dateRangeFor(job)}>{dateRangeFor(job)}</span>
-          <div className="tracker-compact-progress">
-            <div className="tracker-timeline-bar">
-              <div
-                className={`tracker-timeline-fill tracker-timeline-fill--${timelineVisual.tone}`}
-                style={{ width: `${timelineVisual.progress}%` }}
-              />
-            </div>
-            <small>{timelineVisual.progress}%</small>
-          </div>
-        </div>
-        <div className="tracker-status-cell">
-          {canManage && job.status !== 'DONE' ? (
-            <button
-              type="button"
-              className={`pill tone-${statusToneFor(job)} tracker-pill-button`}
-              onClick={() => onWorkStatusAction(job)}
-            >
-              {trackerWorkStatusLabel(job)}
-            </button>
-          ) : (
-            <span className={`pill tone-${statusToneFor(job)}`}>{trackerWorkStatusLabel(job)}</span>
-          )}
-        </div>
-        <div className="tracker-payment-cell">
-          {canManage && job.paymentStatus !== 'PAID' ? (
-            <button
-              type="button"
-              className={`pill tone-${paymentToneFor(job)} tracker-pill-button`}
-              onClick={() => onPaymentStatusAction(job)}
-            >
-              {trackerPaymentStatusLabel(job.paymentStatus, job.paymentStatusLabel)}
-            </button>
-          ) : (
-            <span className={`pill tone-${paymentToneFor(job)}`}>
-              {trackerPaymentStatusLabel(job.paymentStatus, job.paymentStatusLabel)}
-            </span>
-          )}
-        </div>
-        <div className="tracker-compact-actions">
-          <button
-            type="button"
-            className="ghost-button tracker-mini-button tracker-compact-details-button"
-            onClick={() => setCompactJob(job)}
-            aria-label={`Ver detalles de ${job.service}`}
-            title="Ver"
-          >
-            <UiIcon name="eye" size={14} />
-          </button>
-          {canManage ? (
-            <>
-              <button
-                type="button"
-                className="ghost-button tracker-mini-button"
-                onClick={() => onEdit(job)}
-                aria-label={`Editar ${job.service}`}
-                title="Documento / editar"
-              >
-                <UiIcon name="file" size={13} />
-              </button>
-              <button
-                type="button"
-                className="records-danger-button records-action-button tracker-mini-button"
-                onClick={() => onDelete(job.id)}
-                aria-label={`Eliminar ${job.service}`}
-                title="Eliminar"
-              >
-                <UiIcon name="trash" size={13} />
-              </button>
-            </>
-          ) : null}
-        </div>
-      </div>
-    );
-  };
+  const handleTrackerFilterChange = onFilterChange;
+  const handleResetFilters = onResetFilters;
   return (
     <section className="tab-panel">
-      <div className="panel records-filter-panel tracker-panel-compact">
+      <div className="jt-workspace">
+        <div className="jt-workspace-head">
+          <div><h2>Job Tracker</h2><p>Todos tus trabajos, organizados por propiedad.</p></div>
+          {canManage ? <button type="button" className="jt-create-button" onClick={() => onCreate(filters.propertyId || undefined)}><UiIcon name="plus" size={16} />Nuevo trabajo</button> : null}
+        </div>
+        <div className="jt-view-tab"><UiIcon name="dashboard" size={16} />Tabla principal</div>
         <div className="tracker-filter-toolbar">
           <div className="job-tracker-filters job-tracker-filters--essential">
             <label>
@@ -417,9 +268,9 @@ export function JobTrackerView({
             </label>
 
             <label>
-              Fecha
+              Mes
               <input
-                type="date"
+                type="month"
                 value={filters.date}
                 onChange={(event) => handleTrackerFilterChange('date', event.target.value)}
               />
@@ -467,54 +318,18 @@ export function JobTrackerView({
 
         <div className="tracker-table-shell">
           {jobs.length ? (
-            <section className="tracker-flat-property-card tracker-unified-board">
-              <div className="tracker-flat-property-scroll tracker-unified-scroll">
-                <div className="tracker-flat-property-table tracker-unified-table">
-                  <div className="tracker-compact-row tracker-compact-header">
-                    <span>Propiedad</span>
-                    <span>Fecha</span>
-                    <span>Servicio / Trabajo</span>
-                    <span>Ubicación</span>
-                    <span>Trabajador</span>
-                    <span>Material</span>
-                    <span>Mano de obra</span>
-                    <span>Total</span>
-                    <span>Cronograma</span>
-                    <span>Estado trabajo</span>
-                    <span>Pago</span>
-                    <span>Acciones</span>
-                  </div>
-                  {paginatedJobs.map(renderTrackerFlatJobRow)}
-                </div>
-              </div>
-
-              {jobs.length > trackerPageSize ? (
-                <footer className="tracker-pagination" aria-label="Paginación de trabajos">
-                  <span>
-                    {pageStart + 1}–{Math.min(pageStart + trackerPageSize, jobs.length)} de {jobs.length}
-                  </span>
-                  <div className="tracker-pagination-actions">
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={() => setCurrentPage(Math.max(1, visiblePage - 1))}
-                      disabled={visiblePage === 1}
-                    >
-                      Anterior
-                    </button>
-                    <span>Página {visiblePage} de {totalPages}</span>
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={() => setCurrentPage(Math.min(totalPages, visiblePage + 1))}
-                      disabled={visiblePage === totalPages}
-                    >
-                      Siguiente
-                    </button>
-                  </div>
-                </footer>
-              ) : null}
-            </section>
+            <JobTrackerBoard
+              key={JSON.stringify(filters)}
+              jobs={jobs}
+              canManage={canManage}
+              onCreate={onCreate}
+              onDetails={setCompactJob}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onWorkStatusAction={onWorkStatusAction}
+              onPaymentStatusAction={onPaymentStatusAction}
+              onFilePreview={(job, file) => setReceiptPreview({ job, file })}
+            />
           ) : (
             <div className="empty-box">No hay trabajos que coincidan con los filtros activos.</div>
           )}
@@ -614,7 +429,7 @@ function TrackerReceiptPreviewDialog({
       >
         <div className="document-preview-head">
           <div className="document-preview-head-copy">
-            <p className="eyebrow">Receipt preview</p>
+            <p className="eyebrow">File preview</p>
             <h2 id="tracker-receipt-preview-title">{file.name}</h2>
             <p>{locationLabel}</p>
           </div>
@@ -634,13 +449,13 @@ function TrackerReceiptPreviewDialog({
                 mimeType={file.mimeType}
                 loadingFallback={
                   <div className="document-preview-empty">
-                    <strong>Loading receipt image...</strong>
+                    <strong>Loading file image...</strong>
                     <span>Please wait while the saved file opens.</span>
                   </div>
                 }
                 errorFallback={(message) => (
                   <div className="document-preview-empty">
-                    <strong>Could not load this receipt image</strong>
+                    <strong>Could not load this file image</strong>
                     <span>{message}</span>
                   </div>
                 )}
@@ -649,17 +464,17 @@ function TrackerReceiptPreviewDialog({
               <ProtectedAssetFrame
                 className="document-preview-frame"
                 src={previewUrl}
-                title={`Receipt preview for ${file.name}`}
+                title={`File preview for ${file.name}`}
                 mimeType="application/pdf"
                 loadingFallback={
                   <div className="document-preview-empty">
-                    <strong>Loading receipt PDF...</strong>
+                    <strong>Loading PDF...</strong>
                     <span>Please wait while the saved file opens.</span>
                   </div>
                 }
                 errorFallback={(message) => (
                   <div className="document-preview-empty">
-                    <strong>Could not load this receipt PDF</strong>
+                    <strong>Could not load this PDF</strong>
                     <span>{message}</span>
                   </div>
                 )}
@@ -668,17 +483,17 @@ function TrackerReceiptPreviewDialog({
               <ProtectedAssetFrame
                 className="document-preview-frame"
                 src={previewUrl}
-                title={`Receipt preview for ${file.name}`}
+                title={`File preview for ${file.name}`}
                 mimeType="text/html"
                 loadingFallback={
                   <div className="document-preview-empty">
-                    <strong>Loading receipt preview...</strong>
+                    <strong>Loading file preview...</strong>
                     <span>Please wait while the saved file opens.</span>
                   </div>
                 }
                 errorFallback={(message) => (
                   <div className="document-preview-empty">
-                    <strong>Could not load this receipt preview</strong>
+                    <strong>Could not load this file preview</strong>
                     <span>{message}</span>
                   </div>
                 )}
@@ -686,7 +501,7 @@ function TrackerReceiptPreviewDialog({
             ) : (
               <div className="document-preview-empty">
                 <strong>Preview not available</strong>
-                <span>This receipt file cannot be rendered inline yet. Use Download to inspect it.</span>
+                <span>This file cannot be rendered inline yet. Use Download to inspect it.</span>
               </div>
             )}
           </div>
@@ -699,7 +514,7 @@ function TrackerReceiptPreviewDialog({
               </article>
               <article className="document-preview-meta-card">
                 <span>Type</span>
-                <strong>Receipt</strong>
+                <strong>{file.category}</strong>
               </article>
               <article className="document-preview-meta-card">
                 <span>Date</span>

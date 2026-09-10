@@ -1,0 +1,168 @@
+.jt-workspace {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid #e1e5ee;
+  border-radius: 14px;
+  background: #fff;
+  color: #32364a;
+  font-family: 'Nunito Sans', sans-serif;
+  box-shadow: 0 6px 24px #20314e08;
+}
+
+.jt-workspace button {
+  box-shadow: none;
+  transform: none;
+}
+
+.jt-workspace button:focus-visible,
+.jt-workspace input:focus-visible,
+.jt-table-scroll:focus-visible {
+  outline: 2px solid #0073ea;
+  outline-offset: 2px;
+}
+
+.jt-workspace-head,
+.jt-board-toolbar,
+.jt-board-toolbar > div,
+.jt-group-heading,
+.jt-gallery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.jt-workspace-head { margin-bottom: 18px; }
+.jt-workspace-head h2 { margin: 0; color: #292d42; font-size: 25px; letter-spacing: -.6px; }
+.jt-workspace-head p { margin: 3px 0 0; color: #777b8c; font-size: 13px; font-weight: 400; }
+.jt-workspace .jt-create-button { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border: 0; border-radius: 5px; background: #0073ea; color: white; font-size: 13px; }
+.jt-workspace .jt-create-button:hover { background: #0060c2; }
+.jt-view-tab { display: flex; align-items: center; gap: 8px; width: fit-content; margin-bottom: 18px; padding: 9px 12px; border-bottom: 3px solid #0073ea; color: #32364a; font-size: 13px; }
+
+.jt-workspace .tracker-filter-toolbar { padding: 0 0 18px; margin: 0; gap: 12px; border: 0; border-bottom: 1px solid #eceef4; border-radius: 0; box-shadow: none; }
+.jt-workspace .job-tracker-filters--essential { flex-basis: 680px; grid-template-columns: minmax(200px, 1.4fr) repeat(4, minmax(125px, 1fr)); gap: 10px; }
+.jt-workspace .job-tracker-filters--essential label { color: #676c80; font-family: inherit; font-size: 11px; font-weight: 600; }
+.jt-workspace .job-tracker-filters--essential input,
+.jt-workspace .job-tracker-filters--essential select { min-height: 36px; height: 36px; padding-top: 0; padding-bottom: 0; border-color: #d4d7e2; border-radius: 5px; color: #32364a; font-family: inherit; font-size: 12px; font-weight: 400; }
+.jt-workspace .tracker-toolbar-actions button { min-height: 36px; padding: 0 12px; border-radius: 5px; font-size: 12px; font-weight: 600; }
+.jt-workspace .tracker-clear-button { background: white; color: #676c80; }
+.jt-workspace .tracker-refresh-button { background: white; border: 1px solid #d4d7e2; color: #32364a; }
+.jt-workspace .tracker-refresh-button:hover { background: #f0f3ff; }
+.jt-workspace .tracker-count-chip { display: none; }
+
+.jt-board { min-width: 0; }
+.jt-workspace .tracker-table-shell { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.jt-board-toolbar { min-height: 55px; flex-wrap: wrap; margin-bottom: 14px; font-size: 12px; color: #777b8c; font-weight: 400; }
+.jt-board-toolbar > div { justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.jt-board-toolbar strong { color: #32364a; }
+.jt-toolbar-divider { padding: 0 8px; color: #c5c8d4; }
+.jt-board-toolbar button,
+.jt-group-pagination button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 7px; background: transparent; border: 0; border-radius: 4px; color: #555d75; font-size: 12px; }
+.jt-board-toolbar button:hover,
+.jt-group-pagination button:hover { background: #eef3ff; color: #0073ea; }
+.jt-group { min-width: 0; margin-bottom: 30px; }
+.jt-group:last-of-type { margin-bottom: 0; }
+.jt-group-heading { justify-content: flex-start; gap: 13px; min-height: 40px; padding: 0 5px 7px; }
+.jt-group-heading h3 { margin: 0; min-width: 0; }
+.jt-group-heading h3 button { display: flex; align-items: center; gap: 9px; padding: 0; border: 0; background: transparent; color: var(--jt-accent); text-align: left; font-size: 19px; font-weight: 700; }
+.jt-group-heading h3 svg { flex: 0 0 auto; transition: transform .15s; }
+.jt-collapsed-icon { transform: rotate(-90deg); }
+.jt-group-heading > span { color: #8a8e9e; font-size: 12px; font-weight: 400; white-space: nowrap; }
+.jt-group-heading .jt-collapsed-summary { margin-left: auto; }
+
+.jt-table-scroll { max-width: 100%; overflow-x: auto; border-left: 5px solid var(--jt-accent); border-radius: 5px 0 0 5px; scrollbar-width: thin; scrollbar-color: #c3cadb #f6f7fb; }
+.jt-table { width: 100%; min-width: 1729px; table-layout: fixed; border-collapse: separate; border-spacing: 0; color: #3b4056; font-size: 12px; font-weight: 400; }
+.jt-table th,
+.jt-table td { height: 39px; padding: 0 9px; border: 0; border-right: 1px solid #d7dbe8; border-bottom: 1px solid #d7dbe8; background: #fff; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jt-table th { height: 34px; border-top: 1px solid #d7dbe8; font-weight: 500; font-size: 12px; }
+.jt-table th:nth-child(2),
+.jt-table .jt-task-cell { text-align: left; }
+.jt-table .jt-select-cell { position: sticky; left: 0; z-index: 2; padding: 0; }
+.jt-table th:nth-child(2),
+.jt-table .jt-task-cell { position: sticky; left: 34px; z-index: 2; box-shadow: 2px 0 3px #20264105; }
+.jt-select-cell input { width: 14px; height: 14px; min-height: 0; margin: 0; padding: 0; vertical-align: middle; border-radius: 2px; accent-color: #0073ea; cursor: pointer; }
+.jt-table tbody tr:hover > td { background: #f1f5ff; }
+.jt-table tbody .jt-row-selected > td { background: #dcecff; }
+.jt-table .jt-task-cell { padding: 0; }
+.jt-task { display: flex; width: 100%; min-height: 39px; align-items: center; gap: 10px; padding: 4px 12px; border: 0; border-radius: 0; background: transparent; color: inherit; text-align: left; }
+.jt-task > span { min-width: 0; flex: 1; }
+.jt-task strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; }
+.jt-task small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #85899b; font-size: 10px; line-height: 1.25; font-weight: 400; }
+.jt-task > svg { color: #969bb0; flex-shrink: 0; }
+.jt-owners { display: flex; align-items: center; justify-content: center; padding-left: 5px; }
+.jt-avatar { display: grid; place-items: center; width: 27px; height: 27px; margin-left: -5px; border: 2px solid white; border-radius: 50%; background: #25344b; color: white; font-size: 10px; font-weight: 700; }
+.jt-avatar:nth-child(2) { background: #7564ad; }
+.jt-avatar-more { background: #e9edfa; color: #5d6380; }
+.jt-avatar-empty { background: white; color: #afb5c8; box-shadow: inset 0 0 0 1px #cbd0df; }
+.jt-status--success { --jt-status-bg: #008c60; --jt-status-ink: white; }
+.jt-status--warning { --jt-status-bg: #ffcb64; --jt-status-ink: #493400; }
+.jt-status--orange { --jt-status-bg: #ffd5ac; --jt-status-ink: #633707; }
+.jt-status--danger { --jt-status-bg: #c4385a; --jt-status-ink: white; }
+.jt-status--neutral { --jt-status-bg: #e5e6ed; --jt-status-ink: #555b71; }
+.jt-status--sky { --jt-status-bg: #b5ddff; --jt-status-ink: #12436a; }
+.jt-table .jt-status,
+.jt-table tbody tr:hover > .jt-status,
+.jt-table tbody .jt-row-selected > .jt-status { padding: 0; background: var(--jt-status-bg); color: var(--jt-status-ink); }
+.jt-table .jt-status > button,
+.jt-table .jt-status > span { display: grid; place-items: center; width: 100%; min-height: 39px; padding: 0 6px; border: 0; border-radius: 0; background: inherit; color: inherit; font-size: 12px; font-weight: 600; }
+.jt-table .jt-status > button:hover { filter: brightness(.95); }
+.jt-due { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.jt-due--done { color: #9093a1; text-decoration: line-through; }
+.jt-due--late { color: #bd3456; }
+.jt-due--late > span { display: grid; place-items: center; width: 13px; height: 13px; border: 1px solid currentColor; border-radius: 50%; font-size: 9px; font-weight: 800; }
+.jt-notes { display: block; width: 100%; padding: 5px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: transparent; color: #6c7185; font-size: 12px; font-weight: 400; text-align: left; }
+.jt-table .jt-money { font-variant-numeric: tabular-nums; }
+.jt-files { display: flex; justify-content: center; align-items: center; gap: 3px; width: 100%; padding: 0; border: 0; background: transparent; }
+.jt-file-thumbnail { width: 22px; height: 23px; object-fit: cover; border-radius: 2px; }
+.jt-file-placeholder { display: inline-grid; place-items: center; width: 22px; height: 23px; color: #7963d6; background: #f1edff; border-radius: 2px; }
+.jt-file-count { display: grid; place-items: center; min-width: 23px; height: 23px; border-radius: 50%; background: #34394c; color: white; font-size: 10px; }
+.jt-empty-value { color: #c8ccda; }
+.jt-timeline { display: block; padding: 3px 6px; border-radius: 20px; background: #597dc1; color: white; font-size: 11px; line-height: 1.4; }
+.jt-timeline--done { background: #386cd0; }
+.jt-timeline--late { background: #b43c5e; }
+.jt-updated { color: #898d9e; font-size: 11px; }
+.jt-actions { display: flex; justify-content: center; gap: 3px; }
+.jt-actions button { display: grid; place-items: center; width: 23px; height: 25px; padding: 0; border: 0; border-radius: 4px; color: #878ca2; background: transparent; }
+.jt-actions button:hover { color: #0073ea; background: #e4edff; }
+.jt-actions .jt-delete:hover { color: #c6385b; background: #ffedf1; }
+.jt-table .jt-add-row td { height: 34px; text-align: left; }
+.jt-add-row button { display: inline-flex; align-items: center; gap: 7px; padding: 0 4px; border: 0; background: transparent; color: #969bad; font-size: 12px; font-weight: 400; }
+.jt-add-row button:hover { color: #0073ea; }
+.jt-table tfoot td { height: 42px; background: #fafbfe; font-size: 12px; }
+.jt-table tfoot .jt-summary-label { text-align: left; color: #9499ac; font-size: 11px; }
+.jt-table tfoot small { display: block; color: #969aab; font-size: 9px; line-height: 1; }
+.jt-status-summary { display: flex; height: 21px; overflow: hidden; border-radius: 2px; }
+.jt-status-summary > span { min-width: 2px; background: var(--jt-status-bg); }
+.jt-table .jt-group-total { text-align: right; padding-right: 15px; color: #9094a6; font-size: 11px; }
+.jt-group-total strong { margin-left: 9px; color: #454b62; font-size: 12px; font-weight: 600; }
+.jt-group-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 8px 8px 0; font-size: 10px; color: #9297a8; font-weight: 400; }
+.jt-group-pagination > span { margin-right: auto; }
+.jt-gallery { width: min(620px, calc(100vw - 32px)); max-height: 80vh; padding: 24px; border: 1px solid #d7dbe8; border-radius: 12px; background: white; color: #32364a; box-shadow: 0 20px 80px #151d3d33; }
+.jt-gallery::backdrop { background: #1d254566; }
+.jt-gallery-head { margin-bottom: 20px; }
+.jt-gallery-head p { margin: 0 0 5px; color: #84899c; font-size: 12px; }
+.jt-gallery-head h2 { margin: 0; font-size: 20px; }
+.jt-gallery-head button { border: 0; background: transparent; color: #676c80; }
+.jt-gallery-files { display: grid; gap: 7px; }
+.jt-gallery-files > button { display: flex; align-items: center; gap: 14px; padding: 12px; background: #f8f9fc; border: 1px solid #e3e6ef; border-radius: 7px; color: #555d75; text-align: left; }
+.jt-gallery-files > button > span:not(.jt-file-placeholder) { flex: 1; overflow-wrap: anywhere; }
+.jt-gallery-files .jt-file-thumbnail, .jt-gallery-files .jt-file-placeholder { width: 45px; height: 45px; flex-shrink: 0; }
+
+@media (max-width: 1100px) {
+  .jt-workspace .job-tracker-filters--essential { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 650px) {
+  .jt-workspace { padding: 15px 10px; border-radius: 9px; }
+  .jt-workspace-head { align-items: flex-start; gap: 10px; }
+  .jt-workspace-head h2 { font-size: 22px; }
+  .jt-workspace-head p { max-width: 180px; font-size: 12px; }
+  .jt-workspace .jt-create-button { white-space: nowrap; padding: 8px; font-size: 11px; }
+  .jt-workspace .job-tracker-filters--essential { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .jt-workspace .job-tracker-filters--essential label:first-child { grid-column: 1 / -1; }
+  .jt-board-toolbar { padding: 12px 0; gap: 9px; }
+  .jt-board-toolbar > div { justify-content: flex-start; }
+  .jt-group-heading { flex-wrap: wrap; gap: 6px 10px; }
+  .jt-group-heading .jt-collapsed-summary { width: 100%; margin-left: 27px; }
+  .jt-table col:nth-child(2) { width: 190px !important; }
+  .jt-table { min-width: 1674px; }
+}

@@ -402,7 +402,7 @@ export default function App() {
     bootstrap?.properties.find((property) => property.id === selectedPropertyId) ?? null;
   const filteredJobs = jobs.filter((job) => {
     if (jobFilters.propertyId && job.propertyId !== jobFilters.propertyId) return false;
-    if (jobFilters.date && (job.startDate ?? job.dueDate)?.slice(0, 10) !== jobFilters.date) return false;
+    if (jobFilters.date && (job.startDate ?? job.dueDate)?.slice(0, 7) !== jobFilters.date) return false;
     if (jobFilters.story && job.story !== jobFilters.story) return false;
     if (jobFilters.unit && job.unit !== jobFilters.unit) return false;
     if (jobFilters.area && job.area !== jobFilters.area) return false;
@@ -1111,6 +1111,16 @@ export default function App() {
         }
       },
     });
+  };
+
+  const handleCreateTrackerJob = async (propertyId?: string) => {
+    if (!requireRole(canManageJobs, 'Only admins and office users can create jobs.')) return;
+    if (!(await confirmDiscardUnsavedChanges('create a new job'))) return;
+    setJobForm({
+      ...createJobForm(bootstrap, currentUser),
+      ...(propertyId ? { propertyId, story: '', unit: '' } : {}),
+    });
+    setActiveTab('new-job');
   };
 
   const handleEditJob = async (job: JobRow) => {
@@ -2028,6 +2038,7 @@ export default function App() {
             className={`sidebar-toggle ${isSidebarVisible ? 'is-open' : 'is-closed'}`}
             onClick={toggleSidebar}
             aria-controls="workspace-sidebar"
+            aria-label={isSidebarVisible ? 'Hide menu' : 'Show menu'}
             aria-expanded={isSidebarVisible}
           >
             <UiIcon name={isSidebarVisible ? 'close' : 'menu'} size={18} />
@@ -2230,6 +2241,7 @@ export default function App() {
             onResetFilters={() => setJobFilters(createJobFilters())}
             onFilterChange={updateJobTrackerFilter}
             canManage={canManageJobs(currentUser)}
+            onCreate={(propertyId) => void handleCreateTrackerJob(propertyId)}
             onEdit={(job) => void handleEditJob(job)}
             onDelete={(jobId) => void deleteJob(jobId)}
             onWorkStatusAction={requestMarkJobDone}
