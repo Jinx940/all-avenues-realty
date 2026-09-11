@@ -1997,7 +1997,8 @@ export default function App() {
       <aside
         id="workspace-sidebar"
         className={`sidebar ${isSidebarVisible ? 'is-open' : 'is-hidden'} ${isCompactViewport ? 'is-compact' : ''}`.trim()}
-        aria-hidden={isCompactViewport && !isSidebarVisible}
+        aria-hidden={!isSidebarVisible}
+        inert={!isSidebarVisible}
       >
         <div className="sidebar-top">
           <div className="brand-card">
@@ -2005,17 +2006,6 @@ export default function App() {
             <span className="sidebar-brand-caption">Property operations</span>
           </div>
 
-          <div className="sidebar-account-card">
-            <div className="sidebar-account-head">
-              <span className="sidebar-account-icon">
-                <UiIcon name="users" size={17} />
-              </span>
-              <div className="sidebar-account-copy">
-                <strong>{currentUser.displayName}</strong>
-                <span>{currentUser.role}</span>
-              </div>
-            </div>
-          </div>
         </div>
 
         <nav className="nav-stack" aria-label="Workspace sections">
@@ -2055,6 +2045,7 @@ export default function App() {
                       key={tab.id}
                       type="button"
                       className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}
+                      aria-current={activeTab === tab.id ? 'page' : undefined}
                       onClick={() => void handleTabSelection(tab.id)}
                     >
                       <span className="nav-icon">
@@ -2070,6 +2061,17 @@ export default function App() {
         </nav>
 
         <div className="sidebar-footer">
+          <div className="sidebar-account-card">
+            <div className="sidebar-account-head">
+              <span className="sidebar-account-icon" aria-hidden="true">
+                {currentUser.displayName.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
+              </span>
+              <div className="sidebar-account-copy">
+                <strong>{currentUser.displayName}</strong>
+                <span>{currentUser.role.replace(/_/g, ' ').toLowerCase()}</span>
+              </div>
+            </div>
+          </div>
           <button type="button" className="sidebar-signout-button" onClick={() => void logout()}>
             <UiIcon name="logout" size={16} />
             <span>Sign out</span>
