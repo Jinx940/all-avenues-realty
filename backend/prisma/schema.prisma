@@ -262,6 +262,7 @@ model Job {
   laborCost      Decimal         @default(0) @db.Decimal(12, 2)
   status         JobStatus       @default(PENDING)
   priority       JobPriority?
+  archivedAt     DateTime?
   invoiceStatus  InvoiceStatus   @default(NO)
   paymentStatus  PaymentStatus   @default(NOT_INVOICED_YET)
   advanceCashApp Decimal         @default(0) @db.Decimal(12, 2)

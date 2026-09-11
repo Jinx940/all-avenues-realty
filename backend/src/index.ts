@@ -40,6 +40,7 @@ import { buildTrackerUpdate, trackerLabelsSchema, trackerColumnKeySchema, tracke
 import { applyTrackerSubitem, descriptionParagraphs } from './lib/trackerSubitems.js';
 import { parseNullableLocalDate } from './lib/dates.js';
 import { recordAuditLog } from './lib/audit.js';
+import { updateJobArchive } from './lib/jobArchive.js';
 import {
   canManageJobs,
   requireAdmin,
@@ -518,6 +519,7 @@ const serializeJob = (job: {
   laborCost: number | Prisma.Decimal;
   status: JobStatus;
   priority: JobPriority | null;
+  archivedAt: Date | null;
   invoiceStatus: InvoiceStatus;
   paymentStatus: PaymentStatus;
   advanceCashApp: number | Prisma.Decimal;
@@ -564,6 +566,7 @@ const serializeJob = (job: {
   totalCost: numericValue(job.materialCost) + numericValue(job.laborCost),
   status: job.status,
   priority: job.priority,
+  archivedAt: job.archivedAt?.toISOString() ?? null,
   statusLabel: jobStatusLabels[job.status],
   invoiceStatus: job.invoiceStatus,
   invoiceStatusLabel: invoiceStatusLabels[job.invoiceStatus],
@@ -1943,6 +1946,21 @@ app.patch('/api/jobs/:jobId/tracker', asyncRoute(async (request, response) => {
     });
   });
   response.json(serializeJob(await loadJob(jobId)));
+}));
+
+app.patch('/api/properties/:propertyId/job-archive', asyncRoute(async (request, response) => {
+  if (!requireJobManager(request, response)) return;
+  const propertyId = String(request.params.propertyId);
+  const result = await prisma.$transaction(async (tx) => {
+    const changed = await updateJobArchive(tx, propertyId, request.body);
+    await recordAuditLog(tx, request, {
+      entityType: 'Property', entityId: propertyId, action: 'Updated',
+      summary: `${changed.archived ? 'Archived' : 'Restored'} ${changed.count} jobs in Job Tracker.`,
+      metadata: { jobIds: changed.jobIds, archived: changed.archived },
+    });
+    return changed;
+  });
+  response.json(result);
 }));
 
 app.post('/api/jobs/:jobId/tracker/files',

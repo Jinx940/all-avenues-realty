@@ -1301,6 +1301,32 @@ export default function App() {
     }
   };
 
+  const archivePropertyJobs = (propertyId: string, archived: boolean) => {
+    if (!requireRole(canManageJobs, 'Only admins and office staff can archive jobs.')) return;
+    // Use the entire property's current archive state, even when board filters hide rows.
+    const affected = jobs.filter((job) => job.propertyId === propertyId && Boolean(job.archivedAt) !== archived);
+    if (!affected.length) return;
+    const unfinished = affected.filter((job) => job.status !== 'DONE').length;
+    const unpaid = affected.filter((job) => job.paymentStatus !== 'PAID').length;
+    const action = archived ? 'Archive' : 'Restore';
+    openConfirmDialog({
+      title: `${action} jobs — ${affected[0].propertyName}`,
+      text: `${action} all ${affected.length} ${archived ? 'active' : 'archived'} jobs at this property, including jobs hidden by filters? ${unfinished} unfinished; ${unpaid} not fully paid. ${archived ? 'They will move to Archived.' : 'They will return to Active.'} Statuses, payments, notes, files and invoice history will be preserved.`,
+      confirmLabel: archived ? 'Archive jobs' : 'Restore jobs',
+      tone: archived && (unfinished || unpaid) ? 'warning' : 'default',
+      onConfirm: async () => {
+        try {
+          const result = await requestJson<{ count: number }>(`/api/properties/${propertyId}/job-archive`, {
+            method: 'PATCH', body: JSON.stringify({ archived, jobIds: affected.map((job) => job.id) }),
+          });
+          await refreshAll({ type: 'success', text: `${result.count} jobs ${archived ? 'archived' : 'restored'}.` });
+        } catch (error) {
+          setMessage({ type: 'error', text: messageFrom(error) });
+        }
+      },
+    });
+  };
+
   const deleteJob = (jobId: string) => {
     if (!requireRole((user) => user.role === 'ADMIN', 'Only admins can delete jobs.')) return;
     openConfirmDialog({
@@ -2284,6 +2310,7 @@ export default function App() {
           <JobTrackerView
             bootstrap={bootstrap}
             jobs={filteredJobs}
+            onArchiveProperty={archivePropertyJobs}
             filters={jobFilters}
             onRefresh={() => void refreshAll()}
             onResetFilters={() => setJobFilters(createJobFilters())}

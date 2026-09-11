@@ -12,15 +12,23 @@ const job = {
 };
 const user = { id: 'test', username: 'test', displayName: 'Preview User', role: 'ADMIN', status: 'ACTIVE', workerId: null };
 
-async function openWorkspace(page: Page) {
+async function openWorkspace(page: Page, mutableJobs?: Array<typeof job & { archivedAt?: string | null }>) {
   await page.clock.setFixedTime(new Date('2026-09-10T14:00:00Z'));
   await page.addInitScript(() => localStorage.setItem('aar-sidebar-expanded', 'true'));
   await page.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (mutableJobs && path === '/api/properties/glynn/job-archive' && route.request().method() === 'PATCH') {
+      const payload = route.request().postDataJSON() as { archived: boolean; jobIds: string[] };
+      for (const item of mutableJobs) {
+        if (payload.jobIds.includes(item.id)) item.archivedAt = payload.archived ? '2026-09-10T14:00:00Z' : null;
+      }
+      await route.fulfill({ json: { count: payload.jobIds.length } });
+      return;
+    }
     if (route.request().method() !== 'GET') throw new Error(`Unexpected write: ${path}`);
     const json = path === '/api/auth/session' ? { user }
       : path === '/api/bootstrap' ? { properties: [property], workers: [worker], inactiveWorkers: [], statuses: [{ value: 'IN_PROGRESS', label: 'Working on it' }, { value: 'DONE', label: 'Done' }], invoiceStatuses: [{ value: 'NO', label: 'No' }], paymentStatuses: [{ value: 'PARTIAL_PAYMENT', label: 'Partial Payment' }] }
-      : path === '/api/jobs' ? [job]
+      : path === '/api/jobs' ? mutableJobs ?? [job]
       : path === '/api/health' ? { status: 'ok', database: 'up', timestamp: '2026-09-10T14:00:00Z' }
       : path === '/api/client-portal/glynn' ? { property, jobs: [], documents: [], summary: { totalJobs: 1, completedJobs: 0, openJobs: 1, completionRate: 0 } }
       : path === '/api/admin/storage-backups/summary' ? { checkedAt: '2026-09-10', summary: { managedRefs: 0, backupRows: 0, unbackedManagedRefs: 0, compressionRatio: 0, totalStoredBytes: 0, totalOriginalBytes: 0, spaceSavedBytes: 0 } }
@@ -137,6 +145,44 @@ for (const width of [390, 844, 1440]) {
     await page.screenshot({ path: `test-results/tracker-scroll-${width}.png` });
   });
 }
+
+test('archive covers filtered property jobs, persists, preserves new jobs and restores history', async ({ page }) => {
+  const records: Array<typeof job & { archivedAt?: string | null }> = [
+    structuredClone(job), { ...structuredClone(job), id: 'electrical', service: 'Electrical' },
+  ];
+  await openWorkspace(page, records);
+  await navigate(page, 'Operations', 'Job Tracker');
+  await page.getByPlaceholder('Property, service or worker...').fill('Plumbing');
+  await page.getByRole('button', { name: 'Archive jobs at Glynn', exact: true }).click();
+  const confirmation = page.locator('.workspace-confirm');
+  await expect(confirmation).toContainText('all 2 active jobs');
+  await expect(confirmation).toContainText('2 unfinished; 2 not fully paid');
+  await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(records.every((record) => !record.archivedAt)).toBe(true);
+  await page.getByRole('button', { name: 'Archive jobs at Glynn', exact: true }).click();
+  await confirmation.getByRole('button', { name: 'Archive jobs', exact: true }).click();
+  await expect(page.getByText('No active jobs match the current filters.')).toBeVisible();
+  expect(records.every((record) => record.archivedAt && record.status === job.status && record.paymentStatus === job.paymentStatus && record.description === job.description && record.materialCost === job.materialCost)).toBe(true);
+  await page.reload();
+  await navigate(page, 'Operations', 'Job Tracker');
+  await page.getByRole('button', { name: 'Archived', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Restore jobs at Glynn', exact: true })).toBeVisible();
+  // A newly created job defaults to active, independently of older archived work.
+  records.push({ ...structuredClone(job), id: 'new-job', service: 'New repair', archivedAt: null });
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.getByRole('button', { name: 'Active', exact: true }).click();
+  await expect(page.locator('.jt-table')).toContainText('New repair');
+  await expect(page.locator('.jt-table')).not.toContainText('Electrical');
+  await page.getByRole('button', { name: 'Archived', exact: true }).click();
+  await page.getByRole('button', { name: 'Restore jobs at Glynn', exact: true }).click();
+  await expect(confirmation).toContainText('all 2 archived jobs');
+  await confirmation.getByRole('button', { name: 'Restore jobs', exact: true }).click();
+  await expect(page.getByText('No archived jobs match the current filters.')).toBeVisible();
+  await page.getByRole('button', { name: 'Active', exact: true }).click();
+  await expect(page.locator('.jt-table')).toContainText('Electrical');
+  await expect(page.locator('.jt-table')).toContainText('New repair');
+  expect(records.every((record) => !record.archivedAt)).toBe(true);
+});
 
 test('login error uses the shared alert design', async ({ page }) => {
   await page.route('**/api/**', (route) => route.fulfill({ status: 401, json: { message: 'Invalid username or password.' } }));

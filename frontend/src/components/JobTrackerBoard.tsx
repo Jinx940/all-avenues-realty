@@ -67,8 +67,10 @@ function StatusSummary({ jobs, payment = false }: { jobs: JobRow[]; payment?: bo
   }))} total={jobs.length} actionLabel={`${payment ? 'Payment' : 'Status'} summary for ${jobs[0]?.propertyName ?? ''}`} />;
 }
 
-export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUploadFiles, onFileDelete, trackerLabels, trackerColumns, onTrackerColumnChange, onTrackerUpdate, onTrackerLabelsChange, onCreate, onDetails, onEdit, onDelete, onFilePreview }: {
+export function JobTrackerBoard({ jobs, archived, onArchiveProperty, canManage, workers, canDeleteFiles, onUploadFiles, onFileDelete, trackerLabels, trackerColumns, onTrackerColumnChange, onTrackerUpdate, onTrackerLabelsChange, onCreate, onDetails, onEdit, onDelete, onFilePreview }: {
   jobs: JobRow[];
+  archived: boolean;
+  onArchiveProperty: (propertyId: string, archived: boolean) => void;
   canManage: boolean;
   workers: WorkerSummary[];
   canDeleteFiles: boolean;
@@ -172,6 +174,7 @@ export function JobTrackerBoard({ jobs, canManage, workers, canDeleteFiles, onUp
             {group.name}
           </button></h3>
           <span>{group.jobs.length} {group.jobs.length === 1 ? 'job' : 'jobs'}</span>
+          {canManage ? <button type="button" className="jt-archive-action" aria-label={`${archived ? 'Restore' : 'Archive'} jobs at ${group.name}`} onClick={() => onArchiveProperty(propertyId, !archived)}>{archived ? 'Restore' : 'Archive jobs'}</button> : null}
           {isCollapsed ? <span className="jt-collapsed-summary">{formatMoney(total)}</span> : null}
         </div>
         <div id={`jt-group-${propertyId}`} hidden={isCollapsed}>

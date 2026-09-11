@@ -251,6 +251,7 @@ export type TrackerColumnKey = 'area' | 'service' | 'workers' | 'status' | 'dueD
 export type TrackerColumn = { key: TrackerColumnKey; label: string };
 
 export type JobRow = {
+  archivedAt?: string | null;
   subitems?: TrackerSubitem[];
   priority?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
   id: string;

@@ -133,7 +133,8 @@ type TrackerReceiptPreviewState = {
 
 export function JobTrackerView({
   bootstrap,
-  jobs,
+  jobs: allJobs,
+  onArchiveProperty,
   filters,
   onFilterChange,
   onRefresh,
@@ -153,6 +154,7 @@ export function JobTrackerView({
 }: {
   bootstrap: BootstrapPayload | null;
   jobs: JobRow[];
+  onArchiveProperty: (propertyId: string, archived: boolean) => void;
   filters: TrackerFilters;
   onFilterChange: (field: TrackerFilterField, value: string) => void;
   onRefresh: () => void;
@@ -173,6 +175,8 @@ export function JobTrackerView({
   const [mediaDialog, setMediaDialog] = useState<TrackerMediaDialogState>(null);
   const [receiptPreview, setReceiptPreview] = useState<TrackerReceiptPreviewState>(null);
   const [compactJob, setCompactJob] = useState<JobRow | null>(null);
+  const [archiveView, setArchiveView] = useState(false);
+  const jobs = allJobs.filter((job) => Boolean(job.archivedAt) === archiveView);
   const handleTrackerFilterChange = onFilterChange;
   const handleResetFilters = onResetFilters;
   return (
@@ -183,6 +187,10 @@ export function JobTrackerView({
           {canManage ? <button type="button" className="jt-create-button" onClick={() => onCreate(filters.propertyId || undefined)}><UiIcon name="plus" size={16} />New job</button> : null}
         </div>
         <div className="jt-view-tab"><UiIcon name="dashboard" size={16} />Main table</div>
+        <div className="jt-archive-views" role="group" aria-label="Job archive view">
+          <button type="button" aria-pressed={!archiveView} onClick={() => setArchiveView(false)}>Active</button>
+          <button type="button" aria-pressed={archiveView} onClick={() => setArchiveView(true)}>Archived</button>
+        </div>
         <div className="tracker-filter-toolbar">
           <div className="job-tracker-filters job-tracker-filters--essential">
             <label>
@@ -261,8 +269,10 @@ export function JobTrackerView({
         <div className="tracker-table-shell">
           {jobs.length ? (
             <JobTrackerBoard
-              key={JSON.stringify(filters)}
+              key={`${archiveView}-${JSON.stringify(filters)}`}
               jobs={jobs}
+              archived={archiveView}
+              onArchiveProperty={onArchiveProperty}
               canManage={canManage}
               onCreate={onCreate}
               onDetails={setCompactJob}
@@ -280,7 +290,7 @@ export function JobTrackerView({
               onFilePreview={(job, file) => setReceiptPreview({ job, file })}
             />
           ) : (
-            <div className="empty-box">No jobs match the current filters.</div>
+            <div className="empty-box">No {archiveView ? 'archived' : 'active'} jobs match the current filters.</div>
           )}
         </div>
       </div>
