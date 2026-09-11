@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import { PasswordField } from './PasswordField';
 import { UiIcon } from './UiIcon';
+import { WorkspaceNotice } from './WorkspaceNotice';
 import logoMark from '../assets/all-avenues-realty-logo.png';
 
 export function LoginView({
@@ -103,7 +104,7 @@ export function LoginView({
               placeholder="Enter your password"
             />
 
-            {error ? <div className="flash error">{error}</div> : null}
+            {error ? <WorkspaceNotice type="error">{error}</WorkspaceNotice> : null}
 
             <button type="submit" className="login-submit" disabled={busy}>
               <UiIcon name="shield" />

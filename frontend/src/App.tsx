@@ -52,6 +52,7 @@ import type { DocumentCenterDeleteItem } from './components/DocumentCenterView';
 import { AdvanceCashAlertsBell } from './components/AdvanceCashAlertsBell';
 import { UiIcon } from './components/UiIcon';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { WorkspaceNotice } from './components/WorkspaceNotice';
 import { LoginView } from './components/LoginView';
 import { GlobalSearch } from './components/GlobalSearch';
 import { ClientPortalView, PublicClientPortalView } from './components/ClientPortalView';
@@ -2124,8 +2125,8 @@ export default function App() {
           </header>
         ) : null}
 
-        {message ? <div className={`flash ${message.type}`}>{message.text}</div> : null}
-        {health?.database === 'down' ? <div className="flash info">The UI is ready, but PostgreSQL is not connected yet.</div> : null}
+        {message ? <WorkspaceNotice type={message.type} onDismiss={() => setMessage(null)}>{message.text}</WorkspaceNotice> : null}
+        {health?.database === 'down' ? <WorkspaceNotice type="info">The database is currently unavailable. Please try again shortly.</WorkspaceNotice> : null}
 
         <Suspense fallback={<div className="empty-box">Loading panel...</div>}>
         {activeTab === 'dashboard' ? (

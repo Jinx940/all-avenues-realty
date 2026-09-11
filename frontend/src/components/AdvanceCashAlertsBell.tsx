@@ -62,7 +62,7 @@ export function AdvanceCashAlertsBell({
       const rect = buttonRef.current.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
-      const width = Math.min(460, Math.max(320, viewportWidth - 28));
+      const width = Math.min(460, viewportWidth - 28);
       const left = Math.min(
         Math.max(14, rect.right - width),
         Math.max(14, viewportWidth - width - 14),
@@ -170,6 +170,9 @@ export function AdvanceCashAlertsBell({
                   >
                     {headlineAlert ? advanceCashPriorityLabel(headlineAlert) : 'All clear'}
                   </span>
+                  <button type="button" className="advance-cash-panel-close" aria-label="Close payment alerts" onClick={() => { setIsOpen(false); buttonRef.current?.focus(); }}>
+                    <UiIcon name="close" size={17} />
+                  </button>
                 </div>
 
                 <div className="advance-cash-panel-hero-metrics">

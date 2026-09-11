@@ -468,7 +468,10 @@ export function JobsView({
                       <UiIcon name={fileIcons[field]} size={15} />
                       <span>{fileLabels[field]}</span>
                     </span>
-                    <input type="file" multiple onChange={(event) => onFilesChange(field, Array.from(event.target.files ?? []))} />
+                    <span className="workspace-file-picker">
+                      <UiIcon name="paperclip" size={15} /> Choose files
+                      <input type="file" multiple aria-label={`Choose ${fileLabels[field]} files`} onChange={(event) => onFilesChange(field, Array.from(event.target.files ?? []))} />
+                    </span>
                     <small>{form.files[field].length ? `${form.files[field].length} file(s) selected` : 'No files selected'}</small>
                   </label>
                 ))}
