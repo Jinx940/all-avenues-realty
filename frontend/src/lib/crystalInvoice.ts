@@ -43,7 +43,7 @@ export function crystalDescriptionChunks(text: string): string[] {
 const styles = `
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: #e9e8e6; color: #363735; font-family: Arial, sans-serif; }
-.page { width: 210mm; height: 297mm; padding: 42px 42px 70px; margin: 0 auto 18px; position: relative; overflow: hidden; background: #fcfcfa; color: #363735; font-family: Arial, sans-serif; font-size: 10px; line-height: 1.4; font-weight: 400; page-break-after: always; }
+.page { width: 210mm; height: 297mm; padding: 42px; margin: 0 auto 18px; position: relative; overflow: hidden; background: #fcfcfa; color: #363735; font-family: Arial, sans-serif; font-size: 10px; line-height: 1.4; font-weight: 400; page-break-after: always; }
 .page:last-child { page-break-after: auto; }
 .cs-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
 .cs-brand { border-left: 7px double #c8c3bd; padding: 8px 0 8px 18px; }
@@ -64,10 +64,12 @@ html, body { margin: 0; padding: 0; background: #e9e8e6; color: #363735; font-fa
 .cs-table th { padding: 13px 7px; background: #edeae6; font-size: 8px; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; text-align: left; }
 .cs-table th:nth-child(3) { background: #d6d0c9; }
 .cs-table td { vertical-align: top; padding: 4px 7px; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
-.cs-table .cs-item-start td { padding-top: 8px; }
+.cs-table .cs-merged { padding: 8px 7px; border-bottom: 1px solid #e9e6e1; }
+.cs-table .cs-level-0, .cs-table .cs-level-1 { background: #f3f3f0; }
 .cs-table .cs-item-end td { padding-bottom: 8px; border-bottom: 1px solid #e9e6e1; }
 .cs-table .cs-item-shaded td { background: #f3f3f0; }
 .cs-table td strong { display: block; font-weight: 600; margin-bottom: 2px; }
+.cs-description + .cs-description { margin-top: 6px; }
 .cs-description { white-space: pre-wrap; margin: 0; font-size: 10px; line-height: 1.4; }
 .cs-table .cs-money { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 9px; }
 .cs-cont { font-size: 8px; color: #8e8d87; font-weight: 400; }
@@ -84,7 +86,6 @@ html, body { margin: 0; padding: 0; background: #e9e8e6; color: #363735; font-fa
 .cs-total { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #d6d0c9; padding: 20px 15px; border-left: 8px solid #c7c0b7; }
 .cs-total span { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
 .cs-total strong { font-size: 19px; font-weight: 500; white-space: nowrap; }
-.cs-footer { position: absolute; bottom: 24px; left: 42px; right: 42px; display: flex; justify-content: space-between; border-top: 1px solid #dedbd6; padding-top: 10px; color: #96968e; font-size: 8px; letter-spacing: 1px; }
 .cs-continuation { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 25px; border-bottom: 1px solid #dedbd6; padding-bottom: 20px; }
 .cs-continuation strong { font-size: 15px; font-weight: 400; letter-spacing: 1.5px; }
 .cs-continuation span { font-size: 11px; color: #85857d; }
@@ -98,62 +99,65 @@ html, body { margin: 0; padding: 0; background: #e9e8e6; color: #363735; font-fa
 
 export function buildCrystalInvoiceHtml(data: CrystalInvoiceData): string {
   const invoice = data.documentType === 'Invoice';
-  const rows = data.selectedItems.flatMap((item, itemIndex) => {
-    const chunks = crystalDescriptionChunks(item.description);
-    return chunks.map((description, index) => {
-      const render = (pageStart: boolean) => {
-        const showService = index === 0 || pageStart;
-        const title = index === 0 ? item.service : `${item.service} (continued)`;
-        const classes = [showService ? 'cs-item-start' : '', index === chunks.length - 1 ? 'cs-item-end' : '', itemIndex % 2 ? 'cs-item-shaded' : ''].filter(Boolean).join(' ');
-        return `<tr class="${classes}"><td>${showService ? escape(item.unit || '-') : ''}</td><td>${showService ? escape(item.area || '-') : ''}</td><td>${showService ? `<strong>${escape(title)}</strong>` : ''}<p class="cs-description">${escape(description)}</p></td><td class="cs-money">${index === 0 && invoice ? formatMoney(item.labor) : ''}</td><td class="cs-money">${index === 0 ? formatMoney(item.unitPrice) : ''}</td><td class="cs-money">${index === 0 ? formatMoney(item.unitPrice + (invoice ? item.labor : 0)) : ''}</td></tr>`;
-      };
-      return { html: render(false), startHtml: render(true), estimate: 30 + Math.ceil((description.length + item.service.length) / 40) * 14 };
-    });
-  });
-  const head = `<colgroup><col style="width:8%"><col style="width:11%"><col style="width:42%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>Unit</th><th>Work</th><th>Services &amp; description</th><th class="cs-money">Labor</th><th class="cs-money">${invoice ? 'Materials' : 'Price'}</th><th class="cs-money">Amount</th></tr></thead>`;
+  const rows = data.selectedItems.flatMap((item, itemIndex) =>
+    crystalDescriptionChunks(item.description).map((description, chunkIndex) => ({ item, itemIndex, description, chunkIndex })));
+  type Row = typeof rows[number];
+  const key = (row: Row, level: number) => JSON.stringify([row.item.unit.trim(), ...(level > 0 ? [row.item.area.trim()] : []), ...(level > 1 ? [row.item.service.trim()] : [])]);
+  const renderRows = (page: Row[]) => page.map((row, index) => {
+    const cells = [0, 1, 2].map((level) => {
+      if (index && key(page[index - 1], level) === key(row, level)) return '';
+      let end = index + 1;
+      while (end < page.length && key(page[end], level) === key(row, level)) end++;
+      const content = level === 0 ? escape(row.item.unit || '-') : level === 1 ? escape(row.item.area || '-')
+        : '<strong>' + escape(row.item.service) + '</strong>' + page.slice(index, end).map((part) => '<p class="cs-description">' + escape(part.description) + '</p>').join('');
+      return '<td class="cs-merged cs-level-' + level + '" rowspan="' + (end - index) + '">' + content + '</td>';
+    }).join('');
+    const amount = (value: number) => '<td class="cs-money">' + (row.chunkIndex === 0 ? formatMoney(value) : '') + '</td>';
+    return '<tr>' + cells + (invoice ? amount(row.item.labor) : '<td class="cs-money"></td>') + amount(row.item.unitPrice) + amount(row.item.unitPrice + (invoice ? row.item.labor : 0)) + '</tr>';
+  }).join('');
+  const columns = '<colgroup><col style="width:8%"><col style="width:11%"><col style="width:42%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup>';
+  const head = '<thead><tr><th>Unit</th><th>Work</th><th>Services &amp; description</th><th class="cs-money">Labor</th><th class="cs-money">' + (invoice ? 'Materials' : 'Price') + '</th><th class="cs-money">Amount</th></tr></thead>';
   const continuation = (label: string) => `<header class="cs-continuation"><strong>CRYSTAL SARICH</strong><span>${escape(data.documentType)} ${escape(data.invoiceNumber)} / ${label}</span></header>`;
   const summary = `<section class="cs-bottom"><div class="cs-thanks"><p>Thank you for<br>trusting us.</p><strong>Crystal Sarich</strong><small>${invoice ? 'INVOICE ISSUED BY' : 'ESTIMATE PREPARED BY'}</small></div><div class="cs-summary"><dl><div><dt>Subtotal</dt><dd>${formatMoney(data.jobTotal)}</dd></div>${data.materialExpense ? `<div><dt>Material expense</dt><dd>-${formatMoney(data.materialExpense)}</dd></div>` : ''}${data.advancePayment ? `<div><dt>Advance payment</dt><dd>-${formatMoney(data.advancePayment)}</dd></div>` : ''}</dl><div class="cs-total"><span>${invoice ? 'Total due' : 'Total'}</span><strong>${formatMoney(data.totalDue)}</strong></div></div></section>`;
   const firstHeader = `<header class="cs-header"><div class="cs-brand"><strong>CRYSTAL SARICH</strong><small>ALL AVENUES REALTY</small></div><h1 class="cs-title">${data.documentType}</h1></header><section class="cs-meta"><div><h2>Billing to</h2><p>${escape(data.billTo.trim() || 'Recipient not specified')}</p></div><dl><div><dt>${data.documentType}</dt><dd>${escape(data.invoiceNumber)}</dd></div><div><dt>Date</dt><dd>${escape(dateLabel(data.docDate))}</dd></div><div><dt>Currency</dt><dd>USD - US Dollar</dd></div></dl></section><div class="cs-property"><span>Property</span><strong>${escape([data.propertyName, data.propertyAddress !== data.propertyName ? data.propertyAddress : '', data.propertyCityLine].filter(Boolean).join(' / '))}</strong></div>`;
-  // Use the real header, table and footer geometry. Only the final page needs
-  // room for totals; reserving that space on every page leaves large gaps.
-  let heights = rows.map((row) => row.estimate);
-  let startHeights = [...heights];
-  let firstCapacity = 750;
-  let continuationCapacity = 920;
-  let summaryHeight = 190;
+  const pageHtml = (page: Row[], index: number, final: boolean) => '<section class="page crystal-invoice-page">' + (index === 0 ? firstHeader : continuation('Continued')) + '<table class="cs-table">' + columns + (index === 0 ? head : '') + '<tbody>' + renderRows(page) + '</tbody></table>' + (final ? summary : '') + '</section>';
+  // Measure the actual merged table: rowspans change row heights, so measuring
+  // unmerged rows can clip descriptions or leave unnecessary page gaps.
+  const pages: Row[][] = [[]];
+  let host: HTMLDivElement | undefined;
+  let shadow: ShadowRoot | undefined;
   if (typeof document !== 'undefined') {
-    const host = document.createElement('div');
+    host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:-10000px;top:0;visibility:hidden;width:794px;';
-    const shadow = host.attachShadow({ mode: 'open' });
-    const probe = (header: string, start: boolean) => `<div class="page">${header}<table class="cs-table">${head}<tbody>${rows.map((row) => start ? row.startHtml : row.html).join('')}</tbody></table>${summary}<footer class="cs-footer"><span>CRYSTAL SARICH</span><span>1 / 1</span></footer></div>`;
-    shadow.innerHTML = `<style>${styles}</style>${probe(firstHeader, false)}${probe(continuation('Continued'), true)}`;
+    shadow = host.attachShadow({ mode: 'open' });
     document.body.appendChild(host);
-    try {
-      const [first, continued] = [...shadow.querySelectorAll('.page')];
-      const capacity = (page: Element) => Math.floor(Math.min(page.getBoundingClientRect().bottom - 70, page.querySelector('.cs-footer')!.getBoundingClientRect().top - 16) - page.querySelector('thead')!.getBoundingClientRect().bottom);
-      firstCapacity = capacity(first);
-      continuationCapacity = capacity(continued);
-      heights = [...first.querySelectorAll('tbody tr')].map((row) => row.getBoundingClientRect().height);
-      startHeights = [...continued.querySelectorAll('tbody tr')].map((row) => row.getBoundingClientRect().height);
-      summaryHeight = Math.ceil(first.querySelector('.cs-bottom')!.getBoundingClientRect().height) + 2;
-    }
-    finally { host.remove(); }
   }
-  const pages: string[][] = [[]];
-  let height = 0;
-  rows.forEach((row, index) => {
-    const budget = pages.length === 1 ? firstCapacity : continuationCapacity;
-    const finalSpace = index === rows.length - 1 ? summaryHeight : 0;
-    const rowHeight = pages.at(-1)!.length ? heights[index] : startHeights[index];
-    if (height + rowHeight + finalSpace > budget && pages.at(-1)!.length) { pages.push([]); height = 0; }
-    const pageStart = pages.at(-1)!.length === 0;
-    pages.at(-1)!.push(pageStart ? row.startHtml : row.html);
-    height += pageStart ? startHeights[index] : heights[index];
-  });
+  const fits = (page: Row[], index: number, final: boolean) => {
+    if (!shadow) return page.reduce((sum, row) => sum + 12 + Math.ceil((row.description.length + row.item.service.length) / 40) * 14, 0) + (final ? 190 : 0) <= (index === 0 ? 720 : 950);
+    shadow.innerHTML = '<style>' + styles + '</style>' + pageHtml(page, index, final);
+    const element = shadow.querySelector('.page')!;
+    const bottom = element.getBoundingClientRect().bottom - 42;
+    return [...element.querySelectorAll('.cs-table, .cs-bottom')].every((block) => block.getBoundingClientRect().bottom <= bottom - 2);
+  };
+  try {
+    rows.forEach((row, index) => {
+      let current = pages.at(-1)!;
+      if (!fits([...current, row], pages.length - 1, false)) {
+        pages.push([]);
+        current = pages.at(-1)!;
+      }
+      current.push(row);
+      if (index === rows.length - 1 && !fits(current, pages.length - 1, true)) {
+        // Keep the final row with totals when both fit on a continuation page.
+        if (current.length > 1 && fits([row], pages.length, true)) {
+          current.pop();
+          pages.push([row]);
+        } else pages.push([]);
+      }
+    });
+  } finally { host?.remove(); }
   const attachmentPages = Array.from({ length: Math.ceil(data.attachments.length / 2) }, (_, index) => data.attachments.slice(index * 2, index * 2 + 2));
-  const pageCount = pages.length + attachmentPages.length;
-  const footer = (index: number) => `<footer class="cs-footer"><span>CRYSTAL SARICH / ${escape(data.documentType.toUpperCase())} ${escape(data.invoiceNumber)}</span><span>${index + 1} / ${pageCount}</span></footer>`;
-  const content = pages.map((page, index) => `<section class="page crystal-invoice-page">${index === 0 ? firstHeader : continuation('Continued')}<table class="cs-table">${head}<tbody>${page.join('')}</tbody></table>${index === pages.length - 1 ? summary : ''}${footer(index)}</section>`).join('');
-  const evidence = attachmentPages.map((files, index) => `<section class="page crystal-invoice-page attachment-page">${continuation('Files and pictures')}<div class="cs-evidence">${files.map((file) => `<figure class="attachment-card"><img src="${escape(file.url)}" alt="${escape(file.fileName)}"><figcaption>${escape(file.kind === 'before' ? 'Before' : 'After')} / ${escape(file.label)}</figcaption></figure>`).join('')}</div>${footer(pages.length + index)}</section>`).join('');
+  const content = pages.map((page, index) => pageHtml(page, index, index === pages.length - 1)).join('');
+  const evidence = attachmentPages.map((files) => '<section class="page crystal-invoice-page attachment-page">' + continuation('Files and pictures') + '<div class="cs-evidence">' + files.map((file) => '<figure class="attachment-card"><img src="' + escape(file.url) + '" alt="' + escape(file.fileName) + '"><figcaption>' + escape(file.kind === 'before' ? 'Before' : 'After') + ' / ' + escape(file.label) + '</figcaption></figure>').join('') + '</div></section>').join('');
   return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>${escape(data.documentType)} ${escape(data.invoiceNumber)} - Crystal Sarich</title><style>${styles}</style></head><body>${content}${evidence}</body></html>`;
 }

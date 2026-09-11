@@ -165,7 +165,7 @@ test('Crystal Sarich invoice previews and exports with its own owner and USD tot
   expect(Buffer.from(getIssued()!.content as string, 'base64').subarray(0, 5).toString()).toBe('%PDF-');
 });
 
-test('Crystal continuation pages preserve long descriptions and fit above the footer', async ({ page }) => {
+test('Crystal continuation pages preserve long descriptions and fit within the page', async ({ page }) => {
   test.setTimeout(60000);
   await openGenerator(page);
   const setup = page.locator('.iq-setup');
@@ -180,19 +180,23 @@ test('Crystal continuation pages preserve long descriptions and fit above the fo
   const pages = frame.locator('.page');
   // This fixture previously wasted four pages. Compact rows must fit in two.
   await expect(pages).toHaveCount(2);
+  await expect(frame.locator('thead')).toHaveCount(1);
+  await expect(frame.locator('.cs-footer')).toHaveCount(0);
   const fits = await pages.evaluateAll((elements) => elements.every((element) => {
-    const footerTop = element.querySelector('.cs-footer')!.getBoundingClientRect().top;
+    const footerTop = element.getBoundingClientRect().bottom - 42;
     return [...element.querySelectorAll('tbody tr, .cs-bottom')].every((row) => row.getBoundingClientRect().bottom < footerTop);
   }));
   expect(fits).toBe(true);
+  await pages.first().screenshot({ path: 'test-results/crystal-merged-page-1.png' });
+  await pages.nth(1).screenshot({ path: 'test-results/crystal-merged-page-2.png' });
   const firstPageGap = await pages.first().evaluate((element) => {
-    const footer = element.querySelector('.cs-footer')!.getBoundingClientRect();
+    const footer = { top: element.getBoundingClientRect().bottom - 42 };
     const table = element.querySelector('.cs-table')!.getBoundingClientRect();
     return footer.top - table.bottom;
   });
   expect(firstPageGap).toBeLessThan(90);
-  // A service title appears once per page, not before every paragraph.
-  await expect(frame.locator('tbody strong').filter({ hasText: 'Water Meter Piping Repair' })).toHaveCount(2);
+  // Merged descriptions now fit the first service on one page.
+  await expect(frame.locator('tbody strong').filter({ hasText: 'Water Meter Piping Repair' })).toHaveCount(1);
   expect(await frame.locator('.cs-bottom').evaluate((element) => element.getBoundingClientRect().top - element.previousElementSibling!.getBoundingClientRect().bottom)).toBeLessThan(2);
   await expect(frame.locator('.cs-total')).toHaveCount(1);
   await expect(frame.locator('.cs-money').filter({ hasText: '$2,650.00' })).toHaveCount(1);
@@ -217,7 +221,7 @@ test('Crystal fills intermediate pages with a tall billing address without clipp
   const pages = frame.locator('.page');
   expect(await pages.count()).toBeGreaterThan(2);
   const geometry = await pages.evaluateAll((elements) => elements.map((element) => {
-    const footer = element.querySelector('.cs-footer')!.getBoundingClientRect();
+    const footer = { top: element.getBoundingClientRect().bottom - 42 };
     const table = element.querySelector('.cs-table')!.getBoundingClientRect();
     const summary = element.querySelector('.cs-bottom');
     return { gap: footer.top - table.bottom, fits: (summary ?? element.querySelector('.cs-table'))!.getBoundingClientRect().bottom < footer.top };

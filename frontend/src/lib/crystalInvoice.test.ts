@@ -9,6 +9,19 @@ const data: CrystalInvoiceData = {
 };
 
 describe('Crystal invoice', () => {
+  it('merges consecutive location and service cells without merging different areas or losing descriptions', () => {
+    const html = buildCrystalInvoiceHtml({ ...data, selectedItems: [
+      { ...data.selectedItems[0], description: 'First repair.' },
+      { ...data.selectedItems[0], description: 'Second repair.' },
+      { ...data.selectedItems[0], area: 'Bathroom', description: 'Third repair.' },
+    ] });
+    expect(html.match(/>Unit 1<\/td>/g)).toHaveLength(1);
+    expect(html).toContain('class="cs-merged cs-level-0" rowspan="3"');
+    expect(html).toContain('class="cs-merged cs-level-1" rowspan="2">Kitchen');
+    expect(html.match(/<strong>Plumbing<\/strong>/g)).toHaveLength(2);
+    for (const text of ['First repair.', 'Second repair.', 'Third repair.']) expect(html).toContain(text);
+    expect(html.match(/\$2,000.00/g)).toHaveLength(3);
+  });
   it('preserves paragraph order and every word while bounding continuation rows', () => {
     const text = Array.from({ length: 500 }, (_, index) => `Inspection${index}`).join(' ');
     const chunks = crystalDescriptionChunks(text);
@@ -34,6 +47,7 @@ describe('Crystal invoice', () => {
     expect(html.match(/class="page crystal-invoice-page"/g)!.length).toBeGreaterThan(1);
     expect(html.match(/\$2,000.00/g)).toHaveLength(1);
     expect(html.match(/class="cs-total"/g)).toHaveLength(1);
-    expect(html).toContain('(continued)');
+    expect(html.match(/<thead>/g)).toHaveLength(1);
+    expect(html).not.toContain('<footer');
   });
 });
