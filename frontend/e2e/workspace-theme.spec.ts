@@ -97,6 +97,47 @@ test('confirmation traps focus, cancels with Escape and restores the trigger wit
   await expect(alerts).toHaveCount(0);
 });
 
+test('mobile navigation hides search and alerts until the menu closes', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openWorkspace(page);
+  await expect(page.locator('.global-search')).toBeVisible();
+  await page.locator('.advance-cash-bell-button').click();
+  await expect(page.locator('.advance-cash-panel')).toBeVisible();
+  await page.getByRole('button', { name: 'Show menu', exact: true }).click();
+  await expect(page.locator('.sidebar')).toBeVisible();
+  await expect(page.locator('.global-search')).toHaveCount(0);
+  await expect(page.locator('.advance-cash-bell')).toHaveCount(0);
+  await expect(page.locator('.advance-cash-panel')).toHaveCount(0);
+  await expect(page.locator('.content')).toHaveAttribute('inert', '');
+  await page.screenshot({ path: 'test-results/mobile-navigation-open.png', animations: 'disabled' });
+  await page.getByRole('button', { name: 'Close navigation menu' }).click({ position: { x: 380, y: 400 } });
+  await expect(page.locator('.global-search')).toBeVisible();
+  await expect(page.locator('.advance-cash-bell-button')).toBeVisible();
+  await expect(page.locator('.content')).not.toHaveAttribute('inert', '');
+});
+
+for (const width of [390, 844, 1440]) {
+  test(`Job Tracker scrolls columns correctly at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openWorkspace(page);
+    await navigate(page, 'Operations', 'Job Tracker');
+    const scroller = page.locator('.jt-table-scroll').first();
+    const cells = scroller.locator('thead .jt-select-cell, thead th:nth-child(2), tbody .jt-select-cell, tbody .jt-task-cell');
+    const before = await cells.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().left));
+    expect(before.length).toBeGreaterThanOrEqual(4);
+    await scroller.evaluate((element) => { element.scrollLeft = 350; });
+    const distance = await scroller.evaluate((element) => element.scrollLeft);
+    expect(distance).toBeGreaterThan(300);
+    const after = await cells.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().left));
+    after.forEach((left, index) => {
+      if (width <= 900) expect(left).toBeCloseTo(before[index] - distance, 0);
+      // Desktop cells may settle slightly onto their sticky inset after scrolling.
+      else expect(Math.abs(left - before[index])).toBeLessThan(3);
+    });
+    await page.screenshot({ path: `test-results/tracker-scroll-${width}.png` });
+  });
+}
+
 test('login error uses the shared alert design', async ({ page }) => {
   await page.route('**/api/**', (route) => route.fulfill({ status: 401, json: { message: 'Invalid username or password.' } }));
   await page.goto('/');

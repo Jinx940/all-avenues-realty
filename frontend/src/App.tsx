@@ -379,6 +379,7 @@ export default function App() {
   const showPageHeader = !tabsWithoutHeader.includes(activeTab);
   const showPageBadges = showPageHeader && Boolean(currentUser);
   const isSidebarVisible = isCompactViewport ? isMobileSidebarOpen : isDesktopSidebarExpanded;
+  const isMobileNavigationOpen = isCompactViewport && isSidebarVisible;
 
   const allWorkers = useMemo(
     () => (bootstrap ? [...bootstrap.workers, ...bootstrap.inactiveWorkers] : []),
@@ -2079,7 +2080,7 @@ export default function App() {
         </div>
       </aside>
 
-      <section className="content">
+      <section className="content" inert={isMobileNavigationOpen}>
         <div className="content-shell-head">
           <button
             type="button"
@@ -2092,7 +2093,7 @@ export default function App() {
             <UiIcon name={isSidebarVisible ? 'close' : 'menu'} size={18} />
             <span>{isSidebarVisible ? 'Hide menu' : 'Show menu'}</span>
           </button>
-          <GlobalSearch
+          {!isMobileNavigationOpen && <GlobalSearch
             jobs={jobs}
             properties={bootstrap?.properties ?? []}
             documents={generatedDocuments}
@@ -2101,7 +2102,7 @@ export default function App() {
             onOpenProperty={(property) => void openPropertyForReview(property)}
             onOpenDocument={() => void openDocumentCenterFor()}
             onOpenWorker={() => void openWorkersFromSearch()}
-          />
+          />}
         </div>
 
         {showPageHeader ? (
@@ -2433,7 +2434,7 @@ export default function App() {
         />
       </section>
 
-      {showAdvanceCashAlerts ? (
+      {showAdvanceCashAlerts && !isMobileNavigationOpen ? (
         <AdvanceCashAlertsBell
           alerts={advanceCashAlerts}
           onOpenJob={openAdvanceCashAlertJob}
