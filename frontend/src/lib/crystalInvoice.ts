@@ -23,6 +23,15 @@ const dateLabel = (value: string) => {
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(date) : '';
 };
 
+export function crystalDescriptionSentences(text: string, service: string): string[] {
+  const title = service.trim().split(/\s+/).map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
+  // Remove only a standalone leading service label, never a meaningful sentence.
+  const body = title ? text.trim().replace(new RegExp('^' + title + '(?:[.!?:](?=\\s|$)|(?=\\r?\\n|$))\\s*', 'i'), '') : text.trim();
+  const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
+  const sentences = body.split(/\r?\n/).flatMap((line) => [...segmenter.segment(line)].map(({ segment }) => segment.trim())).filter(Boolean);
+  return sentences.length ? sentences : [''];
+}
+
 // Bound each continuation row so even a single long description can span pages.
 export function crystalDescriptionChunks(text: string): string[] {
   const paragraphs = text.replace(/\r\n?/g, '\n').split('\n').map((line) => line.trim()).filter(Boolean);
@@ -114,7 +123,9 @@ export function buildCrystalInvoiceHtml(data: CrystalInvoiceData): string {
   }
   const groupedItems = [...units.values()].flatMap((areas) => [...areas.values()].flatMap((services) => [...services.values()].flat()));
   const rows = groupedItems.flatMap((item) =>
-    crystalDescriptionChunks(item.description).map((description, chunkIndex) => ({ item, description, chunkIndex })));
+    crystalDescriptionSentences(item.description, item.service).flatMap((sentence, sentenceIndex) =>
+      crystalDescriptionChunks(sentence).map((description) => ({ item, description, sentenceIndex })))
+      .map((row, chunkIndex) => ({ ...row, chunkIndex })));
   type Row = typeof rows[number];
   const key = (row: Row, level: number) => JSON.stringify([normalized(row.item.unit), ...(level > 0 ? [normalized(row.item.area)] : []), ...(level > 1 ? [normalized(row.item.service)] : [])]);
   const renderRows = (page: Row[]) => page.map((row, index) => {
@@ -122,8 +133,14 @@ export function buildCrystalInvoiceHtml(data: CrystalInvoiceData): string {
       if (index && key(page[index - 1], level) === key(row, level)) return '';
       let end = index + 1;
       while (end < page.length && key(page[end], level) === key(row, level)) end++;
+      const sentences: string[] = [];
+      if (level === 2) page.slice(index, end).forEach((part, offset, parts) => {
+        const previous = parts[offset - 1];
+        if (previous && previous.item === part.item && previous.sentenceIndex === part.sentenceIndex) sentences[sentences.length - 1] += ' ' + part.description;
+        else sentences.push(part.description);
+      });
       const content = level === 0 ? escape(row.item.unit || '-') : level === 1 ? escape(row.item.area || '-')
-        : '<strong>' + escape(row.item.service) + '</strong><p class="cs-description">' + escape(page.slice(index, end).map((part) => part.description).join(' ')) + '</p>';
+        : '<strong>' + escape(row.item.service) + '</strong>' + sentences.filter(Boolean).map((sentence) => '<p class="cs-description">' + escape(sentence) + '</p>').join('');
       return '<td class="cs-merged cs-level-' + level + '" rowspan="' + (end - index) + '">' + content + '</td>';
     }).join('');
     const amount = (value: number) => '<td class="cs-money">' + (row.chunkIndex === 0 ? formatMoney(value) : '') + '</td>';

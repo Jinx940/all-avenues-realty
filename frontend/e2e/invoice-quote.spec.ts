@@ -219,7 +219,9 @@ test('Crystal continuation pages preserve long descriptions and fit within the p
     const table = element.querySelector('.cs-table')!.getBoundingClientRect();
     return footer.top - table.bottom;
   });
-  if (await pages.count() > 1) expect(firstPageGap).toBeLessThan(90);
+  // The final item stays with its totals; sentence-per-line text can move that
+  // closing block together to page two while leaving less than its height free.
+  if (await pages.count() > 1) expect(firstPageGap).toBeLessThan(160);
   // Merged descriptions now fit the first service on one page.
   await expect(frame.locator('tbody strong').filter({ hasText: 'Water Meter Piping Repair' })).toHaveCount(1);
   expect(await frame.locator('.cs-bottom').evaluate((element) => element.getBoundingClientRect().top - element.previousElementSibling!.getBoundingClientRect().bottom)).toBeLessThan(2);

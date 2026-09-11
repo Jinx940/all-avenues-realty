@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCrystalInvoiceHtml, crystalDescriptionChunks, type CrystalInvoiceData } from './crystalInvoice';
+import { buildCrystalInvoiceHtml, crystalDescriptionChunks, crystalDescriptionSentences, type CrystalInvoiceData } from './crystalInvoice';
 
 const data: CrystalInvoiceData = {
   documentType: 'Invoice', invoiceNumber: '4010', docDate: '2026-09-10', billTo: 'Sample client',
@@ -9,6 +9,14 @@ const data: CrystalInvoiceData = {
 };
 
 describe('Crystal invoice', () => {
+  it('removes the leading duplicate service and separates sentences without splitting decimals', () => {
+    expect(crystalDescriptionSentences('Water leak. Found a leak. Replaced the 1.5 inch pipe. Cleaned up.', 'Water Leak')).toEqual(['Found a leak.', 'Replaced the 1.5 inch pipe.', 'Cleaned up.']);
+    expect(crystalDescriptionSentences('Water leak repaired. Tested it.', 'Water Leak')).toEqual(['Water leak repaired.', 'Tested it.']);
+    expect(crystalDescriptionSentences('Water Leak\nCleaned up.\n\nTested it.', 'Water Leak')).toEqual(['Cleaned up.', 'Tested it.']);
+    const html = buildCrystalInvoiceHtml({ ...data, selectedItems: [{ ...data.selectedItems[0], service: 'Water Leak', description: 'Water leak. Cleaned up. Tested it.' }] });
+    expect(html).toContain('<strong>Water Leak</strong><p class="cs-description">Cleaned up.</p><p class="cs-description">Tested it.</p>');
+    expect(html).not.toContain('>Water leak.<');
+  });
   it('groups interleaved bedrooms under their unit and joins description lines without blanks', () => {
     const selectedItems = ['Bedroom 2', 'Bedroom 1', 'Bedroom 2', 'Bedroom 1'].map((area, i) => ({
       ...data.selectedItems[0], area, service: i < 2 ? 'Electrical' : 'Cleaning', description: `Repair ${i}.\n\nChecked ${i}.`,
@@ -16,8 +24,8 @@ describe('Crystal invoice', () => {
     const html = buildCrystalInvoiceHtml({ ...data, selectedItems });
     expect(html.match(/>Bedroom 2<\/td>/g)).toHaveLength(1);
     expect(html.match(/>Bedroom 1<\/td>/g)).toHaveLength(1);
-    expect(html.indexOf('Repair 2. Checked 2.')).toBeLessThan(html.indexOf('Repair 1. Checked 1.'));
-    expect(html).toContain('Repair 0. Checked 0.');
+    expect(html.indexOf('Repair 2.')).toBeLessThan(html.indexOf('Repair 1.'));
+    expect(html).toContain('Repair 0.</p><p class="cs-description">Checked 0.');
     expect(html.match(/\$2,000.00/g)).toHaveLength(4);
     expect(selectedItems[1].area).toBe('Bedroom 1');
   });
