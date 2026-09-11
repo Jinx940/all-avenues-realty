@@ -110,6 +110,10 @@
 .iq-workspace .invoice-generate-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 14px; border: 1px solid #0073ea; border-radius: 5px; background: #0073ea; color: #fff; box-shadow: none; font-weight: 700; }
 .iq-workspace .invoice-generate-button:not(:disabled):hover { background: #0061c6; }
 .iq-history { scroll-margin-top: 20px; }
+.iq-history-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 14px; color: #718096; font-size: 11px; }
+.iq-history-pagination > div { display: flex; align-items: center; gap: 10px; }
+.iq-history-pagination .ghost-button { min-height: 34px; }
+@media (max-width: 650px) { .iq-history-pagination { padding-bottom: 56px; } }
 .iq-workspace .invoice-history-filters { grid-template-columns: minmax(190px, 1.5fr) repeat(4, minmax(125px, 1fr)); gap: 12px; margin: 0; }
 .iq-workspace .invoice-history-table-shell { border: 1px solid #e0e5ee; border-radius: 5px; box-shadow: none; }
 .iq-workspace .invoice-history-table { min-width: 840px; }

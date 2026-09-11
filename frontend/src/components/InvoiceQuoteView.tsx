@@ -6194,6 +6194,7 @@ export function InvoiceQuoteView({
   const [generatePdfBusy, setGeneratePdfBusy] = useState(false);
   const [documentPreviewNotice, setDocumentPreviewNotice] = useState<{ type: 'error' | 'info'; text: string } | null>(null);
   const [historySearch, setHistorySearch] = useState('');
+  const [historyPage, setHistoryPage] = useState(1);
   const [historyPropertyId, setHistoryPropertyId] = useState('');
   const [historyOwner, setHistoryOwner] = useState<DocumentOwnerFilter>('ALL');
   const [historyType, setHistoryType] = useState<'ALL' | 'INVOICE' | 'QUOTE'>('ALL');
@@ -6472,6 +6473,11 @@ export function InvoiceQuoteView({
       return matchesDocumentDateRange(document, historyDateRange);
     });
   }, [documents, historyDateRange, historyOwner, historyPropertyId, historySearch, historyType]);
+  const historyPageSize = 10;
+  const historyPageCount = Math.max(1, Math.ceil(filteredDocuments.length / historyPageSize));
+  const currentHistoryPage = Math.min(historyPage, historyPageCount);
+  const historyStart = (currentHistoryPage - 1) * historyPageSize;
+  const pagedDocuments = filteredDocuments.slice(historyStart, historyStart + historyPageSize);
 
   const toggleJobSelection = (jobId: string) => {
     setJobSelection({
@@ -7584,7 +7590,7 @@ export function InvoiceQuoteView({
             <span className="iq-count">{filteredDocuments.length} {filteredDocuments.length === 1 ? 'document' : 'documents'}</span>
           </div>
 
-          <div className="invoice-history-filters">
+          <div className="invoice-history-filters" onChangeCapture={() => setHistoryPage(1)}>
             <label>
               Search No. / file
               <input
@@ -7662,7 +7668,7 @@ export function InvoiceQuoteView({
               </div>
 
               {filteredDocuments.length ? (
-                filteredDocuments.map((document) => (
+                pagedDocuments.map((document) => (
                   <div key={document.id} className="invoice-history-row">
                     <span className="invoice-history-number">{document.documentNumber}</span>
                     <span><span className={`iq-type-badge iq-type-badge--${document.documentTypeLabel.toLowerCase()}`}>{document.documentTypeLabel}</span></span>
@@ -7715,6 +7721,14 @@ export function InvoiceQuoteView({
               )}
             </div>
           </div>
+          <nav className="iq-history-pagination" aria-label="Document history pagination">
+            <span aria-live="polite">{filteredDocuments.length ? historyStart + 1 : 0}–{historyStart + pagedDocuments.length} of {filteredDocuments.length} documents</span>
+            <div>
+              <button type="button" className="ghost-button" disabled={currentHistoryPage === 1} onClick={() => setHistoryPage(currentHistoryPage - 1)}>Previous</button>
+              <span>Page {currentHistoryPage} of {historyPageCount}</span>
+              <button type="button" className="ghost-button" disabled={currentHistoryPage === historyPageCount} onClick={() => setHistoryPage(currentHistoryPage + 1)}>Next</button>
+            </div>
+          </nav>
         </div>
       </div>
 

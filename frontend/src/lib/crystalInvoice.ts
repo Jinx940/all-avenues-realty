@@ -65,13 +65,13 @@ html, body { margin: 0; padding: 0; background: #e9e8e6; color: #363735; font-fa
 .cs-table th:nth-child(3) { background: #d6d0c9; }
 .cs-table td { vertical-align: top; padding: 4px 7px; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
 .cs-table .cs-merged { padding: 8px 7px; border-bottom: 1px solid #e9e6e1; }
-.cs-table .cs-level-0, .cs-table .cs-level-1 { background: #f3f3f0; }
+.cs-table .cs-level-0, .cs-table .cs-level-1 { background: #f3f3f0; text-align: center; vertical-align: middle; }
 .cs-table .cs-item-end td { padding-bottom: 8px; border-bottom: 1px solid #e9e6e1; }
 .cs-table .cs-item-shaded td { background: #f3f3f0; }
 .cs-table td strong { display: block; font-weight: 600; margin-bottom: 2px; }
-.cs-description + .cs-description { margin-top: 6px; }
-.cs-description { white-space: pre-wrap; margin: 0; font-size: 10px; line-height: 1.4; }
+.cs-description { white-space: normal; margin: 0; font-size: 10px; line-height: 1.4; }
 .cs-table .cs-money { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 9px; }
+.cs-table td.cs-money:empty { padding-top: 0; padding-bottom: 0; }
 .cs-cont { font-size: 8px; color: #8e8d87; font-weight: 400; }
 .cs-bottom { display: flex; gap: 28px; justify-content: space-between; align-items: flex-end; padding-top: 20px; margin-top: 0; }
 .cs-thanks { flex: 1; }
@@ -99,17 +99,31 @@ html, body { margin: 0; padding: 0; background: #e9e8e6; color: #363735; font-fa
 
 export function buildCrystalInvoiceHtml(data: CrystalInvoiceData): string {
   const invoice = data.documentType === 'Invoice';
-  const rows = data.selectedItems.flatMap((item, itemIndex) =>
-    crystalDescriptionChunks(item.description).map((description, chunkIndex) => ({ item, itemIndex, description, chunkIndex })));
+  // Gather repeated locations even when the source lists services across rooms.
+  // Preserve first-seen group order and keep each item's amounts with that item.
+  const normalized = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase();
+  const units = new Map<string, Map<string, Map<string, CrystalItem[]>>>();
+  for (const item of data.selectedItems) {
+    const unit = normalized(item.unit), area = normalized(item.area), service = normalized(item.service);
+    if (!units.has(unit)) units.set(unit, new Map());
+    const areas = units.get(unit)!;
+    if (!areas.has(area)) areas.set(area, new Map());
+    const services = areas.get(area)!;
+    if (!services.has(service)) services.set(service, []);
+    services.get(service)!.push(item);
+  }
+  const groupedItems = [...units.values()].flatMap((areas) => [...areas.values()].flatMap((services) => [...services.values()].flat()));
+  const rows = groupedItems.flatMap((item) =>
+    crystalDescriptionChunks(item.description).map((description, chunkIndex) => ({ item, description, chunkIndex })));
   type Row = typeof rows[number];
-  const key = (row: Row, level: number) => JSON.stringify([row.item.unit.trim(), ...(level > 0 ? [row.item.area.trim()] : []), ...(level > 1 ? [row.item.service.trim()] : [])]);
+  const key = (row: Row, level: number) => JSON.stringify([normalized(row.item.unit), ...(level > 0 ? [normalized(row.item.area)] : []), ...(level > 1 ? [normalized(row.item.service)] : [])]);
   const renderRows = (page: Row[]) => page.map((row, index) => {
     const cells = [0, 1, 2].map((level) => {
       if (index && key(page[index - 1], level) === key(row, level)) return '';
       let end = index + 1;
       while (end < page.length && key(page[end], level) === key(row, level)) end++;
       const content = level === 0 ? escape(row.item.unit || '-') : level === 1 ? escape(row.item.area || '-')
-        : '<strong>' + escape(row.item.service) + '</strong>' + page.slice(index, end).map((part) => '<p class="cs-description">' + escape(part.description) + '</p>').join('');
+        : '<strong>' + escape(row.item.service) + '</strong><p class="cs-description">' + escape(page.slice(index, end).map((part) => part.description).join(' ')) + '</p>';
       return '<td class="cs-merged cs-level-' + level + '" rowspan="' + (end - index) + '">' + content + '</td>';
     }).join('');
     const amount = (value: number) => '<td class="cs-money">' + (row.chunkIndex === 0 ? formatMoney(value) : '') + '</td>';
